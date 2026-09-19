@@ -44,10 +44,12 @@ void main(List<String> args) async {
 Future<void> _pnpm(List<String> args, Uri cwd) async {
   final ProcessResult result;
   try {
-    result = await Process.run('corepack', [
-      'pnpm',
-      ...args,
-    ], workingDirectory: cwd.toFilePath());
+    result = await Process.run(
+      'corepack',
+      ['pnpm', ...args],
+      workingDirectory: cwd.toFilePath(),
+      runInShell: Platform.isWindows,
+    );
   } on ProcessException {
     throw StateError(
       'corepack not found on PATH; the editor web bundle is built by this hook. '

@@ -35,9 +35,9 @@ enum MoodiaryKVs<T extends Object> {
 
   lanSendTarget<String>(defaultValue: ''),
 
-  themeAccentMode<int>(defaultValue: 0),
+  themeAccentMode<int>(defaultValue: 2 /* ThemeAccentMode.custom.index */),
 
-  themeAccentColor<int>(defaultValue: 0xFF2E59A7),
+  themeAccentColor<int>(defaultValue: 0xFF4F794A),
 
   themeMode<int>(defaultValue: 0),
 
@@ -45,7 +45,7 @@ enum MoodiaryKVs<T extends Object> {
 
   customFont<String>(defaultValue: ''),
 
-  homeViewMode<int>(defaultValue: 3 /* ViewModeType.timeline.number */),
+  homeViewMode<int>(defaultValue: 4 /* ViewModeType.feed.number */),
   homeSortMode<int>(defaultValue: 0 /* DiarySort.timeDesc.number */),
 
   categoryOrder<List<String>>(),

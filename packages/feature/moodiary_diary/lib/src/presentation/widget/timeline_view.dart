@@ -128,7 +128,7 @@ class DiaryTimelineView extends ConsumerWidget {
               slivers.add(
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 24 + MediaQuery.paddingOf(context).bottom,
+                    height: 96 + MediaQuery.paddingOf(context).bottom,
                   ),
                 ),
               );

@@ -67,13 +67,13 @@ android {
             )
         }
         debug {
-            signingConfig = signingConfigs.getByName("config")
-            resValue("string", "app_name", "Moodiary Debug")
+            signingConfig = signingConfigs.getByName("debug")
+            resValue("string", "app_name", "Selume Debug")
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         maybeCreate("profile").apply {
-            signingConfig = signingConfigs.getByName("config")
+            signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".profile"
         }
     }

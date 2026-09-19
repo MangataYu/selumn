@@ -44,12 +44,17 @@ Place place() => Place(
 Category cat() =>
     Category(id: 'a', categoryName: 'work', lastModified: DateTime(2026));
 
-Widget wrap(Widget child) => MuiTheme(
-  data: _mui,
-  child: MaterialApp(
-    home: Scaffold(body: ListView(children: [child])),
-  ),
-);
+Widget wrap(Widget child, {TextScaler textScaler = TextScaler.noScaling}) =>
+    MuiTheme(
+      data: _mui,
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
+        home: Scaffold(body: ListView(children: [child])),
+      ),
+    );
 
 void main() {
   setUpAll(() {
@@ -73,19 +78,27 @@ void main() {
     expect(find.textContaining('标题在这', findRichText: true), findsOneWidget);
   });
 
-  testWidgets('untitled entry promotes the body to the headline', (t) async {
+  testWidgets('untitled entry keeps paragraphs as a multiline note', (t) async {
+    const body = '第一段记录当时的感受。\n\n第二段想一想发生了什么。';
     await t.pumpWidget(
       wrap(
         DiaryFeedTile(
-          diary: diary(title: '', text: '只有正文'),
+          diary: diary(title: '', text: body),
         ),
       ),
     );
     expect(t.takeException(), isNull);
-    expect(find.textContaining('只有正文'), findsOneWidget);
+    final text = find.text(body);
+    expect(text, findsOneWidget);
+    final note = t.widget<Text>(text);
+    expect(note.maxLines, greaterThan(1));
+    expect(
+      t.getSize(text).height,
+      greaterThan(note.style!.fontSize! * note.style!.height! * 2),
+    );
   });
 
-  testWidgets('meta line carries date, weather and place in one line', (
+  testWidgets('date, category, weather and place precede the note body', (
     t,
   ) async {
     await t.pumpWidget(
@@ -107,8 +120,10 @@ void main() {
     final plain = meta.textSpan!.toPlainText();
     expect(plain, contains('work'));
     expect(plain, contains('厦门 环岛路'));
-    expect(meta.maxLines, 1);
-    expect(meta.overflow, TextOverflow.ellipsis);
+    expect(
+      t.getBottomLeft(find.textContaining('26°', findRichText: true)).dy,
+      lessThan(t.getTopLeft(find.text('body')).dy),
+    );
   });
 
   testWidgets('category label follows showCategoryLabel', (t) async {
@@ -124,13 +139,17 @@ void main() {
     expect(find.textContaining('work'), findsNothing);
   });
 
-  testWidgets('tags show as chips and cap at two', (t) async {
+  testWidgets('all tags remain visible below the note body', (t) async {
     await t.pumpWidget(
       wrap(DiaryFeedTile(diary: diary(tags: const ['a', 'b', 'c']))),
     );
     expect(find.text('#a'), findsOneWidget);
     expect(find.text('#b'), findsOneWidget);
-    expect(find.text('#c'), findsNothing);
+    expect(find.text('#c'), findsOneWidget);
+    expect(
+      t.getTopLeft(find.text('#a')).dy,
+      greaterThan(t.getBottomLeft(find.text('body')).dy),
+    );
   });
 
   testWidgets('selecting adds a corner mark without hiding the tags', (
@@ -158,19 +177,32 @@ void main() {
     expect(find.byIcon(LucideIcons.mic), findsOneWidget);
   });
 
-  testWidgets(
-    'a single image goes to the side thumbnail, not a full-width row',
-    (t) async {
-      await t.pumpWidget(
-        wrap(DiaryFeedTile(diary: diary(images: const ['1.jpg']))),
-      );
-      expect(t.takeException(), isNull);
-      final box = t
-          .widgetList<SizedBox>(find.byType(SizedBox))
-          .where((w) => w.width == 96 && w.height == 72);
-      expect(box, isNotEmpty);
-    },
-  );
+  testWidgets('body stays above media for titled and untitled notes', (
+    t,
+  ) async {
+    for (final title in ['标题', '']) {
+      for (final images in [
+        const ['1.jpg'],
+        const ['1.jpg', '2.jpg'],
+      ]) {
+        const body = '第一段正文\n\n第二段也需要展示';
+        await t.pumpWidget(
+          wrap(
+            DiaryFeedTile(
+              diary: diary(title: title, text: body, images: images),
+            ),
+          ),
+        );
+        expect(t.takeException(), isNull);
+        expect(find.text(body), findsOneWidget);
+        expect(find.byType(Image), findsNWidgets(images.length));
+        expect(
+          t.getTopLeft(find.byType(Image).first).dy,
+          greaterThan(t.getBottomLeft(find.text(body)).dy),
+        );
+      }
+    }
+  });
 
   testWidgets('more than three media cells collapse into a +N overlay', (
     t,
@@ -189,7 +221,9 @@ void main() {
     expect(find.byType(Image), findsNWidgets(3));
   });
 
-  testWidgets('long tags never overflow the meta line', (t) async {
+  testWidgets('long tags wrap without overflowing on a narrow screen', (
+    t,
+  ) async {
     t.view.physicalSize = const Size(360 * 3, 800 * 3);
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
@@ -217,26 +251,38 @@ void main() {
     }
   });
 
-  testWidgets('long tags survive a larger text scale too', (t) async {
+  testWidgets('long tags and selection remain usable at larger text scale', (
+    t,
+  ) async {
     t.view.physicalSize = const Size(360 * 3, 800 * 3);
     t.view.devicePixelRatio = 3.0;
     addTearDown(t.view.reset);
 
     await t.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(textScaler: .linear(1.3)),
-        child: wrap(
-          DiaryFeedTile(
-            diary: diary(
-              images: const ['1.jpg'],
-              tags: const ['一个相当长的标签名字', '另一个也不短的标签'],
-            ),
-            category: cat(),
+      wrap(
+        DiaryFeedTile(
+          diary: diary(
+            images: const ['1.jpg'],
+            tags: const ['一个相当长的标签名字', '另一个也不短的标签', '认识自己'],
           ),
+          category: cat(),
+          selecting: true,
+          selected: true,
+          syncState: .dirty,
         ),
+        textScaler: const .linear(1.5),
       ),
     );
     expect(t.takeException(), isNull);
+    expect(find.text('#认识自己'), findsOneWidget);
+    expect(find.byIcon(LucideIcons.check), findsOneWidget);
+    expect(find.byIcon(LucideIcons.cloudUpload), findsOneWidget);
+    expect(
+      t
+          .getRect(find.byType(DiarySyncBadge))
+          .overlaps(t.getRect(find.byType(DiarySelectMark))),
+      isFalse,
+    );
   });
 
   testWidgets('audio stays visible when the entry also has images', (t) async {

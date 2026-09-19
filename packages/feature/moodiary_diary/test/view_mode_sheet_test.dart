@@ -45,6 +45,18 @@ void main() {
 
   int? storedSort() => kv.data[MoodiaryKVs.homeSortMode.name] as int?;
 
+  testWidgets('未设置视图时默认信息流，打开不落盘', (tester) async {
+    await tester.pumpWidget(host());
+    await open(tester);
+
+    final modes = tester.widget<SegmentedButton<ViewModeType>>(
+      find.byType(SegmentedButton<ViewModeType>),
+    );
+    expect(modes.selected, {ViewModeType.feed});
+    expect(find.text('最近修改在前'), findsOneWidget);
+    expect(kv.data[MoodiaryKVs.homeViewMode.name], isNull);
+  });
+
   testWidgets('选中不落盘，按下确定才写', (tester) async {
     await tester.pumpWidget(host());
     await open(tester);
@@ -73,12 +85,15 @@ void main() {
     await tester.pumpWidget(host());
     await open(tester);
 
-    await pick(tester, '信息流');
+    await pick(tester, '时间线');
     expect(kv.data[MoodiaryKVs.homeViewMode.name], isNull);
 
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
-    expect(kv.data[MoodiaryKVs.homeViewMode.name], ViewModeType.feed.number);
+    expect(
+      kv.data[MoodiaryKVs.homeViewMode.name],
+      ViewModeType.timeline.number,
+    );
   });
 
   testWidgets('打开时归一旧组合：时间线 + 最近修改在前 → 最新在前', (tester) async {
@@ -94,10 +109,11 @@ void main() {
   });
 
   testWidgets('「最近修改在前」只在信息流下出现', (tester) async {
+    kv.data[MoodiaryKVs.homeViewMode.name] = ViewModeType.timeline.number;
     await tester.pumpWidget(host());
     await open(tester);
 
-    expect(find.text('最近修改在前'), findsNothing, reason: '默认是时间线');
+    expect(find.text('最近修改在前'), findsNothing, reason: '保留已保存的时间线');
 
     await pick(tester, '信息流');
     expect(find.text('最近修改在前'), findsOneWidget);

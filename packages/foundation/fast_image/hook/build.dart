@@ -50,6 +50,7 @@ Map<String, String> _androidCmakeEnv(CodeConfig code) {
   if (triple == null) return const {};
   return {
     'CMAKE_TOOLCHAIN_FILE_$triple': toolchain.path,
+    if (Platform.isWindows) 'CMAKE_GENERATOR_$triple': 'Ninja',
     'ANDROID_NDK_ROOT': dir.path,
   };
 }

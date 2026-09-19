@@ -7,14 +7,8 @@ import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
-const double _kThumbW = 96.0;
-const double _kThumbTallW = 56.0;
-const double _kThumbH = 72.0;
-
-const double _kTagAreaMax = 116.0;
-
 const int _kMaxCells = 3;
-const double _kCellGap = 5.0;
+const double _kCellGap = 6.0;
 
 class _Cell {
   final String name;
@@ -61,9 +55,13 @@ class DiaryFeedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cells = _cellsOf(diary);
-    final sideThumb = cells.length == 1 && !cells.first.isVideo;
     final stamp = diaryStampOf(diary, sort);
-    final showAudioMark = diary.audioName.isNotEmpty && cells.isNotEmpty;
+    final title = diary.title.trim();
+    // Keep paragraphs while bounding work for unusually long imported notes.
+    final bodyRunes = diary.contentText.trim().runes.take(1601).toList();
+    final body = bodyRunes.length > 1600
+        ? '${String.fromCharCodes(bodyRunes.take(1600)).trimRight()}…'
+        : String.fromCharCodes(bodyRunes);
 
     return DiaryTileFrame(
       selecting: selecting,
@@ -72,233 +70,64 @@ class DiaryFeedTile extends StatelessWidget {
       onLongPress: onLongPress,
       card: true,
       borderRadius: AppBorderRadius.largeBorderRadius,
-      margin: const .symmetric(horizontal: 12),
-      padding: const .fromLTRB(12, 12, 12, 12),
-      child: sideThumb
-          ? _SideThumbRow(
+      margin: const .symmetric(horizontal: 16),
+      padding: const .all(16),
+      child: Column(
+        crossAxisAlignment: .start,
+        children: [
+          Padding(
+            padding: .only(right: selecting ? 20 : 0),
+            child: _MetaLine(
               diary: diary,
-              cell: cells.first,
               stamp: stamp,
-              showAudioMark: showAudioMark,
-              category: category,
-              place: place,
-              showCategoryLabel: showCategoryLabel,
-              syncState: syncState,
-            )
-          : _StackedColumn(
-              diary: diary,
-              cells: cells,
-              stamp: stamp,
-              showAudioMark: showAudioMark,
               category: category,
               place: place,
               showCategoryLabel: showCategoryLabel,
               syncState: syncState,
             ),
-    );
-  }
-}
-
-class _SideThumbRow extends StatelessWidget {
-  final Diary diary;
-  final DateTime stamp;
-  final bool showAudioMark;
-  final _Cell cell;
-  final Category? category;
-  final Place? place;
-  final bool showCategoryLabel;
-  final DiaryCardSyncState syncState;
-
-  const _SideThumbRow({
-    required this.diary,
-    required this.stamp,
-    required this.showAudioMark,
-    required this.cell,
-    required this.category,
-    required this.place,
-    required this.showCategoryLabel,
-    required this.syncState,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final ratio = diary.aspect;
-    final width = (ratio != null && ratio < 1) ? _kThumbTallW : _kThumbW;
-
-    return Row(
-      crossAxisAlignment: .start,
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisSize: .min,
-            crossAxisAlignment: .start,
-            children: [
-              _Headline(diary: diary),
-              _Excerpt(diary: diary, maxLines: 2),
-              const SizedBox(height: 7),
-              _MetaLine(
-                diary: diary,
-                stamp: stamp,
-                showAudioMark: showAudioMark,
-                category: category,
-                place: place,
-                showCategoryLabel: showCategoryLabel,
-                syncState: syncState,
-              ),
-            ],
           ),
-        ),
-        const SizedBox(width: 10),
-        Padding(
-          padding: const .only(top: 1),
-          child: SizedBox(
-            width: width,
-            height: _kThumbH,
-            child: _Thumb(
-              cell: cell,
-              decodeWidth: (width * dpr).round(),
-              radius: const .all(.circular(10)),
+          if (title.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: .ellipsis,
+              style: context.theme.typography.titleSmall.emphasized.onSurface
+                  .copyWith(height: 1.4),
+            ),
+          ],
+          if (body.isNotEmpty) ...[
+            SizedBox(height: title.isEmpty ? 10 : 6),
+            Text(
+              body,
+              maxLines: 8,
+              overflow: .ellipsis,
+              style: context.theme.typography.bodyMedium.onSurface.copyWith(
+                height: 1.65,
+              ),
+            ),
+          ],
+          if (cells.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _Strip(
+              cells: cells,
+              aspect: diary.aspect,
               pending: syncState == .syncing,
             ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StackedColumn extends StatelessWidget {
-  final Diary diary;
-  final DateTime stamp;
-  final bool showAudioMark;
-  final List<_Cell> cells;
-  final Category? category;
-  final Place? place;
-  final bool showCategoryLabel;
-  final DiaryCardSyncState syncState;
-
-  const _StackedColumn({
-    required this.diary,
-    required this.stamp,
-    required this.showAudioMark,
-    required this.cells,
-    required this.category,
-    required this.place,
-    required this.showCategoryLabel,
-    required this.syncState,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasMedia = cells.isNotEmpty || diary.audioName.isNotEmpty;
-    return Column(
-      crossAxisAlignment: .start,
-      children: [
-        _Headline(diary: diary, runInBody: hasMedia),
-        if (!hasMedia) _Excerpt(diary: diary, maxLines: 2),
-        if (cells.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _Strip(cells: cells, pending: syncState == .syncing),
-        ] else if (diary.audioName.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          _AudioBar(count: diary.audioName.length),
-        ],
-        const SizedBox(height: 7),
-        _MetaLine(
-          diary: diary,
-          stamp: stamp,
-          showAudioMark: showAudioMark,
-          category: category,
-          place: place,
-          showCategoryLabel: showCategoryLabel,
-          syncState: syncState,
-        ),
-      ],
-    );
-  }
-}
-
-class _Headline extends StatelessWidget {
-  final Diary diary;
-  final bool runInBody;
-
-  const _Headline({required this.diary, this.runInBody = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.theme.typography;
-    final title = diary.title.trim();
-    final body = diary.contentText.preview();
-
-    final mark = WidgetSpan(
-      alignment: .middle,
-      child: Padding(
-        padding: const .only(right: 7),
-        child: Container(
-          width: 3.5,
-          height: 12,
-          decoration: BoxDecoration(
-            color: diaryMoodColor(diary.mood),
-            borderRadius: const .all(.circular(999)),
-          ),
-        ),
-      ),
-    );
-
-    if (title.isEmpty) {
-      return Text.rich(
-        TextSpan(
-          children: [
-            mark,
-            TextSpan(text: body),
           ],
-        ),
-        maxLines: 1,
-        overflow: .ellipsis,
-        style: typo.bodyMedium.onSurface,
-      );
-    }
-
-    return Text.rich(
-      TextSpan(
-        children: [
-          mark,
-          TextSpan(
-            text: title,
-            style: typo.titleSmall.emphasized.onSurface.copyWith(height: 1.35),
-          ),
-          if (runInBody && body.isNotEmpty)
-            TextSpan(text: '  $body', style: typo.bodySmall.onSurfaceVariant),
+          if (diary.audioName.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _AudioBar(count: diary.audioName.length),
+          ],
+          if (diary.tags.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [for (final tag in diary.tags) _TagChip(label: tag)],
+            ),
+          ],
         ],
-      ),
-      maxLines: 1,
-      overflow: .ellipsis,
-    );
-  }
-}
-
-class _Excerpt extends StatelessWidget {
-  final Diary diary;
-  final int maxLines;
-
-  const _Excerpt({required this.diary, required this.maxLines});
-
-  @override
-  Widget build(BuildContext context) {
-    final body = diary.contentText.preview();
-    if (body.isEmpty || diary.title.trim().isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: const .only(top: 3),
-      child: Text(
-        body,
-        maxLines: maxLines,
-        overflow: .ellipsis,
-        style: context.theme.typography.bodySmall.onSurfaceVariant.copyWith(
-          height: 1.55,
-        ),
       ),
     );
   }
@@ -306,9 +135,14 @@ class _Excerpt extends StatelessWidget {
 
 class _Strip extends StatelessWidget {
   final List<_Cell> cells;
+  final double? aspect;
   final bool pending;
 
-  const _Strip({required this.cells, required this.pending});
+  const _Strip({
+    required this.cells,
+    required this.aspect,
+    required this.pending,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -319,9 +153,26 @@ class _Strip extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         if (width <= 0) return const SizedBox.shrink();
+        if (show == 1) {
+          final ratio = (aspect ?? 16 / 10).clamp(0.7, 2.0).toDouble();
+          final boxWidth = (ratio < 1 ? 160.0 : 224.0)
+              .clamp(0.0, width)
+              .toDouble();
+          return SizedBox(
+            width: boxWidth,
+            height: boxWidth / ratio,
+            child: _Thumb(
+              cell: cells.first,
+              decodeWidth: (boxWidth * MediaQuery.devicePixelRatioOf(context))
+                  .round(),
+              radius: AppBorderRadius.mediumBorderRadius,
+              pending: pending,
+            ),
+          );
+        }
         final cell = (width - _kCellGap * (_kMaxCells - 1)) / _kMaxCells;
         return SizedBox(
-          height: cell * 9 / 16,
+          height: cell,
           child: Row(
             children: [
               for (var i = 0; i < show; i++) ...[
@@ -376,7 +227,9 @@ class _Thumb extends StatelessWidget {
             // 视频封面不走派生档位，派生物只给原件算
             image: FastImage(
               cell.path,
-              tier: cell.isVideo ? null : .s,
+              tier: cell.isVideo
+                  ? null
+                  : FastImageTier.fit(decodeWidth ?? FastImageTier.s.width),
               decodeWidth: decodeWidth,
             ),
             fit: .cover,
@@ -522,7 +375,6 @@ class _AudioBar extends StatelessWidget {
 class _MetaLine extends StatelessWidget {
   final Diary diary;
   final DateTime stamp;
-  final bool showAudioMark;
   final Category? category;
   final Place? place;
   final bool showCategoryLabel;
@@ -531,7 +383,6 @@ class _MetaLine extends StatelessWidget {
   const _MetaLine({
     required this.diary,
     required this.stamp,
-    required this.showAudioMark,
     required this.category,
     required this.place,
     required this.showCategoryLabel,
@@ -542,7 +393,7 @@ class _MetaLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final onVariant = colors.onSurfaceVariant;
-    final style = context.theme.typography.labelSmall.onSurfaceVariant;
+    final style = context.theme.typography.labelMedium.onSurfaceVariant;
     final weather = diary.weather;
     final placeName = place?.name.trim() ?? '';
 
@@ -556,7 +407,23 @@ class _MetaLine extends StatelessWidget {
     const dot = TextSpan(text: '  ·  ');
 
     final spans = <InlineSpan>[
+      WidgetSpan(
+        alignment: .middle,
+        child: Padding(
+          padding: const .only(right: 7),
+          child: Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: diaryMoodColor(diary.mood),
+              shape: .circle,
+            ),
+          ),
+        ),
+      ),
+      TextSpan(text: TimeFormat.compactDateTime(stamp)),
       if (showCategoryLabel && category != null) ...[
+        dot,
         WidgetSpan(
           alignment: .middle,
           child: Padding(
@@ -565,14 +432,6 @@ class _MetaLine extends StatelessWidget {
           ),
         ),
         TextSpan(text: category!.categoryName),
-        dot,
-      ],
-      TextSpan(text: TimeFormat.compactDateTime(stamp)),
-      if (showAudioMark) ...[
-        dot,
-        icon(LucideIcons.mic),
-        if (diary.audioName.length > 1)
-          TextSpan(text: '${diary.audioName.length}'),
       ],
       if (weather != null) ...[
         dot,
@@ -591,7 +450,7 @@ class _MetaLine extends StatelessWidget {
         Expanded(
           child: Text.rich(
             TextSpan(children: spans),
-            maxLines: 1,
+            maxLines: 2,
             overflow: .ellipsis,
             style: style,
           ),
@@ -600,23 +459,6 @@ class _MetaLine extends StatelessWidget {
           const SizedBox(width: 6),
           DiarySyncBadge(state: syncState),
         ],
-        if (diary.tags.isNotEmpty)
-          // 不限宽会把左边 Expanded 压到 0 导致 RenderFlex 溢出
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _kTagAreaMax),
-            child: Row(
-              mainAxisSize: .min,
-              children: [
-                for (final tag in diary.tags.take(2))
-                  Flexible(
-                    child: Padding(
-                      padding: const .only(left: 7),
-                      child: _TagChip(label: tag),
-                    ),
-                  ),
-              ],
-            ),
-          ),
       ],
     );
   }
@@ -647,12 +489,6 @@ class _TagChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '#$label',
-      maxLines: 1,
-      overflow: .ellipsis,
-      softWrap: false,
-      style: context.theme.typography.labelSmall.onSurfaceVariant,
-    );
+    return Text('#$label', style: context.theme.typography.labelMedium.primary);
   }
 }

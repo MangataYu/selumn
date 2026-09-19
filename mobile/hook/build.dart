@@ -29,7 +29,7 @@ void main(List<String> args) async {
       return;
     }
     final repoRoot = input.packageRoot.resolve('../');
-    final rustDirs = [for (final dir in _rustDirs) repoRoot.resolve(dir)];
+    final rustDirs = [for (final dir in _rustDirs) repoRoot.resolve('$dir/')];
     final externalManifests = _externalLicenseManifests(repoRoot);
     final lockFile = File.fromUri(
       input.packageRoot.resolve('.dart_tool/licenses_build.lock'),
@@ -49,6 +49,7 @@ void main(List<String> args) async {
     }
     output.dependencies.addAll([
       for (final dir in rustDirs) ...[
+        dir.resolve('Cargo.toml'),
         dir.resolve('Cargo.lock'),
         dir.resolve('about.toml'),
       ],
@@ -139,41 +140,51 @@ Future<void> _generate(
 }
 
 Future<List<_Entry>> _rust(Uri rustDir) async {
-  final ProcessResult proc;
+  final tempDir = await Directory.systemTemp.createTemp('moodiary_licenses_');
+  final licenseFile = File.fromUri(tempDir.uri.resolve('licenses.json'));
   try {
-    proc = await Process.run('cargo', [
-      'about',
-      'generate',
-      '--format',
-      'json',
-    ], workingDirectory: rustDir.toFilePath());
-  } on ProcessException {
-    throw StateError('cargo not found on PATH; install rustup.');
-  }
-  if (proc.exitCode != 0) {
-    stderr.write(proc.stderr);
-    throw StateError(
-      '`cargo about generate` failed in ${rustDir.toFilePath()}. '
-      'Install it with `cargo install cargo-about --version 0.9.2 --locked`.',
-    );
-  }
+    final ProcessResult proc;
+    try {
+      proc = await Process.run('cargo', [
+        'about',
+        'generate',
+        '--format',
+        'json',
+        '--output-file',
+        licenseFile.path,
+      ], workingDirectory: rustDir.toFilePath());
+    } on ProcessException {
+      throw StateError('cargo not found on PATH; install rustup.');
+    }
+    if (proc.exitCode != 0) {
+      stderr.write(proc.stderr);
+      throw StateError(
+        '`cargo about generate` failed in ${rustDir.toFilePath()}. '
+        'Install it with `cargo install cargo-about --version 0.9.2 --locked`.',
+      );
+    }
 
-  final licenses =
-      (jsonDecode(proc.stdout as String) as Map<String, dynamic>)['licenses']
-          as List;
-  return [
-    for (final l in licenses.cast<Map<String, dynamic>>())
-      (
-        packages: [
-          for (final u in l['used_by'] as List)
-            _label(
-              (u as Map<String, dynamic>)['crate'] as Map<String, dynamic>,
-              'Rust',
-            ),
-        ],
-        text: (l['text'] as String).trim(),
-      ),
-  ];
+    final licenses =
+        (jsonDecode(await licenseFile.readAsString())
+                as Map<String, dynamic>)['licenses']
+            as List;
+    return [
+      for (final l in licenses.cast<Map<String, dynamic>>())
+        (
+          packages: [
+            for (final u in l['used_by'] as List)
+              _label(
+                (u as Map<String, dynamic>)['crate'] as Map<String, dynamic>,
+                'Rust',
+              ),
+          ],
+          text: (l['text'] as String).trim(),
+        ),
+    ];
+  } finally {
+    if (await licenseFile.exists()) await licenseFile.delete();
+    await tempDir.delete();
+  }
 }
 
 List<_Entry> _npm(File manifest) {

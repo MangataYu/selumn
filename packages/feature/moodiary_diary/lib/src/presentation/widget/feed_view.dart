@@ -54,12 +54,12 @@ class DiaryFeedView extends ConsumerWidget {
                 child: ListView.separated(
                   padding: .fromLTRB(
                     0,
-                    8,
+                    12,
                     0,
-                    12 + MediaQuery.paddingOf(context).bottom,
+                    96 + MediaQuery.paddingOf(context).bottom,
                   ),
                   itemCount: diaries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final diary = diaries[index];
                     final syncState =

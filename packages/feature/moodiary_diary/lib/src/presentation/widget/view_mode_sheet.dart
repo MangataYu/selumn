@@ -17,8 +17,7 @@ class ViewModeSheet extends StatefulWidget {
 }
 
 class _ViewModeSheetState extends State<ViewModeSheet> {
-  late int _mode =
-      MoodiaryKVs.homeViewMode.get() ?? ViewModeType.timeline.number;
+  late int _mode = MoodiaryKVs.homeViewMode.get() ?? ViewModeType.feed.number;
   late int _sort = MoodiaryKVs.homeSortMode.get() ?? DiarySort.timeDesc.number;
 
   static const List<DiarySort> _timelineSorts = [.timeDesc, .timeAsc];
