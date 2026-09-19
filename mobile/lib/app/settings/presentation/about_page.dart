@@ -9,9 +9,10 @@ import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _legalese =
-    'Moodiary is free software licensed under the GNU General Public License '
-    'v3.0. The licenses below cover the Dart, Rust and JavaScript packages it '
-    'is built on.';
+    'Selume is based on the Moodiary open-source project and is not an official '
+    'Moodiary release. It is free software licensed under the GNU Affero General '
+    'Public License v3.0. The licenses below cover the Dart, Rust and JavaScript '
+    'packages it is built on.';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -160,7 +161,7 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                     onTap: () => showLicensePage(
                       context: context,
-                      applicationName: 'Moodiary',
+                      applicationName: 'Selume',
                       applicationVersion: appVersion,
                       applicationLegalese: _legalese,
                     ),

@@ -214,8 +214,8 @@ class Translations$app$zh {
 	/// zh: '感谢您的考虑！'
 	String get sponsorThanks => '感谢您的考虑！';
 
-	/// zh: 'Moodiary 是开源软件，由开发者业余维护。如果您喜欢这款应用，可通过下面的链接支持作者继续维护。'
-	String get sponsorBody => 'Moodiary 是开源软件，由开发者业余维护。如果您喜欢这款应用，可通过下面的链接支持作者继续维护。';
+	/// zh: 'Selume 基于开源项目 Moodiary 开发。下面的链接用于支持 Moodiary 原作者继续维护上游项目。'
+	String get sponsorBody => 'Selume 基于开源项目 Moodiary 开发。下面的链接用于支持 Moodiary 原作者继续维护上游项目。';
 
 	/// zh: '爱发电'
 	String get sponsorAfdian => '爱发电';
@@ -658,8 +658,8 @@ class Translations$assistant$zh {
 	/// zh: '助手预设'
 	String get presetPageTitle => '助手预设';
 
-	/// zh: 'Moodiary助手'
-	String get presetBuiltinName => 'Moodiary助手';
+	/// zh: 'Selume 助手'
+	String get presetBuiltinName => 'Selume 助手';
 
 	/// zh: '出厂预设：温和、克制的日记伙伴。只读，可派生副本后自由修改。'
 	String get presetBuiltinDes => '出厂预设：温和、克制的日记伙伴。只读，可派生副本后自由修改。';
@@ -931,8 +931,8 @@ class Translations$assistant$zh {
 	/// zh: '使用前必读'
 	String get disclaimerTitle => '使用前必读';
 
-	/// zh: 'Moodiary 助手由第三方大语言模型驱动，使用前请知悉： • AI 生成的内容可能不准确、不完整甚至具有误导性，请勿将其作为医疗、心理、法律、财务等专业建议，或任何重要决策的依据。 • 发送消息后，你输入的内容会被发送给你所配置的模型供应商；当助手调用日记工具时，相关的本地日记摘要也会一并发送以生成回复。是否信任该供应商由你自行判断。 • 你的 API Key 仅保存在本机安全存储，不会上传到 Moodiary 的服务器。 继续使用即代表你已知悉并接受以上风险。'
-	String get disclaimerContent => 'Moodiary 助手由第三方大语言模型驱动，使用前请知悉：\n\n• AI 生成的内容可能不准确、不完整甚至具有误导性，请勿将其作为医疗、心理、法律、财务等专业建议，或任何重要决策的依据。\n\n• 发送消息后，你输入的内容会被发送给你所配置的模型供应商；当助手调用日记工具时，相关的本地日记摘要也会一并发送以生成回复。是否信任该供应商由你自行判断。\n\n• 你的 API Key 仅保存在本机安全存储，不会上传到 Moodiary 的服务器。\n\n继续使用即代表你已知悉并接受以上风险。';
+	/// zh: 'Selume 助手由第三方大语言模型驱动，使用前请知悉： • AI 生成的内容可能不准确、不完整甚至具有误导性，请勿将其作为医疗、心理、法律、财务等专业建议，或任何重要决策的依据。 • 发送消息后，你输入的内容会被发送给你所配置的模型供应商；当助手调用日记工具时，相关的本地日记摘要也会一并发送以生成回复。是否信任该供应商由你自行判断。 • 你的 API Key 仅保存在本机安全存储，不会上传到 Selume 的服务器。 继续使用即代表你已知悉并接受以上风险。'
+	String get disclaimerContent => 'Selume 助手由第三方大语言模型驱动，使用前请知悉：\n\n• AI 生成的内容可能不准确、不完整甚至具有误导性，请勿将其作为医疗、心理、法律、财务等专业建议，或任何重要决策的依据。\n\n• 发送消息后，你输入的内容会被发送给你所配置的模型供应商；当助手调用日记工具时，相关的本地日记摘要也会一并发送以生成回复。是否信任该供应商由你自行判断。\n\n• 你的 API Key 仅保存在本机安全存储，不会上传到 Selume 的服务器。\n\n继续使用即代表你已知悉并接受以上风险。';
 
 	/// zh: '同意并继续'
 	String get disclaimerAgree => '同意并继续';
@@ -1312,8 +1312,8 @@ class Translations$common$zh {
 	/// zh: '关闭'
 	String get close => '关闭';
 
-	/// zh: 'Moodiary'
-	String get appName => 'Moodiary';
+	/// zh: 'Selume'
+	String get appName => 'Selume';
 
 	/// zh: '已配置'
 	String get configured => '已配置';
@@ -2277,8 +2277,8 @@ class Translations$export$zh {
 	/// zh: '清晰度'
 	String get imageScale => '清晰度';
 
-	/// zh: '显示 Moodiary 标识'
-	String get imageWatermark => '显示 Moodiary 标识';
+	/// zh: '显示 Selume 标识'
+	String get imageWatermark => '显示 Selume 标识';
 
 	/// zh: '合并成一张长图'
 	String get imageMerge => '合并成一张长图';
@@ -2616,8 +2616,8 @@ class Translations$share$zh {
 	/// zh: '保存失败，检查相册权限'
 	String get saveToAlbumFailed => '保存失败，检查相册权限';
 
-	/// zh: '来自 Moodiary 的分享'
-	String get subject => '来自 Moodiary 的分享';
+	/// zh: '来自 Selume 的分享'
+	String get subject => '来自 Selume 的分享';
 
 	/// zh: '正在生成 {format}…'
 	String generating({required Object format}) => '正在生成 ${format}…';
@@ -3381,8 +3381,8 @@ class Translations$sync$zh {
 	/// zh: '媒体名不合法，已跳过该条目：{name}'
 	String errMediaNameInvalid({required Object name}) => '媒体名不合法，已跳过该条目：${name}';
 
-	/// zh: '不是有效的 Moodiary 备份文件'
-	String get errNotBackup => '不是有效的 Moodiary 备份文件';
+	/// zh: '不是有效的 Moodiary 格式备份文件'
+	String get errNotBackup => '不是有效的 Moodiary 格式备份文件';
 
 	/// zh: '这是 2.8.0 之前版本的备份，新版不支持导入；请先在旧版本中恢复，再升级到新版'
 	String get errLegacyBackup => '这是 2.8.0 之前版本的备份，新版不支持导入；请先在旧版本中恢复，再升级到新版';
@@ -3390,11 +3390,11 @@ class Translations$sync$zh {
 	/// zh: '备份文件解析失败：{error}'
 	String errBackupParse({required Object error}) => '备份文件解析失败：${error}';
 
-	/// zh: '对方不是 Moodiary 局域网接收端'
-	String get errNotReceiver => '对方不是 Moodiary 局域网接收端';
+	/// zh: '对方不是兼容的日记局域网接收端'
+	String get errNotReceiver => '对方不是兼容的日记局域网接收端';
 
-	/// zh: '版本不兼容：发送方 {sender}，接收方 {receiver}。请将两台设备的 Moodiary 升级到同一版本'
-	String errVersionMismatchDetail({required Object sender, required Object receiver}) => '版本不兼容：发送方 ${sender}，接收方 ${receiver}。请将两台设备的 Moodiary 升级到同一版本';
+	/// zh: '版本不兼容：发送方 {sender}，接收方 {receiver}。请将两台设备的应用升级到同一版本'
+	String errVersionMismatchDetail({required Object sender, required Object receiver}) => '版本不兼容：发送方 ${sender}，接收方 ${receiver}。请将两台设备的应用升级到同一版本';
 
 	/// zh: '对方设备未在接收，请确认已打开「局域网接收」'
 	String get errReceiverOffline => '对方设备未在接收，请确认已打开「局域网接收」';

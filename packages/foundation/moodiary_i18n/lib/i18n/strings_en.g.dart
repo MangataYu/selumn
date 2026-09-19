@@ -107,7 +107,7 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get aboutFeedback => 'Feedback and help';
 	@override String get aboutSponsor => 'Sponsor';
 	@override String get sponsorThanks => 'Thank you for considering it!';
-	@override String get sponsorBody => 'Moodiary is open source, maintained by one developer in their spare time. If you like the app, the link below is a way to support further work on it.';
+	@override String get sponsorBody => 'Selume is based on the open-source Moodiary project. The link below supports Moodiary\'s original developer and continued work on the upstream project.';
 	@override String get sponsorAfdian => 'Afdian';
 	@override String get fontTitle => 'Fonts';
 	@override String get fontImportSubtitle => 'Import a ttf / otf font; long-press to remove one';
@@ -261,7 +261,7 @@ class _Translations$assistant$en extends Translations$assistant$zh {
 	@override String get presetSectionTitle => 'Assistant presets';
 	@override String get presetTileTitle => 'Assistant presets';
 	@override String get presetPageTitle => 'Assistant presets';
-	@override String get presetBuiltinName => 'Moodiary Assistant';
+	@override String get presetBuiltinName => 'Selume Assistant';
 	@override String get presetBuiltinDes => 'The factory preset: a warm, grounded diary companion. Read-only — derive a copy to make it yours.';
 	@override String get presetBuiltinBadge => 'Built-in';
 	@override String get presetDefaultBadge => 'Default';
@@ -352,7 +352,7 @@ class _Translations$assistant$en extends Translations$assistant$zh {
 	@override String get compactionSheetNote => 'To save context, earlier messages are folded into the summary below before being sent to the model. The full messages are kept in this conversation and you can still scroll back to them.';
 	@override String get compactionRestore => 'Send full history again';
 	@override String get disclaimerTitle => 'Before you start';
-	@override String get disclaimerContent => 'The Moodiary assistant is powered by third-party large language models. Please be aware:\n\n• AI-generated content may be inaccurate, incomplete, or even misleading. Do not rely on it as professional (medical, psychological, legal, or financial) advice, or as the basis for any important decision.\n\n• When you send a message, your input is sent to the model provider you configured. When the assistant uses the diary tools, relevant local diary excerpts are sent as well in order to generate a reply. It is up to you to decide whether to trust that provider.\n\n• Your API key is stored only in local secure storage and is never uploaded to Moodiary\'s servers.\n\nBy continuing, you acknowledge and accept the risks above.';
+	@override String get disclaimerContent => 'The Selume assistant is powered by third-party large language models. Please be aware:\n\n• AI-generated content may be inaccurate, incomplete, or even misleading. Do not rely on it as professional (medical, psychological, legal, or financial) advice, or as the basis for any important decision.\n\n• When you send a message, your input is sent to the model provider you configured. When the assistant uses the diary tools, relevant local diary excerpts are sent as well in order to generate a reply. It is up to you to decide whether to trust that provider.\n\n• Your API key is stored only in local secure storage and is never uploaded to Selume\'s servers.\n\nBy continuing, you acknowledge and accept the risks above.';
 	@override String get disclaimerAgree => 'Agree & continue';
 	@override String get disclaimerDecline => 'Not now';
 	@override String get disclaimerGateTitle => 'Accept the disclaimer to use the assistant';
@@ -485,7 +485,7 @@ class _Translations$common$en extends Translations$common$zh {
 	@override String categoryCount({required Object count}) => '${count} categories';
 	@override String get fileName => 'File name';
 	@override String get close => 'Close';
-	@override String get appName => 'Moodiary';
+	@override String get appName => 'Selume';
 	@override String get configured => 'Configured';
 	@override String get notConfigured => 'Not configured';
 	@override String get copied => 'Copied to clipboard';
@@ -827,7 +827,7 @@ class _Translations$export$en extends Translations$export$zh {
 	@override String get imageWidthStandard => 'Standard';
 	@override String get imageWidthWide => 'Wide';
 	@override String get imageScale => 'Sharpness';
-	@override String get imageWatermark => 'Show Moodiary mark';
+	@override String get imageWatermark => 'Show Selume mark';
 	@override String get imageMerge => 'Merge into one long image';
 	@override String get imageMergeSubtitle => 'Off means one image per entry; over 9 are zipped';
 	@override String get previewSample => 'Preview sample';
@@ -971,7 +971,7 @@ class _Translations$share$en extends Translations$share$zh {
 	@override String get savedToAlbum => 'Saved to Photos';
 	@override String savedToAlbumCount({required Object count}) => 'Saved ${count} images to Photos';
 	@override String get saveToAlbumFailed => 'Could not save — check Photos permission';
-	@override String get subject => 'Shared from Moodiary';
+	@override String get subject => 'Shared from Selume';
 	@override String generating({required Object format}) => 'Generating ${format}…';
 }
 
@@ -1232,11 +1232,11 @@ class _Translations$sync$en extends Translations$sync$zh {
 	@override String get errKeyfileOwnerUnknown => 'Could not tell who owns the remote key file (the manifest is unreadable or corrupt). Sync stopped so it is not overwritten.';
 	@override String get errKeyfileNoLocalCache => 'This device has no cached key file (keys.json), so an encrypted remote cannot be initialised. Reset the password in key management and try again.';
 	@override String errMediaNameInvalid({required Object name}) => 'Invalid media name, entry skipped: ${name}';
-	@override String get errNotBackup => 'Not a Moodiary backup file';
+	@override String get errNotBackup => 'Not a valid Moodiary-format backup file';
 	@override String get errLegacyBackup => 'This backup was created by a version older than 2.8.0 and cannot be imported. Restore it in the old version first, then upgrade.';
 	@override String errBackupParse({required Object error}) => 'Could not parse the backup file: ${error}';
-	@override String get errNotReceiver => 'That host is not a Moodiary receiver';
-	@override String errVersionMismatchDetail({required Object sender, required Object receiver}) => 'Version mismatch: sender ${sender}, receiver ${receiver}. Update Moodiary on both devices to the same version';
+	@override String get errNotReceiver => 'That host is not a compatible diary receiver';
+	@override String errVersionMismatchDetail({required Object sender, required Object receiver}) => 'Version mismatch: sender ${sender}, receiver ${receiver}. Update the app on both devices to the same version';
 	@override String get errReceiverOffline => 'The other device is not receiving. Make sure its Receive page is open.';
 	@override String get errS3Config => 'Finish the S3 configuration first';
 	@override String get errWebdavConfig => 'Finish the WebDAV configuration first';
