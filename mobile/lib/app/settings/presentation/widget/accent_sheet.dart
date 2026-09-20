@@ -21,6 +21,7 @@ class AccentSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final modes = [
+      ThemeAccentMode.preset,
       ThemeAccentMode.neutral,
       if (getIt<ThemeManager>().supportDynamic) ThemeAccentMode.system,
       ThemeAccentMode.custom,
@@ -34,7 +35,7 @@ class AccentSheet extends ConsumerWidget {
         builder: (context, index, _) {
           final current = index >= 0 && index < ThemeAccentMode.values.length
               ? ThemeAccentMode.values[index]
-              : ThemeAccentMode.neutral;
+              : ThemeAccentMode.preset;
           return Column(
             crossAxisAlignment: .stretch,
             mainAxisSize: .min,
@@ -136,6 +137,7 @@ class _AccentModeRow extends StatelessWidget {
   }
 
   String _label(BuildContext context) => switch (mode) {
+    .preset => context.l10n.app.accentPreset,
     .neutral => context.l10n.app.accentNeutral,
     .system => context.l10n.app.accentSystem,
     .custom => context.l10n.common.custom,
@@ -145,6 +147,19 @@ class _AccentModeRow extends StatelessWidget {
     final scheme = context.theme.colors;
     const radius = AppBorderRadius.smallBorderRadius;
     return switch (mode) {
+      .preset => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          gradient: LinearGradient(
+            begin: .topLeft,
+            end: .bottomRight,
+            colors: [
+              presetColorScheme(.light).primary,
+              presetColorScheme(.dark).primary,
+            ],
+          ),
+        ),
+      ),
       .neutral => DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: radius,

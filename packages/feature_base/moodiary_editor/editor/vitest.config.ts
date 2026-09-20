@@ -7,5 +7,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],
+    // The palette library contains extensionless ESM imports; let Vite resolve them.
+    server: { deps: { inline: ['@material/material-color-utilities'] } },
   },
 })

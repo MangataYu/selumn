@@ -1,6 +1,7 @@
 {
   "accentTitle": "Accent color",
-  "accentNeutral": "Default",
+  "accentPreset": "Default",
+  "accentNeutral": "Monochrome",
   "accentSystem": "From wallpaper",
   "accentCustomTitle": "Custom accent",
   "accentGroupAccent": "Accent",

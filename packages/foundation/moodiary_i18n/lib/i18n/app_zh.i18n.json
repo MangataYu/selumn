@@ -1,6 +1,7 @@
 {
   "accentTitle": "主题色",
-  "accentNeutral": "默认",
+  "accentPreset": "默认",
+  "accentNeutral": "无彩",
   "accentSystem": "壁纸取色",
   "accentCustomTitle": "自定义配色",
   "accentGroupAccent": "强调",

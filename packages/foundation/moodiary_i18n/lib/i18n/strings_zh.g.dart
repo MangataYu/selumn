@@ -62,7 +62,10 @@ class Translations$app$zh {
 	String get accentTitle => '主题色';
 
 	/// zh: '默认'
-	String get accentNeutral => '默认';
+	String get accentPreset => '默认';
+
+	/// zh: '无彩'
+	String get accentNeutral => '无彩';
 
 	/// zh: '壁纸取色'
 	String get accentSystem => '壁纸取色';

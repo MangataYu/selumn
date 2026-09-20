@@ -8,11 +8,14 @@ import {
   hexFromArgb,
   type DynamicColor,
 } from '@material/material-color-utilities'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { EditorRoles, EditorTheme } from '../src/bridge/theme'
+// Flutter 主题测试校验此快照，确保调试台预览与应用传入的颜色一致。
+import defaultThemes from '../../../../core/moodiary_theme/test/fixtures/default_editor_themes.json'
 
 type Device = 'phone' | 'desktop'
-type Variant = 'tonalSpot' | 'monochrome'
+type Variant = 'preset' | 'tonalSpot' | 'monochrome'
+type ThemeMode = 'system' | 'light' | 'dark'
 
 const SAMPLES: Record<string, string> = {
   基础排版: [
@@ -61,9 +64,12 @@ const SAMPLES: Record<string, string> = {
 }
 
 const device = ref<Device>('phone')
-const dark = ref(false)
-const seed = ref('#805610')
-const variant = ref<Variant>('tonalSpot')
+const themeMode = ref<ThemeMode>('system')
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
+const systemDark = ref(systemTheme.matches)
+const dark = computed(() => themeMode.value === 'system' ? systemDark.value : themeMode.value === 'dark')
+const seed = ref('#4f794a')
+const variant = ref<Variant>('preset')
 const contrast = ref(0)
 const editable = ref(true)
 const placeholder = ref('记录此刻…')
@@ -90,7 +96,9 @@ const THEME_GROUPS: { label: string; themes: string[] }[] = [
 ]
 const allThemes = THEME_GROUPS.flatMap((g) => g.themes)
 const savedTheme = localStorage.getItem('harness-theme')
-const harnessTheme = ref(savedTheme && allThemes.includes(savedTheme) ? savedTheme : 'dim')
+const harnessThemeChoice = ref(savedTheme && allThemes.includes(savedTheme) ? savedTheme : 'editor')
+const presetName = computed(() => dark.value ? 'dim' : 'lemonade')
+const harnessTheme = computed(() => harnessThemeChoice.value === 'editor' ? presetName.value : harnessThemeChoice.value)
 const themeMenuOpen = ref(false)
 
 const iframe = ref<HTMLIFrameElement>()
@@ -99,6 +107,9 @@ const iframeSrc = ref('')
 const screenBg = ref('#fffdfb')
 
 const theme = (): EditorTheme => {
+  if (variant.value === 'preset') {
+    return { roles: defaultThemes[dark.value ? 'dark' : 'light'], dark: dark.value }
+  }
   const source = Hct.fromInt(argbFromHex(seed.value))
   const scheme =
     variant.value === 'monochrome'
@@ -223,9 +234,20 @@ watch(placeholder, () => reloadIframe())
 // platform 也只在 boot 里定，切设备需重载 iframe
 watch(device, () => reloadIframe())
 
-watch(harnessTheme, (v) => localStorage.setItem('harness-theme', v))
+watch(harnessThemeChoice, (v) => localStorage.setItem('harness-theme', v))
 
-onMounted(() => reloadIframe())
+function onSystemThemeChange(event: MediaQueryListEvent): void {
+  systemDark.value = event.matches
+}
+
+onMounted(() => {
+  systemTheme.addEventListener('change', onSystemThemeChange)
+  reloadIframe()
+})
+onUnmounted(() => {
+  systemTheme.removeEventListener('change', onSystemThemeChange)
+  clearTimeout(mdTimer)
+})
 </script>
 
 <template>
@@ -243,13 +265,16 @@ onMounted(() => reloadIframe())
               <span class="text-[10px] opacity-60">▾</span>
             </button>
             <ul class="dropdown-content menu z-50 mt-1 max-h-[60vh] w-48 overflow-y-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+              <li>
+                <button type="button" :class="harnessThemeChoice === 'editor' ? 'bg-primary text-primary-content' : ''" @click="harnessThemeChoice = 'editor'">跟随编辑器明暗</button>
+              </li>
               <template v-for="g in THEME_GROUPS" :key="g.label">
                 <li class="menu-title">{{ g.label }}</li>
                 <li v-for="t in g.themes" :key="t">
                   <button
                     type="button" class="flex items-center gap-2"
-                    :class="t === harnessTheme ? 'bg-primary text-primary-content' : ''"
-                    @click="harnessTheme = t"
+                    :class="t === harnessThemeChoice ? 'bg-primary text-primary-content' : ''"
+                    @click="harnessThemeChoice = t"
                   >
                     <span :data-theme="t" class="inline-flex rounded bg-base-100 p-0.5">
                       <span class="size-2.5 rounded-full bg-primary"></span>
@@ -275,12 +300,23 @@ onMounted(() => reloadIframe())
         <div class="flex items-center justify-between gap-3">
           <span class="text-sm">明暗</span>
           <div class="join">
-            <button class="btn btn-sm join-item" :class="!dark ? 'btn-primary' : 'btn-ghost'" @click="dark = false">浅色</button>
-            <button class="btn btn-sm join-item" :class="dark ? 'btn-primary' : 'btn-ghost'" @click="dark = true">深色</button>
+            <button class="btn btn-sm join-item" :aria-pressed="themeMode === 'system'" :class="themeMode === 'system' ? 'btn-primary' : 'btn-ghost'" @click="themeMode = 'system'">跟随系统</button>
+            <button class="btn btn-sm join-item" :aria-pressed="themeMode === 'light'" :class="themeMode === 'light' ? 'btn-primary' : 'btn-ghost'" @click="themeMode = 'light'">浅色</button>
+            <button class="btn btn-sm join-item" :aria-pressed="themeMode === 'dark'" :class="themeMode === 'dark' ? 'btn-primary' : 'btn-ghost'" @click="themeMode = 'dark'">深色</button>
           </div>
         </div>
 
         <div class="flex items-center justify-between gap-3">
+          <span class="text-sm">配色</span>
+          <div class="join">
+            <button class="btn btn-sm join-item" :class="variant === 'preset' ? 'btn-primary' : 'btn-ghost'" @click="variant = 'preset'">默认</button>
+            <button class="btn btn-sm join-item" :class="variant === 'tonalSpot' ? 'btn-primary' : 'btn-ghost'" @click="variant = 'tonalSpot'">自定义</button>
+            <button class="btn btn-sm join-item" :class="variant === 'monochrome' ? 'btn-primary' : 'btn-ghost'" @click="variant = 'monochrome'">无彩</button>
+          </div>
+        </div>
+        <p v-if="variant === 'preset'" class="text-xs opacity-70">浅色 lemonade · 深色 dim</p>
+
+        <div v-if="variant === 'tonalSpot'" class="flex items-center justify-between gap-3">
           <span class="text-sm">种子色</span>
           <div class="flex items-center gap-2">
             <input type="color" v-model="seed" class="h-8 w-10 cursor-pointer rounded border border-base-300 bg-base-100" />
@@ -288,15 +324,7 @@ onMounted(() => reloadIframe())
           </div>
         </div>
 
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm">变体</span>
-          <div class="join">
-            <button class="btn btn-sm join-item" :class="variant === 'tonalSpot' ? 'btn-primary' : 'btn-ghost'" @click="variant = 'tonalSpot'">tonalSpot</button>
-            <button class="btn btn-sm join-item" :class="variant === 'monochrome' ? 'btn-primary' : 'btn-ghost'" @click="variant = 'monochrome'">mono</button>
-          </div>
-        </div>
-
-        <div>
+        <div v-if="variant !== 'preset'">
           <div class="mb-1 flex items-center justify-between">
             <span class="text-sm">对比度</span>
             <span class="font-mono text-xs opacity-60">{{ contrast.toFixed(1) }}</span>
