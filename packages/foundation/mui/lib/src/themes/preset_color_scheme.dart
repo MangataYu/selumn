@@ -3,7 +3,9 @@ import 'package:material_ui/material_ui.dart';
 /// Selume's default pair, adapted from daisyUI 5.7.28 lemonade / dim.
 ///
 /// The source OKLCH colors are converted to 8-bit sRGB (out-of-gamut channels
-/// clipped). Material container/fixed roles retain the daisyUI color pairs.
+/// clipped). Lemonade container/fixed roles retain the daisyUI color pairs.
+/// Dim uses a muted green secondary palette so selected navigation, settings
+/// and chips share the primary hue instead of daisyUI's orange secondary.
 /// In lemonade, foreground primary/secondary/tertiary reduce OKLCH lightness
 /// to 43%/44%/44% at the source chroma/hue, giving at least 4.5:1 contrast even
 /// on base-300; their filled-button labels use base-100. Muted text and outlines
@@ -76,14 +78,14 @@ const _dim = ColorScheme(
   primaryFixedDim: Color(0xFF9FE88D),
   onPrimaryFixed: Color(0xFF091307),
   onPrimaryFixedVariant: Color(0xFF091307),
-  secondary: Color(0xFFFF7D5D),
-  onSecondary: Color(0xFF160503),
-  secondaryContainer: Color(0xFFFF7D5D),
-  onSecondaryContainer: Color(0xFF160503),
-  secondaryFixed: Color(0xFFFF7D5D),
-  secondaryFixedDim: Color(0xFFFF7D5D),
-  onSecondaryFixed: Color(0xFF160503),
-  onSecondaryFixedVariant: Color(0xFF160503),
+  secondary: Color(0xFFB7CCB0),
+  onSecondary: Color(0xFF20331D),
+  secondaryContainer: Color(0xFF334A2E),
+  onSecondaryContainer: Color(0xFFD2E8C9),
+  secondaryFixed: Color(0xFFD2E8C9),
+  secondaryFixedDim: Color(0xFFB7CCB0),
+  onSecondaryFixed: Color(0xFF20331D),
+  onSecondaryFixedVariant: Color(0xFF334A2E),
   tertiary: Color(0xFFC792E9),
   onTertiary: Color(0xFF0E0813),
   tertiaryContainer: Color(0xFFC792E9),

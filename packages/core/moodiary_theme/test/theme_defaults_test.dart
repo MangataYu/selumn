@@ -140,6 +140,8 @@ void main() {
         (scheme.tertiary, scheme.onTertiary),
         (scheme.primaryContainer, scheme.onPrimaryContainer),
         (scheme.secondaryContainer, scheme.onSecondaryContainer),
+        (scheme.secondaryFixed, scheme.onSecondaryFixed),
+        (scheme.secondaryFixedDim, scheme.onSecondaryFixedVariant),
         (scheme.tertiaryContainer, scheme.onTertiaryContainer),
         (scheme.errorContainer, scheme.onErrorContainer),
         (scheme.surface, scheme.error),
@@ -168,6 +170,52 @@ void main() {
         );
       }
     }
+  });
+
+  testWidgets('默认深色的设置选中项使用柔和绿底和配对前景', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.darkTheme,
+        home: const Scaffold(
+          body: SettingListTile(
+            title: 'Selected setting',
+            leading: Icon(LucideIcons.settings),
+            selected: true,
+          ),
+        ),
+      ),
+    );
+
+    final tile = find.byType(SettingListTile);
+    expect(
+      find.descendant(
+        of: tile,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ColoredBox && widget.color == const Color(0xFF334A2E),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.text('Selected setting')).style!.color,
+      const Color(0xFFD2E8C9),
+    );
+    final iconContext = tester.element(find.byIcon(LucideIcons.settings));
+    expect(IconTheme.of(iconContext).color, const Color(0xFFD2E8C9));
+    expect(tester.takeException(), isNull);
+  });
+
+  test('深色选中背景上的次要图标保持可读', () {
+    final scheme = theme.darkTheme.colorScheme;
+    final luminances = [
+      scheme.secondaryContainer.computeLuminance(),
+      scheme.onSurfaceVariant.computeLuminance(),
+    ]..sort();
+    expect(
+      (luminances.last + 0.05) / (luminances.first + 0.05),
+      greaterThanOrEqualTo(3),
+    );
   });
 
   test('分享卡片导出继续使用无彩主题', () {
