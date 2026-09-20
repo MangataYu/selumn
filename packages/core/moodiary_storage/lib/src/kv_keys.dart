@@ -35,7 +35,7 @@ enum MoodiaryKVs<T extends Object> {
 
   lanSendTarget<String>(defaultValue: ''),
 
-  themeAccentMode<int>(defaultValue: 3 /* ThemeAccentMode.preset.index */),
+  themeAccentMode<int>(defaultValue: 2 /* ThemeAccentMode.custom.index */),
 
   themeAccentColor<int>(defaultValue: 0xFF4F794A),
 

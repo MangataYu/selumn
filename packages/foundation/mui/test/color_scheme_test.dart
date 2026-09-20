@@ -179,41 +179,6 @@ void main() {
   });
 
   group('值语义', () {
-    test('传入完整色板时排版、组件和状态取色都使用该色板', () {
-      final scheme = resolveColorScheme(.light, const MuiAccent.neutral())
-          .copyWith(
-            primary: const Color(0xFF126034),
-            onSurface: const Color(0xFF172319),
-            surfaceContainerHigh: const Color(0xFFD5EADD),
-            surfaceContainerHighest: const Color(0xFFC3DACB),
-          );
-      final theme = buildMuiTheme(
-        brightness: Brightness.light,
-        accent: const MuiAccent.seeded(Color(0xFFFF0000)),
-        colorScheme: scheme,
-        success: const Color(0xFF137542),
-      );
-      expect(theme.colorScheme, scheme);
-      expect(theme.textTheme.bodyMedium!.color, scheme.onSurface);
-      expect(theme.textSelectionTheme.cursorColor, scheme.primary);
-      expect(theme.dialogTheme.backgroundColor, scheme.surfaceContainerHigh);
-      expect(
-        theme.inputDecorationTheme.fillColor,
-        scheme.surfaceContainerHighest,
-      );
-      expect(theme.extension<MuiTokens>()!.success, const Color(0xFF137542));
-    });
-
-    test('完整色板与请求的明暗必须一致', () {
-      expect(
-        () => buildMuiTheme(
-          brightness: Brightness.light,
-          colorScheme: resolveColorScheme(.dark, const MuiAccent.neutral()),
-        ),
-        throwsAssertionError,
-      );
-    });
-
     test('结构相同的两次构造相等 —— 否则主题每次都会通知', () {
       final a = buildMuiTheme(brightness: Brightness.light);
       final b = buildMuiTheme(brightness: Brightness.light);

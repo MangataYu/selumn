@@ -20,4 +20,3 @@
 
 - web 源在 `editor/`（Vue 3 + Vite + TipTap）。`hook/build.dart` 在 `flutter run` / `build` / `test` 时构建，输出平铺的 gzip 产物到 `../assets/editor/`，运行时由 `EditorLocalServer` 解压后发明文。钩子声明 `editor/src/**` 与配置文件为依赖，改了源码自动重建，要求 `corepack` 在 PATH 上。
 - 开发预览：`cd editor && corepack pnpm harness`。
-- 预览默认跟随系统明暗，使用与应用一致的浅色 `lemonade` / 深色 `dim` 配色；可切换为固定浅色、固定深色，或调试自定义种子色与无彩配色。默认颜色快照由 `moodiary_theme` 测试核对，正式编辑器仍由 Flutter 宿主传入主题。

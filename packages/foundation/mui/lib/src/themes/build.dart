@@ -41,7 +41,6 @@ SystemUiOverlayStyle systemOverlayStyleOf(Brightness brightness) {
 ThemeData buildMuiTheme({
   required Brightness brightness,
   MuiAccent accent = const MuiAccent.neutral(),
-  ColorScheme? colorScheme,
   MuiFontConfig font = const MuiFontConfig(),
   MuiRadii radii = const MuiRadii(),
   MuiSpacing spacing = const MuiSpacing(),
@@ -52,8 +51,7 @@ ThemeData buildMuiTheme({
   Color onMedia = const Color(0xFFFFFFFF),
   Color? success,
 }) {
-  assert(colorScheme == null || colorScheme.brightness == brightness);
-  final cs = colorScheme ?? resolveColorScheme(brightness, accent);
+  final cs = resolveColorScheme(brightness, accent);
   final text = buildTextTheme(font, cs.onSurface);
 
   final tokens = MuiTokens(

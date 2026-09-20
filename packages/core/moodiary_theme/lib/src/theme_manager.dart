@@ -19,9 +19,11 @@ class ThemeManager {
 
   Color? _systemSeed;
 
-  ThemeData get lightTheme => _lightTheme ?? _buildTheme(Brightness.light);
+  ThemeData get lightTheme =>
+      _lightTheme ?? buildMuiTheme(brightness: Brightness.light);
 
-  ThemeData get darkTheme => _darkTheme ?? _buildTheme(Brightness.dark);
+  ThemeData get darkTheme =>
+      _darkTheme ?? buildMuiTheme(brightness: Brightness.dark);
 
   Color? get systemAccentSeed => _systemSeed;
 
@@ -96,18 +98,18 @@ class ThemeManager {
       );
     }
 
-    _lightTheme = _buildTheme(Brightness.light);
-    _darkTheme = _buildTheme(Brightness.dark);
-  }
+    final accent = resolveAccent();
+    final font = MuiFontConfig(family: fontFamily, wghtAxis: wghtAxisMap);
 
-  ThemeData _buildTheme(Brightness brightness) {
-    final isPreset = _accentMode == ThemeAccentMode.preset;
-    return buildMuiTheme(
-      brightness: brightness,
-      accent: resolveAccent(),
-      colorScheme: isPreset ? presetColorScheme(brightness) : null,
-      success: isPreset ? presetSuccessColor(brightness) : null,
-      font: MuiFontConfig(family: fontFamily, wghtAxis: wghtAxisMap),
+    _lightTheme = buildMuiTheme(
+      brightness: Brightness.light,
+      accent: accent,
+      font: font,
+    );
+    _darkTheme = buildMuiTheme(
+      brightness: Brightness.dark,
+      accent: accent,
+      font: font,
     );
   }
 
@@ -116,16 +118,13 @@ class ThemeManager {
     font: MuiFontConfig(family: fontFamily, wghtAxis: wghtAxisMap),
   );
 
-  ThemeAccentMode get _accentMode {
-    final index = MoodiaryKVs.themeAccentMode.get()!;
-    return index >= 0 && index < ThemeAccentMode.values.length
-        ? ThemeAccentMode.values[index]
-        : ThemeAccentMode.preset;
-  }
-
   MuiAccent resolveAccent() {
-    return switch (_accentMode) {
-      .neutral || .preset => const MuiAccent.neutral(),
+    final index = MoodiaryKVs.themeAccentMode.get()!;
+    final mode = index >= 0 && index < ThemeAccentMode.values.length
+        ? ThemeAccentMode.values[index]
+        : ThemeAccentMode.neutral;
+    return switch (mode) {
+      .neutral => const MuiAccent.neutral(),
       .system => switch (_systemSeed) {
         final seed? => MuiAccent.seeded(seed),
         _ => const MuiAccent.neutral(),

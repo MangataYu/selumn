@@ -56,8 +56,7 @@ class _Translations$app$en extends Translations$app$zh {
 
 	// Translations
 	@override String get accentTitle => 'Accent color';
-	@override String get accentPreset => 'Default';
-	@override String get accentNeutral => 'Monochrome';
+	@override String get accentNeutral => 'Default';
 	@override String get accentSystem => 'From wallpaper';
 	@override String get accentCustomTitle => 'Custom accent';
 	@override String get accentGroupAccent => 'Accent';

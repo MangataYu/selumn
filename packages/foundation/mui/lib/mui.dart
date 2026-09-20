@@ -12,7 +12,6 @@ export 'src/themes/build.dart';
 export 'src/themes/color_scheme.dart';
 export 'src/themes/mui_tokens.dart';
 export 'src/themes/page_transitions.dart';
-export 'src/themes/preset_color_scheme.dart';
 export 'src/themes/theme.dart';
 export 'src/themes/theme_data.dart';
 export 'src/themes/tokens.dart';

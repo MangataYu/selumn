@@ -117,12 +117,11 @@ class _DisplaySection extends ConsumerWidget {
           builder: (context, index, _) {
             final mode = index >= 0 && index < ThemeAccentMode.values.length
                 ? ThemeAccentMode.values[index]
-                : ThemeAccentMode.preset;
+                : ThemeAccentMode.neutral;
             return SettingListTile(
               title: context.l10n.app.accentTitle,
               leading: _lead(context, LucideIcons.palette),
               trailing: _value(context, switch (mode) {
-                .preset => context.l10n.app.accentPreset,
                 .neutral => context.l10n.app.accentNeutral,
                 .system => context.l10n.app.accentSystem,
                 .custom => context.l10n.common.custom,
