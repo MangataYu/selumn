@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Diary {
 
- String get id; String? get categoryId; String get title; String get content; String get contentText;@UtcDateTimeConverter() DateTime get time;@UtcDateTimeConverter() DateTime get lastModified; bool get show;@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood get mood; DiaryWeather? get weather; List<String> get imageName; List<String> get audioName; List<String> get videoName; List<String> get tags; String? get placeId; String get type; double? get aspect;
+ String get id; String? get categoryId; List<String> get legacyCategoryExcludedTags; String get title; String get content; String get contentText;@UtcDateTimeConverter() DateTime get time;@UtcDateTimeConverter() DateTime get lastModified; bool get show;@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood get mood; DiaryWeather? get weather; List<String> get imageName; List<String> get audioName; List<String> get videoName; List<String> get tags; String? get placeId; String get type; double? get aspect;
 /// Create a copy of Diary
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $DiaryCopyWith<Diary> get copyWith => _$DiaryCopyWithImpl<Diary>(this as Diary, 
 @override
 bool operator ==(Object other) {
   final _this = this as Diary;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Diary&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.categoryId, _this.categoryId) || other.categoryId == _this.categoryId)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.contentText, _this.contentText) || other.contentText == _this.contentText)&&(identical(other.time, _this.time) || other.time == _this.time)&&(identical(other.lastModified, _this.lastModified) || other.lastModified == _this.lastModified)&&(identical(other.show, _this.show) || other.show == _this.show)&&(identical(other.mood, _this.mood) || other.mood == _this.mood)&&(identical(other.weather, _this.weather) || other.weather == _this.weather)&&const DeepCollectionEquality().equals(other.imageName, _this.imageName)&&const DeepCollectionEquality().equals(other.audioName, _this.audioName)&&const DeepCollectionEquality().equals(other.videoName, _this.videoName)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&(identical(other.placeId, _this.placeId) || other.placeId == _this.placeId)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.aspect, _this.aspect) || other.aspect == _this.aspect));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Diary&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.categoryId, _this.categoryId) || other.categoryId == _this.categoryId)&&const DeepCollectionEquality().equals(other.legacyCategoryExcludedTags, _this.legacyCategoryExcludedTags)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.contentText, _this.contentText) || other.contentText == _this.contentText)&&(identical(other.time, _this.time) || other.time == _this.time)&&(identical(other.lastModified, _this.lastModified) || other.lastModified == _this.lastModified)&&(identical(other.show, _this.show) || other.show == _this.show)&&(identical(other.mood, _this.mood) || other.mood == _this.mood)&&(identical(other.weather, _this.weather) || other.weather == _this.weather)&&const DeepCollectionEquality().equals(other.imageName, _this.imageName)&&const DeepCollectionEquality().equals(other.audioName, _this.audioName)&&const DeepCollectionEquality().equals(other.videoName, _this.videoName)&&const DeepCollectionEquality().equals(other.tags, _this.tags)&&(identical(other.placeId, _this.placeId) || other.placeId == _this.placeId)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.aspect, _this.aspect) || other.aspect == _this.aspect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Diary;
-  return Object.hash(runtimeType,_this.id,_this.categoryId,_this.title,_this.content,_this.contentText,_this.time,_this.lastModified,_this.show,_this.mood,_this.weather,const DeepCollectionEquality().hash(_this.imageName),const DeepCollectionEquality().hash(_this.audioName),const DeepCollectionEquality().hash(_this.videoName),const DeepCollectionEquality().hash(_this.tags),_this.placeId,_this.type,_this.aspect);
+  return Object.hash(runtimeType,_this.id,_this.categoryId,const DeepCollectionEquality().hash(_this.legacyCategoryExcludedTags),_this.title,_this.content,_this.contentText,_this.time,_this.lastModified,_this.show,_this.mood,_this.weather,const DeepCollectionEquality().hash(_this.imageName),const DeepCollectionEquality().hash(_this.audioName),const DeepCollectionEquality().hash(_this.videoName),const DeepCollectionEquality().hash(_this.tags),_this.placeId,_this.type,_this.aspect);
 }
 
 @override
 String toString() {
   final _this = this as Diary;
-  return 'Diary(id: ${_this.id}, categoryId: ${_this.categoryId}, title: ${_this.title}, content: ${_this.content}, contentText: ${_this.contentText}, time: ${_this.time}, lastModified: ${_this.lastModified}, show: ${_this.show}, mood: ${_this.mood}, weather: ${_this.weather}, imageName: ${_this.imageName}, audioName: ${_this.audioName}, videoName: ${_this.videoName}, tags: ${_this.tags}, placeId: ${_this.placeId}, type: ${_this.type}, aspect: ${_this.aspect})';
+  return 'Diary(id: ${_this.id}, categoryId: ${_this.categoryId}, legacyCategoryExcludedTags: ${_this.legacyCategoryExcludedTags}, title: ${_this.title}, content: ${_this.content}, contentText: ${_this.contentText}, time: ${_this.time}, lastModified: ${_this.lastModified}, show: ${_this.show}, mood: ${_this.mood}, weather: ${_this.weather}, imageName: ${_this.imageName}, audioName: ${_this.audioName}, videoName: ${_this.videoName}, tags: ${_this.tags}, placeId: ${_this.placeId}, type: ${_this.type}, aspect: ${_this.aspect})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $DiaryCopyWith<$Res>  {
   factory $DiaryCopyWith(Diary value, $Res Function(Diary) _then) = _$DiaryCopyWithImpl;
 @useResult
 $Res call({
- String id, String? categoryId, String title, String content, String contentText,@UtcDateTimeConverter() DateTime time,@UtcDateTimeConverter() DateTime lastModified, bool show,@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood mood, DiaryWeather? weather, List<String> imageName, List<String> audioName, List<String> videoName, List<String> tags, String? placeId, String type, double? aspect
+ String id, String? categoryId, List<String> legacyCategoryExcludedTags, String title, String content, String contentText,@UtcDateTimeConverter() DateTime time,@UtcDateTimeConverter() DateTime lastModified, bool show,@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood mood, DiaryWeather? weather, List<String> imageName, List<String> audioName, List<String> videoName, List<String> tags, String? placeId, String type, double? aspect
 });
 
 
@@ -71,11 +71,12 @@ class _$DiaryCopyWithImpl<$Res>
 
 /// Create a copy of Diary
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? categoryId = freezed,Object? title = null,Object? content = null,Object? contentText = null,Object? time = null,Object? lastModified = null,Object? show = null,Object? mood = null,Object? weather = freezed,Object? imageName = null,Object? audioName = null,Object? videoName = null,Object? tags = null,Object? placeId = freezed,Object? type = null,Object? aspect = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? categoryId = freezed,Object? legacyCategoryExcludedTags = null,Object? title = null,Object? content = null,Object? contentText = null,Object? time = null,Object? lastModified = null,Object? show = null,Object? mood = null,Object? weather = freezed,Object? imageName = null,Object? audioName = null,Object? videoName = null,Object? tags = null,Object? placeId = freezed,Object? type = null,Object? aspect = freezed,}) {
   return _then(Diary(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
-as String?,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,legacyCategoryExcludedTags: null == legacyCategoryExcludedTags ? _self.legacyCategoryExcludedTags : legacyCategoryExcludedTags // ignore: cast_nullable_to_non_nullable
+as List<String>,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,contentText: null == contentText ? _self.contentText : contentText // ignore: cast_nullable_to_non_nullable
 as String,time: null == time ? _self.time : time // ignore: cast_nullable_to_non_nullable
@@ -187,10 +188,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? categoryId,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? categoryId,  List<String> legacyCategoryExcludedTags,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Diary() when $default != null:
-return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
+return $default(_that.id,_that.categoryId,_that.legacyCategoryExcludedTags,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
   return orElse();
 
 }
@@ -208,10 +209,10 @@ return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.conten
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? categoryId,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? categoryId,  List<String> legacyCategoryExcludedTags,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)  $default,) {final _that = this;
 switch (_that) {
 case _Diary():
-return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
+return $default(_that.id,_that.categoryId,_that.legacyCategoryExcludedTags,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -228,10 +229,10 @@ return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.conten
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? categoryId,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? categoryId,  List<String> legacyCategoryExcludedTags,  String title,  String content,  String contentText, @UtcDateTimeConverter()  DateTime time, @UtcDateTimeConverter()  DateTime lastModified,  bool show, @JsonKey(unknownEnumValue: DiaryMood.neutral)  DiaryMood mood,  DiaryWeather? weather,  List<String> imageName,  List<String> audioName,  List<String> videoName,  List<String> tags,  String? placeId,  String type,  double? aspect)?  $default,) {final _that = this;
 switch (_that) {
 case _Diary() when $default != null:
-return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
+return $default(_that.id,_that.categoryId,_that.legacyCategoryExcludedTags,_that.title,_that.content,_that.contentText,_that.time,_that.lastModified,_that.show,_that.mood,_that.weather,_that.imageName,_that.audioName,_that.videoName,_that.tags,_that.placeId,_that.type,_that.aspect);case _:
   return null;
 
 }
@@ -243,11 +244,18 @@ return $default(_that.id,_that.categoryId,_that.title,_that.content,_that.conten
 @JsonSerializable()
 
 class _Diary extends Diary {
-  const _Diary({required this.id, this.categoryId, required this.title, required this.content, required this.contentText, @UtcDateTimeConverter() required this.time, @UtcDateTimeConverter() required this.lastModified, required this.show, @JsonKey(unknownEnumValue: DiaryMood.neutral) required this.mood, this.weather, required  List<String> imageName, required  List<String> audioName, required  List<String> videoName, required  List<String> tags, this.placeId, required this.type, this.aspect}): _imageName = imageName,_audioName = audioName,_videoName = videoName,_tags = tags,super._();
+  const _Diary({required this.id, this.categoryId,  List<String> legacyCategoryExcludedTags = const [], required this.title, required this.content, required this.contentText, @UtcDateTimeConverter() required this.time, @UtcDateTimeConverter() required this.lastModified, required this.show, @JsonKey(unknownEnumValue: DiaryMood.neutral) required this.mood, this.weather, required  List<String> imageName, required  List<String> audioName, required  List<String> videoName, required  List<String> tags, this.placeId, required this.type, this.aspect}): _legacyCategoryExcludedTags = legacyCategoryExcludedTags,_imageName = imageName,_audioName = audioName,_videoName = videoName,_tags = tags,super._();
   factory _Diary.fromJson(Map<String, dynamic> json) => _$DiaryFromJson(json);
 
 @override final  String id;
 @override final  String? categoryId;
+ final  List<String> _legacyCategoryExcludedTags;
+@override@JsonKey() List<String> get legacyCategoryExcludedTags {
+  if (_legacyCategoryExcludedTags is EqualUnmodifiableListView) return _legacyCategoryExcludedTags;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_legacyCategoryExcludedTags);
+}
+
 @override final  String title;
 @override final  String content;
 @override final  String contentText;
@@ -301,18 +309,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Diary&&(identical(other.id, id) || other.id == id)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.contentText, contentText) || other.contentText == contentText)&&(identical(other.time, time) || other.time == time)&&(identical(other.lastModified, lastModified) || other.lastModified == lastModified)&&(identical(other.show, show) || other.show == show)&&(identical(other.mood, mood) || other.mood == mood)&&(identical(other.weather, weather) || other.weather == weather)&&const DeepCollectionEquality().equals(other.imageName, _imageName)&&const DeepCollectionEquality().equals(other.audioName, _audioName)&&const DeepCollectionEquality().equals(other.videoName, _videoName)&&const DeepCollectionEquality().equals(other.tags, _tags)&&(identical(other.placeId, placeId) || other.placeId == placeId)&&(identical(other.type, type) || other.type == type)&&(identical(other.aspect, aspect) || other.aspect == aspect));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Diary&&(identical(other.id, id) || other.id == id)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&const DeepCollectionEquality().equals(other.legacyCategoryExcludedTags, _legacyCategoryExcludedTags)&&(identical(other.title, title) || other.title == title)&&(identical(other.content, content) || other.content == content)&&(identical(other.contentText, contentText) || other.contentText == contentText)&&(identical(other.time, time) || other.time == time)&&(identical(other.lastModified, lastModified) || other.lastModified == lastModified)&&(identical(other.show, show) || other.show == show)&&(identical(other.mood, mood) || other.mood == mood)&&(identical(other.weather, weather) || other.weather == weather)&&const DeepCollectionEquality().equals(other.imageName, _imageName)&&const DeepCollectionEquality().equals(other.audioName, _audioName)&&const DeepCollectionEquality().equals(other.videoName, _videoName)&&const DeepCollectionEquality().equals(other.tags, _tags)&&(identical(other.placeId, placeId) || other.placeId == placeId)&&(identical(other.type, type) || other.type == type)&&(identical(other.aspect, aspect) || other.aspect == aspect));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,categoryId,title,content,contentText,time,lastModified,show,mood,weather,const DeepCollectionEquality().hash(_imageName),const DeepCollectionEquality().hash(_audioName),const DeepCollectionEquality().hash(_videoName),const DeepCollectionEquality().hash(_tags),placeId,type,aspect);
+    return Object.hash(runtimeType,id,categoryId,const DeepCollectionEquality().hash(_legacyCategoryExcludedTags),title,content,contentText,time,lastModified,show,mood,weather,const DeepCollectionEquality().hash(_imageName),const DeepCollectionEquality().hash(_audioName),const DeepCollectionEquality().hash(_videoName),const DeepCollectionEquality().hash(_tags),placeId,type,aspect);
 }
 
 @override
 String toString() {
-    return 'Diary(id: $id, categoryId: $categoryId, title: $title, content: $content, contentText: $contentText, time: $time, lastModified: $lastModified, show: $show, mood: $mood, weather: $weather, imageName: $imageName, audioName: $audioName, videoName: $videoName, tags: $tags, placeId: $placeId, type: $type, aspect: $aspect)';
+    return 'Diary(id: $id, categoryId: $categoryId, legacyCategoryExcludedTags: $legacyCategoryExcludedTags, title: $title, content: $content, contentText: $contentText, time: $time, lastModified: $lastModified, show: $show, mood: $mood, weather: $weather, imageName: $imageName, audioName: $audioName, videoName: $videoName, tags: $tags, placeId: $placeId, type: $type, aspect: $aspect)';
 }
 
 
@@ -323,7 +331,7 @@ abstract mixin class _$DiaryCopyWith<$Res> implements $DiaryCopyWith<$Res> {
   factory _$DiaryCopyWith(_Diary value, $Res Function(_Diary) _then) = __$DiaryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String? categoryId, String title, String content, String contentText,@UtcDateTimeConverter() DateTime time,@UtcDateTimeConverter() DateTime lastModified, bool show,@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood mood, DiaryWeather? weather, List<String> imageName, List<String> audioName, List<String> videoName, List<String> tags, String? placeId, String type, double? aspect
+ String id, String? categoryId, List<String> legacyCategoryExcludedTags, String title, String content, String contentText,@UtcDateTimeConverter() DateTime time,@UtcDateTimeConverter() DateTime lastModified, bool show,@JsonKey(unknownEnumValue: DiaryMood.neutral) DiaryMood mood, DiaryWeather? weather, List<String> imageName, List<String> audioName, List<String> videoName, List<String> tags, String? placeId, String type, double? aspect
 });
 
 
@@ -340,11 +348,12 @@ class __$DiaryCopyWithImpl<$Res>
 
 /// Create a copy of Diary
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? categoryId = freezed,Object? title = null,Object? content = null,Object? contentText = null,Object? time = null,Object? lastModified = null,Object? show = null,Object? mood = null,Object? weather = freezed,Object? imageName = null,Object? audioName = null,Object? videoName = null,Object? tags = null,Object? placeId = freezed,Object? type = null,Object? aspect = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? categoryId = freezed,Object? legacyCategoryExcludedTags = null,Object? title = null,Object? content = null,Object? contentText = null,Object? time = null,Object? lastModified = null,Object? show = null,Object? mood = null,Object? weather = freezed,Object? imageName = null,Object? audioName = null,Object? videoName = null,Object? tags = null,Object? placeId = freezed,Object? type = null,Object? aspect = freezed,}) {
   return _then(_Diary(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
-as String?,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
+as String?,legacyCategoryExcludedTags: null == legacyCategoryExcludedTags ? _self._legacyCategoryExcludedTags : legacyCategoryExcludedTags // ignore: cast_nullable_to_non_nullable
+as List<String>,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
 as String,contentText: null == contentText ? _self.contentText : contentText // ignore: cast_nullable_to_non_nullable
 as String,time: null == time ? _self.time : time // ignore: cast_nullable_to_non_nullable

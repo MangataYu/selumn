@@ -136,10 +136,10 @@ class _GraphView extends ConsumerStatefulWidget {
 }
 
 class _GraphViewState extends ConsumerState<_GraphView> {
-  String? _categoryId;
+  String? _tag;
   _TimeFilter _time = .all;
   GraphDensity _density = .normal;
-  GraphColorMode _colorMode = .category;
+  GraphColorMode _colorMode = .time;
   bool _showLabels = true;
 
   DiaryGraphData _sub = emptyGraphData;
@@ -197,11 +197,7 @@ class _GraphViewState extends ConsumerState<_GraphView> {
         keepSelection && _selected != null && _selected! < _sub.nodeCount
         ? _sub.nodes[_selected!].id
         : null;
-    _sub = filterGraph(
-      widget.graph,
-      categoryId: _categoryId,
-      range: _timeRange(_time),
-    );
+    _sub = filterGraph(widget.graph, tag: _tag, range: _timeRange(_time));
     _scene = null;
     _palette = null;
     if (selectedId == null) {
@@ -312,6 +308,7 @@ class _GraphViewState extends ConsumerState<_GraphView> {
     final l10n = context.l10n;
     final categories =
         ref.watch(categoryControllerProvider).value ?? const <Category>[];
+    final tags = ref.watch(diaryTagsProvider).value ?? const <String>[];
     _ensureScene(theme, categories);
     if (_pendingLayout) {
       _pendingLayout = false;
@@ -327,19 +324,14 @@ class _GraphViewState extends ConsumerState<_GraphView> {
         Padding(
           padding: const .only(top: 8, bottom: 8),
           child: MChipBar<String?>(
-            selected: _categoryId,
+            selected: _tag,
             onSelected: (v) => setState(() {
-              _categoryId = v;
+              _tag = v;
               _invalidate();
             }),
             items: [
-              MChipData(value: null, label: l10n.diary.categoryAll),
-              for (final c in categories)
-                MChipData(
-                  value: c.id,
-                  label: c.categoryName,
-                  accentColor: categoryColorOf(colorValue: c.color, id: c.id),
-                ),
+              MChipData(value: null, label: l10n.diary.allTags),
+              for (final tag in tags) MChipData(value: tag, label: '#$tag'),
             ],
             fadeColor: theme.colors.surface,
           ),
@@ -348,7 +340,7 @@ class _GraphViewState extends ConsumerState<_GraphView> {
           child: scene.nodeCount == 0
               ? _FilteredEmpty(
                   onClear: () => setState(() {
-                    _categoryId = null;
+                    _tag = null;
                     _time = .all;
                     _invalidate();
                   }),
@@ -539,10 +531,6 @@ class _GraphViewState extends ConsumerState<_GraphView> {
                     showSelectedIcon: false,
                     selected: {_colorMode},
                     segments: [
-                      ButtonSegment(
-                        value: GraphColorMode.category,
-                        label: Text(l10n.common.category),
-                      ),
                       ButtonSegment(
                         value: GraphColorMode.time,
                         label: Text(l10n.diary.graphColorByTime),

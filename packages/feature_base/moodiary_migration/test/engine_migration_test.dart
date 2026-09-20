@@ -38,10 +38,12 @@ legacy.Diary legacyDiary(
   List<String> linkTo = const [],
   List<String> images = const [],
   List<String> tags = const [],
+  String? categoryId,
   bool show = true,
   String type = 'tiptap',
 }) => legacy.Diary(
   id: id,
+  categoryId: categoryId,
   title: 'title-$id',
   content: tiptapDoc(text, linkTo: linkTo),
   contentText: text,
@@ -107,6 +109,7 @@ void main() {
           weather: const ['100', '26', '晴'],
           images: const ['image-1.jpg'],
           tags: const ['旅行'],
+          categoryId: 'c1',
         ),
         legacyDiary('d-linked', '链接 源', linkTo: const ['d-full']),
         legacyDiary('d-pos2', '老 定位', position: const ['1.5', '2.5']),
@@ -226,7 +229,9 @@ void main() {
     expect(place.longitude, 118.08);
     expect(full.weather?.text, '晴');
     expect(full.imageName, ['image-1.jpg']);
-    expect(full.tags, ['旅行']);
+    expect(full.tags, ['旅行', '生活']);
+    expect(full.categoryId, isNull);
+    expect(full.lastModified, DateTime.utc(2026, 1, 2, 8));
     expect(full.time, DateTime.utc(2026, 1, 1, 8));
     final pos2 = (await repo.getDiaryByBusinessId('d-pos2'))!;
     expect(

@@ -4,6 +4,7 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/src/data/geo_repository.dart';
 import 'package:moodiary_editor/src/data/weather_repository.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -34,12 +35,14 @@ class EditController extends _$EditController {
     String? diaryId, {
     DiaryType? defaultType,
     String? defaultCategoryId,
+    String? defaultTag,
   }) async {
     final diary = await ref.watch(
       getDiaryProvider(
         id: diaryId,
         defaultType: defaultType,
         defaultCategoryId: defaultCategoryId,
+        defaultTag: defaultTag,
       ).future,
     );
     if (diary == null) throw StateError('Diary not found: $diaryId');
@@ -88,12 +91,14 @@ class EditController extends _$EditController {
   }
 
   void changeContent(String content, {String? contentText}) {
-    state = state.whenData(
-      (current) => current.copyWith(
-        content: content,
-        contentText: contentText ?? content,
-      ),
-    );
+    state = state.whenData((current) {
+      final previous = TiptapContent.tags(current.content).toSet();
+      final next = TiptapContent.tags(content);
+      return _withTagChanges(current, [
+        ...current.tags.where((tag) => !previous.contains(tag)),
+        ...next,
+      ]).copyWith(content: content, contentText: contentText ?? content);
+    });
   }
 
   void changeType(DiaryType type) {
@@ -111,7 +116,37 @@ class EditController extends _$EditController {
   }
 
   void changeTags(List<String> tags) {
-    state = state.whenData((current) => current.copyWith(tags: tags));
+    state = state.whenData((current) {
+      final normalized = TagPath.normalizeAll(tags);
+      var content = current.content;
+      for (final tag in current.tags.where(
+        (tag) => !normalized.contains(tag),
+      )) {
+        content = TiptapContent.removeTag(content, tag, descendants: false);
+      }
+      return _withTagChanges(current, normalized).copyWith(
+        content: content,
+        contentText: content == current.content
+            ? current.contentText
+            : TiptapContent.parse(content).plainText,
+      );
+    });
+  }
+
+  Diary _withTagChanges(Diary current, List<String> tags) {
+    final normalized = TagPath.normalizeAll(tags);
+    final added = normalized
+        .where((tag) => !current.tags.contains(tag))
+        .toSet();
+    return current.copyWith(
+      tags: normalized,
+      legacyCategoryExcludedTags: current.categoryId == null
+          ? const []
+          : TagPath.normalizeAll([
+              ...current.legacyCategoryExcludedTags,
+              ...current.tags.where((tag) => !normalized.contains(tag)),
+            ]).where((tag) => !added.contains(tag)).toList(),
+    );
   }
 
   void changePlace(String? placeId) {

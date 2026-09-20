@@ -51,5 +51,7 @@
   "appName": "Selume",
   "configured": "Configured",
   "notConfigured": "Not configured",
-  "copied": "Copied to clipboard"
+  "copied": "Copied to clipboard",
+  "tagCount": "{count} tags",
+  "tag": "Tags"
 }

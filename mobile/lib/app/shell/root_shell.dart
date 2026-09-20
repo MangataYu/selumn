@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_assistant/moodiary_assistant.dart'
     show AssistantSessionListPage;
 import 'package:moodiary_diary/moodiary_diary.dart'
-    show CategoryDrawer, diarySelectionProvider, homeDiaryFilterProvider;
+    show TagDrawer, diarySelectionProvider, homeDiaryFilterProvider;
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/home/diary_home_page.dart'
     show DiaryHomePage;
@@ -34,10 +34,10 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
   void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
   Future<void> _newDiary() async {
-    final categoryId = _tab == .diary
-        ? ref.read(homeDiaryFilterProvider).categoryId
+    final tag = _tab == .diary
+        ? ref.read(homeDiaryFilterProvider).tagPath
         : null;
-    await NewDiaryRoute(categoryId: categoryId).push(context);
+    await NewDiaryRoute(tag: tag).push(context);
   }
 
   void _selectDestination(int index) {
@@ -56,13 +56,14 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(homeDiaryFilterProvider, (_, _) => _selectTab(.diary));
     final selecting =
         ref.watch(diarySelectionProvider).isNotEmpty && _tab == .diary;
     final drawerUsable = !selecting;
     return Scaffold(
       key: _scaffoldKey,
       drawer: drawerUsable
-          ? CategoryDrawer(
+          ? TagDrawer(
               navigation: RootDrawerNavigation(
                 selectedIndex: _tab.index,
                 onDestinationSelected: _selectDestination,

@@ -10,8 +10,8 @@ part 'timeline_controller.g.dart';
 @riverpod
 Future<Map<DateTime, int>> timelineMonthCounts(
   Ref ref, {
-  String? categoryId,
-  bool uncategorized = false,
+  String? tag,
+  bool untagged = false,
   required DiarySort sort,
 }) async {
   final repository = getIt<DiaryRepository>();
@@ -24,9 +24,5 @@ Future<Map<DateTime, int>> timelineMonthCounts(
     debounce?.cancel();
     sub.cancel();
   });
-  return repository.diaryCountByMonth(
-    categoryId: categoryId,
-    uncategorized: uncategorized,
-    sort: sort,
-  );
+  return repository.diaryCountByMonth(tag: tag, untagged: untagged, sort: sort);
 }

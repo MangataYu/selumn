@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 
 import 'db/database.dart';
 import 'db/db_codec.dart';
@@ -30,6 +31,14 @@ class DiaryRepository {
 
   Stream<DiaryEvent> get diaryEvents => _events.stream;
 
+  static Diary _withNormalizedTags(Diary diary) => diary.copyWith(
+    tags: TagPath.normalizeAll([
+      ...diary.tags,
+      if (diary.type == DiaryType.tiptap.value)
+        ...TiptapContent.tags(diary.content),
+    ]),
+  );
+
   static Diary _toDiary(
     DiaryRow r, {
     required List<String> images,
@@ -41,6 +50,9 @@ class DiaryRepository {
     return Diary(
       id: r.id,
       categoryId: r.categoryId,
+      legacyCategoryExcludedTags: dbToStringList(
+        r.legacyCategoryExcludedTagsJson,
+      ),
       title: r.title,
       content: r.content,
       contentText: r.contentText,
@@ -68,6 +80,9 @@ class DiaryRepository {
   static DiariesCompanion _toCompanion(Diary d) => DiariesCompanion.insert(
     id: d.id,
     categoryId: Value(d.categoryId),
+    legacyCategoryExcludedTagsJson: Value(
+      dbStringList(d.legacyCategoryExcludedTags),
+    ),
     title: d.title,
     content: d.content,
     contentText: d.contentText,
@@ -190,6 +205,7 @@ class DiaryRepository {
     IndexMode index = .inline,
   }) async {
     if (diaries.isEmpty) return;
+    diaries = [for (final diary in diaries) _withNormalizedTags(diary)];
     await _db.transaction(() async {
       for (final diary in diaries) {
         await _upsertRow(diary);
@@ -218,6 +234,7 @@ class DiaryRepository {
     IndexMode index = .inline,
     bool fromSync = false,
   }) async {
+    newDiary = _withNormalizedTags(newDiary);
     assert(() {
       if (index == .skip) return true;
       final derived = DiaryContent.of(newDiary).media;
@@ -226,6 +243,21 @@ class DiaryRepository {
           _sameNameSet(newDiary.audioName, derived.audios);
     }(), '媒体三列与正文引用不一致：写入方漏了 withDerivedMedia（见 diary_derive.dart）');
     await _db.transaction(() async {
+      if (!fromSync && newDiary.categoryId != null) {
+        final previous = await getDiaryByBusinessId(newDiary.id);
+        if (previous?.categoryId != null) {
+          final added = newDiary.tags.toSet().difference(
+            previous!.tags.toSet(),
+          );
+          newDiary = newDiary.copyWith(
+            legacyCategoryExcludedTags: TagPath.normalizeAll([
+              ...previous.legacyCategoryExcludedTags,
+              ...newDiary.legacyCategoryExcludedTags,
+              ...previous.tags.where((tag) => !newDiary.tags.contains(tag)),
+            ]).where((tag) => !added.contains(tag)).toList(),
+          );
+        }
+      }
       await _upsertRow(newDiary);
       await _syncChildren(newDiary);
       if (index == .inline) {
@@ -378,9 +410,247 @@ class DiaryRepository {
     return _assemble(await q.get());
   }
 
+  Expression<bool> _tagPredicate(Diaries diaries, String? tag, bool untagged) {
+    final tags = _db.diaryTags;
+    final query = _db.select(tags)
+      ..where((t) => t.diaryId.equalsExp(diaries.id));
+    if (tag != null) {
+      final path = TagPath.normalize(tag) ?? tag.trim();
+      if (path.isEmpty) return const Constant(false);
+      // substr keeps '%' and '_' literal and matches the Dart path predicate.
+      query.where(
+        (t) =>
+            t.tag.equals(path) |
+            t.tag.substr(1, path.runes.length + 1).equals('$path/'),
+      );
+    }
+    final exists = existsQuery(query);
+    return untagged ? exists.not() : exists;
+  }
+
+  Future<List<Diary>> getDiaryByTag({
+    String? tag,
+    bool untagged = false,
+    int? offset,
+    int? limit,
+    DiarySort sort = .timeDesc,
+  }) async {
+    assert(!(untagged && tag != null));
+    final query = _visible();
+    if (tag != null || untagged) {
+      query.where((d) => _tagPredicate(d, tag, untagged));
+    }
+    _orderBy(query, sort);
+    if (limit != null) query.limit(limit, offset: offset);
+    return _assemble(await query.get());
+  }
+
+  Future<List<String>> getAllTags() async {
+    final column = _db.diaryTags.tag;
+    final query = _db.selectOnly(_db.diaryTags, distinct: true)
+      ..addColumns([column]);
+    final tags = <String>{};
+    for (final row in await query.get()) {
+      tags.addAll(TagPath.ancestors(row.read(column)!));
+    }
+    return tags.toList()..sort();
+  }
+
+  /// Run after an import/pull batch, once all category ancestors have landed.
+  /// Clearing categoryId is the durable marker: removed tags must not reappear.
+  Future<int> migrateLegacyCategoriesToTags({
+    Set<String> excludeIds = const {},
+  }) async {
+    final changed = <Diary>[];
+    await _db.transaction(() async {
+      final categories = {
+        for (final row in await _db.select(_db.categories).get()) row.id: row,
+      };
+      final paths = <String, String>{};
+      String? resolve(String id, Set<String> visiting) {
+        if (paths.containsKey(id)) return paths[id];
+        final category = categories[id];
+        if (category == null || !visiting.add(id)) return null;
+        final name = TagPath.normalize(category.name) ?? category.name.trim();
+        if (name.isEmpty) return null;
+        final parentId = category.parentId;
+        final String path;
+        if (parentId == null || parentId.isEmpty) {
+          path = name;
+        } else {
+          final parent = resolve(parentId, visiting);
+          if (parent == null) return null;
+          path = '$parent/$name';
+        }
+        visiting.remove(id);
+        paths[id] = path;
+        return path;
+      }
+
+      final rows = await (_db.select(
+        _db.diaries,
+      )..where((d) => d.categoryId.isNotNull())).get();
+      final rowsById = {for (final row in rows) row.id: row};
+      final storedTags = <String, List<String>>{};
+      for (final row in await (_db.select(
+        _db.diaryTags,
+      )..orderBy([(t) => OrderingTerm.asc(t.seq)])).get()) {
+        storedTags.putIfAbsent(row.diaryId, () => []).add(row.tag);
+      }
+      final unnormalized = [
+        for (final entry in storedTags.entries)
+          if (!rowsById.containsKey(entry.key) &&
+              !_sameTags(entry.value, TagPath.normalizeAll(entry.value)))
+            entry.key,
+      ];
+      for (var start = 0; start < unnormalized.length; start += _inChunk) {
+        final chunk = unnormalized.sublist(
+          start,
+          min(start + _inChunk, unnormalized.length),
+        );
+        for (final row in await (_db.select(
+          _db.diaries,
+        )..where((d) => d.id.isIn(chunk))).get()) {
+          rowsById[row.id] = row;
+        }
+      }
+      for (final diary in await _assemble(rowsById.values.toList())) {
+        if (excludeIds.contains(diary.id)) continue;
+        final categoryId = diary.categoryId;
+        final tag = categoryId == null ? null : resolve(categoryId, <String>{});
+        // A missing parent can arrive in a later sync batch. Retain its id.
+        final excluded =
+            tag != null &&
+            diary.legacyCategoryExcludedTags.any(
+              (prefix) => TagPath.matches(tag, prefix),
+            );
+        final tags = TagPath.normalizeAll([...diary.tags, if (!excluded) ?tag]);
+        if (tag == null && _sameTags(tags, diary.tags)) continue;
+        final next = diary.copyWith(
+          categoryId: tag == null ? categoryId : null,
+          legacyCategoryExcludedTags: tag == null
+              ? diary.legacyCategoryExcludedTags
+              : const [],
+          tags: tags,
+        );
+        await _upsertRow(next);
+        await _syncChildren(next);
+        changed.add(next);
+      }
+    });
+    for (final diary in changed) {
+      _events.add(DiaryUpdated(diary, fromSync: true));
+    }
+    return changed.length;
+  }
+
+  static bool _sameTags(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
+  Future<int> renameTag(String tag, String replacement) async {
+    final from = TagPath.normalize(tag) ?? tag.trim();
+    final to = TagPath.normalize(replacement);
+    if (from.isEmpty || to == null || !TagPath.isInline(to)) {
+      throw ArgumentError('Invalid tag path');
+    }
+    if (from == to) return 0;
+    return _editTag(from, replacement: to);
+  }
+
+  Future<int> deleteTag(String tag) async {
+    final path = TagPath.normalize(tag) ?? tag.trim();
+    if (path.isEmpty) throw ArgumentError('Invalid tag path');
+    return _editTag(path);
+  }
+
+  Future<int> _editTag(String tag, {String? replacement}) async {
+    final changed = <Diary>[];
+    await _db.transaction(() async {
+      final rows = await (_db.select(
+        _db.diaries,
+      )..where((d) => _tagPredicate(d, tag, false))).get();
+      final now = DateTime.timestamp();
+      final contentChanged = <String>[];
+      for (final diary in await _assemble(rows)) {
+        final tags = TagPath.normalizeAll([
+          for (final current in diary.tags)
+            if (!TagPath.matches(current, tag))
+              current
+            else if (replacement != null)
+              TagPath.replacePrefix(current, tag, replacement),
+        ]);
+        final content = diary.type != DiaryType.tiptap.value
+            ? diary.content
+            : replacement == null
+            ? TiptapContent.removeTag(diary.content, tag)
+            : TiptapContent.renameTag(diary.content, tag, replacement);
+        final next = diary.copyWith(
+          tags: tags,
+          legacyCategoryExcludedTags: diary.categoryId == null
+              ? diary.legacyCategoryExcludedTags
+              : TagPath.normalizeAll([
+                  ...diary.legacyCategoryExcludedTags,
+                  tag,
+                ]),
+          content: content,
+          contentText: content == diary.content
+              ? diary.contentText
+              : TiptapContent.parse(content).plainText,
+          lastModified: now,
+        );
+        await _upsertRow(next);
+        await _syncChildren(next);
+        if (content != diary.content) contentChanged.add(diary.id);
+        changed.add(next);
+      }
+      await _enqueueEmbed(contentChanged);
+    });
+    for (final diary in changed) {
+      _events.add(DiaryUpdated(diary));
+    }
+    return changed.length;
+  }
+
+  Future<({Map<String, int> byTag, int total, int untagged})>
+  diaryCountByTag() async {
+    final diaries = _db.diaries;
+    final tags = _db.diaryTags;
+    final query = _db.selectOnly(diaries)
+      ..addColumns([diaries.id, tags.tag])
+      ..join([leftOuterJoin(tags, tags.diaryId.equalsExp(diaries.id))])
+      ..where(diaries.show.equals(1));
+    final allIds = <String>{};
+    final taggedIds = <String>{};
+    final idsByTag = <String, Set<String>>{};
+    for (final row in await query.get()) {
+      final id = row.read(diaries.id)!;
+      allIds.add(id);
+      final tag = row.read(tags.tag);
+      if (tag == null) continue;
+      taggedIds.add(id);
+      for (final ancestor in TagPath.ancestors(tag)) {
+        idsByTag.putIfAbsent(ancestor, () => <String>{}).add(id);
+      }
+    }
+    return (
+      byTag: {
+        for (final entry in idsByTag.entries) entry.key: entry.value.length,
+      },
+      total: allIds.length,
+      untagged: allIds.length - taggedIds.length,
+    );
+  }
+
   Future<Map<DateTime, int>> diaryCountByMonth({
     String? categoryId,
     bool uncategorized = false,
+    String? tag,
+    bool untagged = false,
     DiarySort sort = .timeDesc,
   }) async {
     assert(!(uncategorized && categoryId != null));
@@ -394,6 +664,9 @@ class DiaryRepository {
       q.where(_db.diaries.categoryId.isNull());
     } else if (categoryId != null) {
       q.where(_db.diaries.categoryId.equals(categoryId));
+    }
+    if (tag != null || untagged) {
+      q.where(_tagPredicate(_db.diaries, tag, untagged));
     }
     final counts = <DateTime, int>{};
     for (final row in await q.get()) {
@@ -621,9 +894,11 @@ class DiaryRepository {
     String? categoryId,
     DateTime? start,
     DateTime? end,
+    String? tag,
   ) {
     var where = fts.match(match) & d.show.equals(1);
     if (categoryId != null) where = where & d.categoryId.equals(categoryId);
+    if (tag != null) where = where & _tagPredicate(d, tag, false);
     if (start != null) {
       where = where & d.time.isBiggerOrEqualValue(dbTime(start));
     }
@@ -635,6 +910,7 @@ class DiaryRepository {
   Future<int> countSearchDiaries({
     required String query,
     String? categoryId,
+    String? tag,
     DateTime? start,
     DateTime? end,
   }) async {
@@ -646,7 +922,7 @@ class DiaryRepository {
     final select = _db.selectOnly(fts)
       ..addColumns([count])
       ..join([innerJoin(d, d.rid.equalsExp(_ftsRowId), useColumns: false)])
-      ..where(_searchPredicate(fts, d, match, categoryId, start, end));
+      ..where(_searchPredicate(fts, d, match, categoryId, start, end, tag));
     return (await select.getSingle()).read(count) ?? 0;
   }
 
@@ -654,6 +930,7 @@ class DiaryRepository {
   Future<List<DiarySearchHit>> searchDiaries({
     required String query,
     String? categoryId,
+    String? tag,
     DateTime? start,
     DateTime? end,
     SearchSort sort = .relevance,
@@ -681,7 +958,7 @@ class DiaryRepository {
     final select = _db.selectOnly(fts)
       ..addColumns([titleHit, bodyHit])
       ..join([innerJoin(d, d.rid.equalsExp(_ftsRowId), useColumns: true)])
-      ..where(_searchPredicate(fts, d, match, categoryId, start, end));
+      ..where(_searchPredicate(fts, d, match, categoryId, start, end, tag));
 
     select.orderBy(switch (sort) {
       .relevance => [
@@ -749,16 +1026,21 @@ class DiaryRepository {
     return out;
   }
 
-  static DiaryGraphNode _node(int index, DiaryRow d, {int? depth}) =>
-      DiaryGraphNode(
-        index: index,
-        id: d.id,
-        title: d.title,
-        time: dbToTime(d.time),
-        categoryId: d.categoryId,
-        depth: depth,
-        preview: _graphPreview(d.contentText),
-      );
+  static DiaryGraphNode _node(
+    int index,
+    DiaryRow d, {
+    int? depth,
+    List<String> tags = const [],
+  }) => DiaryGraphNode(
+    index: index,
+    id: d.id,
+    title: d.title,
+    time: dbToTime(d.time),
+    categoryId: d.categoryId,
+    tags: tags,
+    depth: depth,
+    preview: _graphPreview(d.contentText),
+  );
 
   Future<DiaryGraphData> buildLinkGraph() async {
     final edges = await _db.visibleLinkEdges().get();
@@ -779,9 +1061,10 @@ class DiaryRepository {
       });
     final indexOf = <String, int>{};
     final nodes = <DiaryGraphNode>[];
+    final assembled = await _assemble(nodesSorted);
     for (var i = 0; i < nodesSorted.length; i++) {
       indexOf[nodesSorted[i].id] = i;
-      nodes.add(_node(i, nodesSorted[i]));
+      nodes.add(_node(i, nodesSorted[i], tags: assembled[i].tags));
     }
     final out = Int32List(edges.length * 2);
     for (var i = 0; i < edges.length; i++) {
@@ -850,10 +1133,13 @@ class DiaryRepository {
       });
     final indexOf = <String, int>{};
     final nodes = <DiaryGraphNode>[];
+    final assembled = await _assemble(nodesSorted);
     for (var i = 0; i < nodesSorted.length; i++) {
       final d = nodesSorted[i];
       indexOf[d.id] = i;
-      nodes.add(_node(i, d, depth: visitedDepth[d.id]));
+      nodes.add(
+        _node(i, d, depth: visitedDepth[d.id], tags: assembled[i].tags),
+      );
     }
     final out = Int32List(validEdges.length * 2);
     for (var i = 0; i < validEdges.length; i++) {

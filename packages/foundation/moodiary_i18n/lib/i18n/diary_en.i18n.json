@@ -164,5 +164,15 @@
   "autoSaved": "Autosaved",
   "calendarTitle": "Calendar",
   "calendarBackToToday": "Today",
-  "calendarEmptyDay": "Nothing written that day"
+  "calendarEmptyDay": "Nothing written that day",
+  "tagSearchHint": "Search tags",
+  "tagNoMatch": "No matching tags",
+  "tagNoTag": "Untagged",
+  "allTags": "All tags",
+  "tagRename": "Rename tag",
+  "tagDelete": "Delete tag",
+  "tagRenameHint": "For example: Life/Travel",
+  "tagInvalid": "Invalid tag path",
+  "tagDeleteMessage": "Remove “{tag}” and its subtags from all entries, keeping their names as ordinary text.",
+  "tagUpdateFailed": "Could not update tag"
 }

@@ -39,9 +39,6 @@ Place place() => Place(
   lastModified: DateTime(2026),
 );
 
-Category cat() =>
-    Category(id: 'a', categoryName: 'work', lastModified: DateTime(2026));
-
 Widget wrap(Widget child) => MuiTheme(
   data: _mui,
   child: MaterialApp(
@@ -53,9 +50,7 @@ DiaryTimelineTile tile({
   Diary? d,
   bool dayStart = true,
   bool breakBefore = false,
-  Category? category,
   Place? place,
-  bool showCategoryLabel = true,
   bool selecting = false,
   bool selected = false,
   bool hasAbove = false,
@@ -67,9 +62,7 @@ DiaryTimelineTile tile({
     stamp: value.time,
     dayStart: dayStart,
     breakBefore: breakBefore,
-    category: category,
     place: place,
-    showCategoryLabel: showCategoryLabel,
     selecting: selecting,
     selected: selected,
     hasAbove: hasAbove,
@@ -79,7 +72,7 @@ DiaryTimelineTile tile({
 
 void main() {
   testWidgets('renders inside a ListView without layout error', (t) async {
-    await t.pumpWidget(wrap(tile(category: cat())));
+    await t.pumpWidget(wrap(tile()));
     expect(t.takeException(), isNull);
   });
 
@@ -111,29 +104,36 @@ void main() {
     expect(find.textContaining('晴'), findsOneWidget);
   });
 
-  testWidgets('category label follows showCategoryLabel', (t) async {
-    await t.pumpWidget(wrap(tile(category: cat(), showCategoryLabel: true)));
-    expect(find.text('work'), findsOneWidget);
-
-    await t.pumpWidget(wrap(tile(category: cat(), showCategoryLabel: false)));
-    expect(find.text('work'), findsNothing);
+  testWidgets('tag tap filters without opening the diary', (t) async {
+    final tags = <String>[];
+    var opened = false;
+    final d = diary(tags: const ['生活/旅行']);
+    await t.pumpWidget(
+      wrap(
+        DiaryTimelineTile(
+          diary: d,
+          stamp: d.time,
+          dayStart: true,
+          breakBefore: false,
+          onTap: () => opened = true,
+          onTagTap: tags.add,
+        ),
+      ),
+    );
+    await t.tap(find.text('#生活/旅行'));
+    expect(tags, ['生活/旅行']);
+    expect(opened, isFalse);
   });
 
-  testWidgets('selecting overlays a corner mark in place of the category', (
-    t,
-  ) async {
-    await t.pumpWidget(
-      wrap(tile(category: cat(), selecting: true, selected: true)),
-    );
+  testWidgets('selecting overlays a corner mark', (t) async {
+    await t.pumpWidget(wrap(tile(selecting: true, selected: true)));
     expect(find.byType(DiarySelectMark), findsOneWidget);
     expect(find.byIcon(LucideIcons.check), findsOneWidget);
     expect(find.text('work'), findsNothing);
   });
 
   testWidgets('unselected entries still get an empty mark', (t) async {
-    await t.pumpWidget(
-      wrap(tile(category: cat(), selecting: true, selected: false)),
-    );
+    await t.pumpWidget(wrap(tile(selecting: true, selected: false)));
     expect(find.byType(DiarySelectMark), findsOneWidget);
     expect(find.byIcon(LucideIcons.check), findsNothing);
   });

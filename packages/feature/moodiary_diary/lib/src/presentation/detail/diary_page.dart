@@ -15,6 +15,8 @@ import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 
+import '../../application/diary_filter.dart';
+import '../../application/diary_selection.dart';
 import '../../application/mood_suggester.dart';
 import '../place/place_editor.dart';
 import 'hop_history.dart';
@@ -25,6 +27,7 @@ class DiaryPage extends ConsumerStatefulWidget {
   final String? diaryId;
 
   final String? initialCategoryId;
+  final String? initialTag;
 
   final bool startInEdit;
 
@@ -32,12 +35,14 @@ class DiaryPage extends ConsumerStatefulWidget {
     super.key,
     this.diaryId,
     this.initialCategoryId,
+    this.initialTag,
     this.startInEdit = false,
   });
 
   factory DiaryPage.fromRoute(GoRouterState state) => DiaryPage(
     diaryId: state.params['diary_id'] as String?,
     initialCategoryId: state.params['category_id'] as String?,
+    initialTag: state.params['tag'] as String?,
     startInEdit: state.params['edit'] as bool? ?? false,
   );
 
@@ -120,6 +125,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     widget.diaryId,
     defaultType: .tiptap,
     defaultCategoryId: widget.initialCategoryId,
+    defaultTag: widget.initialTag,
   );
 
   @override
@@ -359,36 +365,48 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     _scheduleAutoSave();
   }
 
-  Future<void> _onPickCategory(Diary current) async {
-    final (picked, category) = await CategoryPickerSheet.show(
-      context: context,
-      currentCategoryId: current.categoryId,
-    );
-    if (!picked || !mounted) return;
-    ref.read(_provider.notifier).changeCategory(category?.id);
-    _dirty = true;
-    _scheduleAutoSave();
-  }
-
   Future<void> _onAddTag(Diary current) async {
-    final tag = await MAlert.prompt(
+    final entered = await MAlert.prompt(
       context,
       title: l10n.diary.addTag,
       hintText: l10n.diary.tagNameHint,
       confirmLabel: l10n.diary.add,
     );
-    if (tag == null || tag.isEmpty || !mounted) return;
+    final tag = entered == null ? null : TagPath.normalize(entered);
+    if (tag == null || !mounted) return;
     if (current.tags.contains(tag)) return;
     ref.read(_provider.notifier).changeTags([...current.tags, tag]);
     _dirty = true;
     _scheduleAutoSave();
   }
 
-  void _onRemoveTag(Diary current, int index) {
+  Future<void> _onRemoveTag(Diary current, int index) async {
+    if (index < 0 || index >= current.tags.length) return;
     final next = [...current.tags]..removeAt(index);
     ref.read(_provider.notifier).changeTags(next);
     _dirty = true;
+    final updated = ref.read(_provider).value;
+    if (updated != null && updated.content != current.content) {
+      _shownContent = updated.content;
+      await _editorController.removeTag(current.tags[index]);
+      if (!mounted) return;
+    }
     _scheduleAutoSave();
+  }
+
+  Future<void> _openTag(String tag) async {
+    if (_dirty) {
+      await _flushAutoSave();
+      if (!mounted) return;
+      if (_saveStatus != 'saved') {
+        toast.error(message: l10n.diary.saveFailed);
+        return;
+      }
+    }
+    if (!mounted) return;
+    ref.read(diarySelectionProvider.notifier).clear();
+    ref.read(homeDiaryFilterProvider.notifier).select(DiaryFilter.tag(tag));
+    const DiaryHomeRoute().go(context);
   }
 
   void _onChangeMood(DiaryMood mood) {
@@ -795,11 +813,11 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
       editorController: _editorController,
       onActiveHeadingChanged: (i) => _activeHeading.value = i,
       onOpenDiaryLink: _openLinkedDiary,
+      onOpenTag: _openTag,
       metaJson: _metaJson(diary),
       linksJson: _linksJson(),
       onPickDate: () => _onPickDate(diary),
       onPickTime: () => _onPickTime(diary),
-      onPickCategory: () => _onPickCategory(diary),
       onAddTag: () => _onAddTag(diary),
       onRemoveTag: (i) => _onRemoveTag(diary, i),
       onChangeMood: _onChangeMoodName,
@@ -824,15 +842,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
 
   String _metaJson(Diary diary) {
     final weather = diary.weather;
-    final categoryAsync = ref.watch(
-      getCategoryProvider(id: diary.categoryId ?? ''),
-    );
-    final categoryLabel = diary.categoryId == null
-        ? null
-        : categoryAsync.maybeWhen(
-            data: (c) => c?.categoryName ?? context.l10n.diary.unknownCategory,
-            orElse: () => context.l10n.diary.loading,
-          );
     final qweatherHost = MoodiaryKVs.qweatherApiHost.get();
     final qweatherKey = ref
         .watch(secretKvProvider(MoodiarySecureKVs.qweatherKey))
@@ -878,7 +887,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
             'icon': mood.iconName,
           },
       ],
-      'category': categoryLabel,
       'weather': weather == null
           ? null
           : {'icon': weather.icon, 'text': weather.displayText},

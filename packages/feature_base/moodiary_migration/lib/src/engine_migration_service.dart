@@ -350,6 +350,8 @@ class EngineMigrationService {
         }
       }
 
+      await diaryRepo.migrateLegacyCategoriesToTags();
+
       return EngineMigrationReport(
         diaries: diaryCount,
         entities: total,

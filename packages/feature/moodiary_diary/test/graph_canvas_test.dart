@@ -16,6 +16,7 @@ DiaryGraphData _graph({
   int? centerIndex,
   List<int?>? depths,
   List<String?>? previews,
+  List<List<String>>? tags,
 }) {
   final flat = Int32List(edges.length * 2);
   for (var i = 0; i < edges.length; i++) {
@@ -31,6 +32,7 @@ DiaryGraphData _graph({
           title: i.isEven ? '日记标题 $i' : '',
           time: DateTime(2026, 1, 1).add(Duration(days: i)),
           categoryId: i % 3 == 0 ? null : 'cat-${i % 3}',
+          tags: tags?[i] ?? const [],
           depth: depths?[i],
           preview: previews?[i] ?? '正文第 $i 段的开头一句话',
         ),
@@ -104,6 +106,26 @@ Future<void> _pumpCanvas(
 }
 
 void main() {
+  test(
+    'tag graph filtering matches descendants and preserves tags on reindex',
+    () {
+      final data = _graph(
+        n: 3,
+        edges: [(0, 1), (1, 2)],
+        tags: [
+          ['工作'],
+          ['工作/项目'],
+          ['工作室'],
+        ],
+      );
+      final filtered = filterGraph(data, tag: '工作');
+      expect(filtered.nodes.map((node) => node.id), ['id-0', 'id-1']);
+      expect(filtered.edgeCount, 1);
+      expect(filtered.nodes.last.tags, ['工作/项目']);
+      expect(filterGraph(filtered, tag: '工作').nodeCount, 2);
+    },
+  );
+
   group('GraphScene', () {
     test('CSR 邻接去重互链，度数与无向边正确', () {
       final scene = _scene(_graph(n: 4, edges: [(0, 1), (1, 0), (1, 2)]));

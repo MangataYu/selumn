@@ -30,15 +30,17 @@ android {
     signingConfigs {
         create("config") {
             storeFile = file("key.jks")
-            storePassword = localProperties.getProperty("storePassword")
-            keyPassword = localProperties.getProperty("keyPassword")
+            storePassword = System.getenv("ANDROID_STORE_PASSWORD")
+                ?: localProperties.getProperty("storePassword")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                ?: localProperties.getProperty("keyPassword")
             keyAlias = "key0"
             enableV3Signing = true
         }
     }
 
     defaultConfig {
-        applicationId = "cn.yooss.moodiary"
+        applicationId = "com.aerieyarrowy.selume"
         // 28 起才认 DT_ANDROID_RELR；native_toolchain_rust 把 apiTarget 硬编码成 35，26/27 会静默跳过全部重定位
         minSdk = 28
         targetSdk = 36

@@ -1,8 +1,9 @@
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 
-enum ExportScopeKind { all, category, dateRange, picked }
+enum ExportScopeKind { all, category, tag, dateRange, picked }
 
 sealed class ExportScope {
   const ExportScope();
@@ -43,6 +44,36 @@ class CategoryScope extends ExportScope {
 
   @override
   ExportScopeKind get kind => .category;
+
+  @override
+  String? get detail => names;
+}
+
+/// Null selects untagged entries. Parent paths include all descendants.
+class TagScope extends ExportScope {
+  final Set<String?> tags;
+  final String names;
+
+  const TagScope(this.tags, this.names);
+
+  @override
+  Future<List<Diary>> resolve() async {
+    final all = await getIt<DiaryRepository>().getAllDiaries();
+    return _visibleSorted(
+      all
+          .where(
+            (diary) => tags.any(
+              (tag) => tag == null
+                  ? diary.tags.isEmpty
+                  : diary.tags.any((value) => TagPath.matches(value, tag)),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  @override
+  ExportScopeKind get kind => .tag;
 
   @override
   String? get detail => names;

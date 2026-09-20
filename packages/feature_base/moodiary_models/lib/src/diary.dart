@@ -14,6 +14,7 @@ abstract class Diary with _$Diary {
   const factory Diary({
     required String id,
     String? categoryId,
+    @Default([]) List<String> legacyCategoryExcludedTags,
     required String title,
     required String content,
     required String contentText,

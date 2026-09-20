@@ -35,6 +35,7 @@ class MoodiaryEditorView extends StatefulWidget {
   final String saveStatus;
 
   final ValueChanged<String>? onOpenDiaryLink;
+  final ValueChanged<String>? onOpenTag;
 
   final String? metaJson;
   final String? linksJson;
@@ -68,6 +69,7 @@ class MoodiaryEditorView extends StatefulWidget {
     this.fontScale = 1.0,
     this.saveStatus = 'idle',
     this.onOpenDiaryLink,
+    this.onOpenTag,
     this.metaJson,
     this.linksJson,
     this.onPickDate,
@@ -272,6 +274,12 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
     ];
   }
 
+  Future<List<String>> _tagCandidates(String query) async {
+    final tags = await getIt<DiaryRepository>().getAllTags();
+    final q = query.toLowerCase();
+    return tags.where((tag) => tag.toLowerCase().contains(q)).take(20).toList();
+  }
+
   String _candidateLabel(Diary d) {
     final title = d.title.trim();
     if (title.isNotEmpty) return title;
@@ -303,7 +311,9 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
       onImageTap: _previewImages,
       onVideoFullscreen: _openVideoFullscreen,
       onRequestLinkCandidates: _linkCandidates,
+      onRequestTagCandidates: _tagCandidates,
       onOpenDiaryLink: widget.onOpenDiaryLink,
+      onOpenTag: widget.onOpenTag,
       metaJson: widget.metaJson,
       linksJson: widget.linksJson,
       onPickDate: widget.onPickDate,

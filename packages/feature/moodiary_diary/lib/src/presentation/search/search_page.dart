@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moodiary_components/moodiary_components.dart';
@@ -151,7 +150,7 @@ class _DiarySearchPageState extends ConsumerState<DiarySearchPage> {
         children: [
           _dateChip(context, state),
           const SizedBox(width: 8),
-          _categoryChip(context, state),
+          _tagChip(context, state),
           const SizedBox(width: 8),
           _sortChip(context, state),
         ],
@@ -196,33 +195,19 @@ class _DiarySearchPageState extends ConsumerState<DiarySearchPage> {
     );
   }
 
-  Widget _categoryChip(BuildContext context, DiarySearchState state) {
-    final categories = ref
-        .watch(orderedCategoriesProvider)
-        .when(
-          data: (d) => d,
-          loading: () => const <Category>[],
-          error: (_, _) => const <Category>[],
-        );
-    final label = state.categoryId == null
-        ? context.l10n.diary.allCategories
-        : (categories
-                  .firstWhereOrNull((c) => c.id == state.categoryId)
-                  ?.categoryName ??
-              context.l10n.diary.allCategories);
+  Widget _tagChip(BuildContext context, DiarySearchState state) {
+    final tags = ref.watch(diaryTagsProvider).value ?? const <String>[];
     return MMenuButton<String>(
-      // 空串 = 全部分类，null = 未选择
-      selected: state.categoryId ?? '',
-      onSelected: (id) => _controller.setCategory(id.isEmpty ? null : id),
+      selected: state.tag ?? '',
+      onSelected: (tag) => _controller.setTag(tag.isEmpty ? null : tag),
       entries: [
-        MMenuEntry(value: '', label: context.l10n.diary.allCategories),
-        for (final c in categories)
-          MMenuEntry(value: c.id, label: c.categoryName),
+        MMenuEntry(value: '', label: context.l10n.diary.allTags),
+        for (final tag in tags) MMenuEntry(value: tag, label: '#$tag'),
       ],
       child: _FilterChip(
-        icon: LucideIcons.folder,
-        label: label,
-        active: state.categoryId != null,
+        icon: LucideIcons.hash,
+        label: state.tag == null ? context.l10n.diary.allTags : '#${state.tag}',
+        active: state.tag != null,
       ),
     );
   }

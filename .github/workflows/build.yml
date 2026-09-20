@@ -2,9 +2,21 @@ name: Build & Release
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: Create a draft release after building
+        type: boolean
+        default: false
+      prerelease:
+        description: Publish a test pre-release after building (takes priority over create_release)
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*.*.*'
+
+permissions:
+  contents: read
 
 jobs:
   build-apk:
@@ -60,16 +72,32 @@ jobs:
         run: flutter pub get
 
       - name: Decode Keystore
+        env:
+          ANDROID_KJS: ${{ secrets.ANDROID_KJS }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.ANDROID_KJS }}" | base64 --decode > mobile/android/app/key.jks
-
-      - name: Create local.properties
-        run: |
-          echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" > mobile/android/local.properties
-          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> mobile/android/local.properties
+          for name in ANDROID_KJS ANDROID_STORE_PASSWORD ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required signing secret: $name" >&2
+              exit 1
+            fi
+          done
+          if ! printf '%s' "$ANDROID_KJS" | base64 --decode > mobile/android/app/key.jks; then
+            echo "ANDROID_KJS must contain a valid Base64-encoded keystore" >&2
+            exit 1
+          fi
+          if ! keytool -list -keystore mobile/android/app/key.jks \
+            -storepass:env ANDROID_STORE_PASSWORD -alias key0 > /dev/null 2>&1; then
+            echo "Unable to open the signing keystore or find alias key0" >&2
+            exit 1
+          fi
 
       - name: Build APK
         working-directory: mobile
+        env:
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release --target-platform android-arm64 --obfuscate --split-debug-info=splitMap
 
       - name: Upload APK Artifact
@@ -78,9 +106,12 @@ jobs:
           name: android-apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
   release:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.create_release == true || inputs.prerelease == true
     runs-on: ubuntu-latest
     name: Publish Release
     needs: [ build-apk ]
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -92,43 +123,80 @@ jobs:
           name: android-apk
           path: artifacts/android
 
-      - name: Read Version From Pubspec
+      - name: Resolve Release Metadata
+        id: release_metadata
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
         run: |
           version=$(sed -n 's/^version: \([0-9.]*\)+.*/\1/p' mobile/pubspec.yaml)
-          if [ -z "$version" ]; then
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "could not read version from mobile/pubspec.yaml" >&2
             exit 1
           fi
+          release_tag="v$version"
+          artifact_version="$version"
+          if [ "$RELEASE_EVENT_NAME" = "push" ] && [ "$RELEASE_REF_TYPE" = "tag" ] && [ "$RELEASE_REF_NAME" != "$release_tag" ]; then
+            echo "Pushed tag must match the pubspec version: $release_tag; use workflow_dispatch with prerelease for test releases" >&2
+            exit 1
+          fi
+          if [ "$PRERELEASE" = "true" ]; then
+            release_tag="$release_tag-selume-test.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            artifact_version="$release_tag"
+          fi
           echo "Version detected: $version"
           echo "VERSION=$version" >> $GITHUB_ENV
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "artifact_version=$artifact_version" >> "$GITHUB_OUTPUT"
 
       - name: Rename Artifacts
+        env:
+          ARTIFACT_VERSION: ${{ steps.release_metadata.outputs.artifact_version }}
         run: |
           mkdir -p renamed-artifacts
-          mv artifacts/android/app-release.apk renamed-artifacts/moodiary-${{ env.VERSION }}-android-arm64.apk
+          mv artifacts/android/app-release.apk "renamed-artifacts/selume-$ARTIFACT_VERSION-android-arm64.apk"
 
       - name: Extract Release Notes From Changelog
+        if: inputs.prerelease != true
         run: |
-          awk -v want="## [${{ env.VERSION }}]" '
+          awk -v want="## [$VERSION]" '
             index($0, want) == 1 { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md > release-notes.md
           if [ ! -s release-notes.md ]; then
-            echo "no [${{ env.VERSION }}] section in CHANGELOG.md" >&2
+            echo "no [$VERSION] section in CHANGELOG.md" >&2
             exit 1
           fi
           cat release-notes.md
+
+      - name: Write Pre-release Notes
+        if: inputs.prerelease == true
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            printf '%s\n\n' 'Selume Android CI test pre-release.'
+            printf '%s\n\n' 'This signed ARM64 APK is for testing the build and installation flow.'
+            printf 'Commit: `%s`\n\n' "$RELEASE_SHA"
+            printf 'Build: %s\n' "$RELEASE_RUN_URL"
+          } > release-notes.md
 
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: renamed-artifacts/*
-          tag: v${{ env.VERSION }}
-          name: v${{ env.VERSION }}
+          tag: ${{ steps.release_metadata.outputs.tag }}
+          name: ${{ steps.release_metadata.outputs.tag }}
           bodyFile: release-notes.md
           commit: ${{ github.sha }}
-          draft: true
-          prerelease: false
-          allowUpdates: true
+          draft: ${{ inputs.prerelease != true }}
+          prerelease: ${{ inputs.prerelease == true }}
+          makeLatest: ${{ inputs.prerelease == true && 'false' || 'legacy' }}
+          immutableCreate: ${{ inputs.prerelease == true }}
+          artifactErrorsFailBuild: ${{ inputs.prerelease == true }}
+          allowUpdates: ${{ inputs.prerelease != true }}
           token: ${{ secrets.GITHUB_TOKEN }}

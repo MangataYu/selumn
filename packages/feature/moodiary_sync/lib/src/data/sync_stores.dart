@@ -19,6 +19,10 @@ abstract interface class SyncDiaryStore {
 
   Future<void> insertADiary(Diary diary, {bool fromSync = false});
 
+  Future<int> migrateLegacyCategoriesToTags({
+    Set<String> excludeIds = const {},
+  });
+
   Future<SyncTombstone> tombstoneDiary(Diary diary, {bool fromSync = false});
 }
 
@@ -84,6 +88,11 @@ class RepoSyncDiaryStore implements SyncDiaryStore {
   @override
   Future<void> insertADiary(Diary diary, {bool fromSync = false}) =>
       _repo.insertADiary(diary, fromSync: fromSync);
+
+  @override
+  Future<int> migrateLegacyCategoriesToTags({
+    Set<String> excludeIds = const {},
+  }) => _repo.migrateLegacyCategoriesToTags(excludeIds: excludeIds);
 
   @override
   Future<SyncTombstone> tombstoneDiary(Diary diary, {bool fromSync = false}) =>

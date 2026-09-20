@@ -29,12 +29,11 @@ class DiaryFeedTile extends StatelessWidget {
   final Diary diary;
 
   final DiarySort sort;
-  final Category? category;
   final Place? place;
-  final bool showCategoryLabel;
   final DiaryCardSyncState syncState;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<String>? onTagTap;
   final bool selecting;
   final bool selected;
 
@@ -42,12 +41,11 @@ class DiaryFeedTile extends StatelessWidget {
     super.key,
     required this.diary,
     this.sort = .timeDesc,
-    this.category,
     this.place,
-    this.showCategoryLabel = true,
     this.syncState = .none,
     this.onTap,
     this.onLongPress,
+    this.onTagTap,
     this.selecting = false,
     this.selected = false,
   });
@@ -80,9 +78,7 @@ class DiaryFeedTile extends StatelessWidget {
             child: _MetaLine(
               diary: diary,
               stamp: stamp,
-              category: category,
               place: place,
-              showCategoryLabel: showCategoryLabel,
               syncState: syncState,
             ),
           ),
@@ -124,7 +120,15 @@ class DiaryFeedTile extends StatelessWidget {
             Wrap(
               spacing: 12,
               runSpacing: 6,
-              children: [for (final tag in diary.tags) _TagChip(label: tag)],
+              children: [
+                for (final tag in diary.tags)
+                  _TagChip(
+                    label: tag,
+                    onTap: selecting || onTagTap == null
+                        ? null
+                        : () => onTagTap!(tag),
+                  ),
+              ],
             ),
           ],
         ],
@@ -375,17 +379,13 @@ class _AudioBar extends StatelessWidget {
 class _MetaLine extends StatelessWidget {
   final Diary diary;
   final DateTime stamp;
-  final Category? category;
   final Place? place;
-  final bool showCategoryLabel;
   final DiaryCardSyncState syncState;
 
   const _MetaLine({
     required this.diary,
     required this.stamp,
-    required this.category,
     required this.place,
-    required this.showCategoryLabel,
     required this.syncState,
   });
 
@@ -422,17 +422,6 @@ class _MetaLine extends StatelessWidget {
         ),
       ),
       TextSpan(text: TimeFormat.compactDateTime(stamp)),
-      if (showCategoryLabel && category != null) ...[
-        dot,
-        WidgetSpan(
-          alignment: .middle,
-          child: Padding(
-            padding: const .only(right: 4),
-            child: _CategoryDot(category: category!),
-          ),
-        ),
-        TextSpan(text: category!.categoryName),
-      ],
       if (weather != null) ...[
         dot,
         icon(qweatherIcon(weather.icon) ?? LucideIcons.cloud),
@@ -464,31 +453,24 @@ class _MetaLine extends StatelessWidget {
   }
 }
 
-class _CategoryDot extends StatelessWidget {
-  final Category category;
-
-  const _CategoryDot({required this.category});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        color: categoryColorOf(colorValue: category.color, id: category.id),
-        shape: .circle,
-      ),
-    );
-  }
-}
-
 class _TagChip extends StatelessWidget {
   final String label;
 
-  const _TagChip({required this.label});
+  final VoidCallback? onTap;
+
+  const _TagChip({required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Text('#$label', style: context.theme.typography.labelMedium.primary);
+    return MInkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const .symmetric(vertical: 4),
+        child: Text(
+          '#$label',
+          style: context.theme.typography.labelMedium.primary,
+        ),
+      ),
+    );
   }
 }

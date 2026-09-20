@@ -3,11 +3,12 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
 import '../data/export_scope.dart';
 
-enum _ScopeKind { all, category, dateRange, picked }
+enum _ScopeKind { all, tag, dateRange, picked }
 
 class ScopePickerPage extends StatefulWidget {
   final ExportScope initial;
@@ -21,16 +22,17 @@ class ScopePickerPage extends StatefulWidget {
 class _ScopePickerPageState extends State<ScopePickerPage> {
   late _ScopeKind _kind = switch (widget.initial) {
     AllDiariesScope() => _ScopeKind.all,
-    CategoryScope() => _ScopeKind.category,
+    CategoryScope() => _ScopeKind.all,
+    TagScope() => _ScopeKind.tag,
     DateRangeScope() => _ScopeKind.dateRange,
     PickedScope() => _ScopeKind.picked,
   };
 
-  final Set<String?> _categoryIds = {};
+  final Set<String?> _selectedTags = {};
   DateTimeRange? _range;
   final Set<String> _pickedIds = {};
 
-  List<Category> _categories = const [];
+  List<String> _tags = const [];
   List<Diary> _diaries = const [];
   bool _loading = true;
 
@@ -43,8 +45,10 @@ class _ScopePickerPageState extends State<ScopePickerPage> {
 
   void _restore() {
     switch (widget.initial) {
-      case CategoryScope(:final categoryIds):
-        _categoryIds.addAll(categoryIds);
+      case TagScope(:final tags):
+        _selectedTags.addAll(tags);
+      case CategoryScope():
+        break;
       case DateRangeScope(:final from, :final to):
         _range = DateTimeRange(start: from, end: to);
       case PickedScope(:final diaryIds):
@@ -59,50 +63,37 @@ class _ScopePickerPageState extends State<ScopePickerPage> {
     final visible = all.where((d) => d.show).toList()
       ..sort((a, b) => b.time.compareTo(a.time));
 
-    final ids = visible
-        .map((d) => d.categoryId)
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    final repository = getIt<CategoryRepository>();
-    final categories = <Category>[];
-    for (final id in ids) {
-      final category = await repository.getCategoryById(id);
-      if (category != null) categories.add(category);
-    }
-    categories.sort((a, b) => a.categoryName.compareTo(b.categoryName));
+    final tags = {
+      for (final diary in visible)
+        for (final tag in diary.tags) ...TagPath.ancestors(tag),
+    }.toList()..sort();
 
     if (!mounted) return;
     setState(() {
       _diaries = visible;
-      _categories = categories;
+      _tags = tags;
       _loading = false;
     });
   }
 
   ExportScope? _build(Translations l10n) => switch (_kind) {
     .all => const AllDiariesScope(),
-    .category =>
-      _categoryIds.isEmpty
+    .tag =>
+      _selectedTags.isEmpty
           ? null
-          : CategoryScope({..._categoryIds}, _categoryLabel(l10n)),
+          : TagScope({..._selectedTags}, _tagLabel(l10n)),
     .dateRange =>
       _range == null ? null : DateRangeScope(_range!.start, _range!.end),
     .picked => _pickedIds.isEmpty ? null : PickedScope({..._pickedIds}),
   };
 
-  String _categoryLabel(Translations l10n) {
-    final names = _categoryIds.map((id) {
-      if (id == null || id.isEmpty) return l10n.export.uncategorized;
-      return _categories
-              .where((c) => c.id == id)
-              .map((c) => c.categoryName)
-              .firstOrNull ??
-          l10n.export.deletedCategory;
-    }).toList();
+  String _tagLabel(Translations l10n) {
+    final names = _selectedTags
+        .map((tag) => tag ?? l10n.diary.tagNoTag)
+        .toList();
     return names.length <= 2
         ? names.join('、')
-        : l10n.common.categoryCount(count: names.length);
+        : l10n.common.tagCount(count: names.length);
   }
 
   @override
@@ -137,7 +128,7 @@ class _ScopePickerPageState extends State<ScopePickerPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                if (_kind == .category) _categoryList(l10n),
+                if (_kind == .tag) _tagList(l10n),
                 if (_kind == .dateRange) _rangeTile(l10n),
                 if (_kind == .picked) _diaryList(l10n),
               ],
@@ -164,7 +155,7 @@ class _ScopePickerPageState extends State<ScopePickerPage> {
 
   String _kindLabel(Translations l10n, _ScopeKind kind) => switch (kind) {
     .all => l10n.export.scopeAll,
-    .category => l10n.export.scopeByCategory,
+    .tag => l10n.export.scopeByTag,
     .dateRange => l10n.export.scopeByDate,
     .picked => l10n.export.scopePicked,
   };
@@ -173,42 +164,42 @@ class _ScopePickerPageState extends State<ScopePickerPage> {
       ? Text(l10n.export.entryCount(count: _diaries.length))
       : null;
 
-  Widget _categoryList(Translations l10n) {
+  Widget _tagList(Translations l10n) {
     final scheme = context.theme.colors;
-    final uncategorized = _diaries.where((d) {
-      final id = d.categoryId;
-      return id == null || id.isEmpty;
-    }).length;
+    final untagged = _diaries.where((d) => d.tags.isEmpty).length;
 
     return Card.filled(
       color: scheme.surfaceContainerLow,
       margin: .zero,
       child: Column(
         children: [
-          if (uncategorized > 0)
+          if (untagged > 0)
             CheckboxListTile(
-              value: _categoryIds.contains(null),
-              title: Text(l10n.export.uncategorized),
-              subtitle: Text(l10n.export.entryCount(count: uncategorized)),
+              value: _selectedTags.contains(null),
+              title: Text(l10n.diary.tagNoTag),
+              subtitle: Text(l10n.export.entryCount(count: untagged)),
               onChanged: (v) => setState(() {
-                v == true ? _categoryIds.add(null) : _categoryIds.remove(null);
+                v == true
+                    ? _selectedTags.add(null)
+                    : _selectedTags.remove(null);
               }),
             ),
-          for (final category in _categories)
+          for (final tag in _tags)
             CheckboxListTile(
-              value: _categoryIds.contains(category.id),
-              title: Text(category.categoryName),
+              value: _selectedTags.contains(tag),
+              title: Text('#$tag'),
               subtitle: Text(
                 l10n.export.entryCount(
                   count: _diaries
-                      .where((d) => d.categoryId == category.id)
+                      .where(
+                        (d) =>
+                            d.tags.any((value) => TagPath.matches(value, tag)),
+                      )
                       .length,
                 ),
               ),
               onChanged: (v) => setState(() {
-                v == true
-                    ? _categoryIds.add(category.id)
-                    : _categoryIds.remove(category.id);
+                v == true ? _selectedTags.add(tag) : _selectedTags.remove(tag);
               }),
             ),
         ],

@@ -7,6 +7,7 @@ CREATE TABLE diaries (
   rid           INTEGER PRIMARY KEY,
   id            TEXT NOT NULL UNIQUE,
   category_id   TEXT,
+  legacy_category_excluded_tags_json TEXT NOT NULL DEFAULT '[]',
   title         TEXT NOT NULL,
   content       TEXT NOT NULL,
   content_text  TEXT NOT NULL,

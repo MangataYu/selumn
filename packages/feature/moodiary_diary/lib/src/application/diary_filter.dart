@@ -5,7 +5,16 @@ class DiaryFilter {
 
   final bool uncategorized;
 
-  const DiaryFilter._(this.categoryId, this.uncategorized);
+  final String? tagPath;
+
+  final bool untagged;
+
+  const DiaryFilter._(
+    this.categoryId,
+    this.uncategorized, [
+    this.tagPath,
+    this.untagged = false,
+  ]);
 
   const DiaryFilter.all() : this._(null, false);
 
@@ -13,20 +22,31 @@ class DiaryFilter {
 
   const DiaryFilter.uncategorized() : this._(null, true);
 
-  bool get isAll => categoryId == null && !uncategorized;
+  const DiaryFilter.tag(String path) : this._(null, false, path);
+
+  const DiaryFilter.untagged() : this._(null, false, null, true);
+
+  bool get isAll =>
+      categoryId == null && !uncategorized && tagPath == null && !untagged;
 
   @override
   bool operator ==(Object other) =>
       other is DiaryFilter &&
       other.categoryId == categoryId &&
-      other.uncategorized == uncategorized;
+      other.uncategorized == uncategorized &&
+      other.tagPath == tagPath &&
+      other.untagged == untagged;
 
   @override
-  int get hashCode => Object.hash(categoryId, uncategorized);
+  int get hashCode => Object.hash(categoryId, uncategorized, tagPath, untagged);
 
   @override
   String toString() => isAll
       ? 'DiaryFilter.all()'
+      : untagged
+      ? 'DiaryFilter.untagged()'
+      : tagPath != null
+      ? 'DiaryFilter.tag($tagPath)'
       : uncategorized
       ? 'DiaryFilter.uncategorized()'
       : 'DiaryFilter.category($categoryId)';
@@ -35,6 +55,10 @@ class DiaryFilter {
 class DiaryFilterNotifier extends Notifier<DiaryFilter> {
   @override
   DiaryFilter build() => const .all();
+
+  // Selecting the same tag from another page still requests diary navigation.
+  @override
+  bool updateShouldNotify(DiaryFilter previous, DiaryFilter next) => true;
 
   void select(DiaryFilter filter) => state = filter;
 

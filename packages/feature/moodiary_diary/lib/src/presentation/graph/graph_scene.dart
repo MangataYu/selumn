@@ -5,6 +5,7 @@ import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_diary/src/presentation/graph/graph_style.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_theme/moodiary_theme.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 
 class GraphBatch {
   final int start;
@@ -331,12 +332,16 @@ final emptyGraphData = DiaryGraphData(nodes: const [], edges: Int32List(0));
 DiaryGraphData filterGraph(
   DiaryGraphData full, {
   String? categoryId,
+  String? tag,
   DateTimeRange? range,
 }) {
-  if (categoryId == null && range == null) return full;
+  if (categoryId == null && tag == null && range == null) return full;
 
   bool keep(DiaryGraphNode n) {
     if (categoryId != null && n.categoryId != categoryId) return false;
+    if (tag != null && !n.tags.any((value) => TagPath.matches(value, tag))) {
+      return false;
+    }
     if (range != null) {
       final t = n.time.toLocal();
       if (t.isBefore(range.start) || t.isAfter(range.end)) return false;
@@ -377,6 +382,7 @@ DiaryGraphNode _reindex(DiaryGraphNode n, int i) => DiaryGraphNode(
   title: n.title,
   time: n.time,
   categoryId: n.categoryId,
+  tags: n.tags,
   depth: n.depth,
   preview: n.preview,
 );

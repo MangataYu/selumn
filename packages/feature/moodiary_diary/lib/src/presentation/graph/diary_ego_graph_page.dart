@@ -249,7 +249,7 @@ class _DiaryEgoGraphPageState extends ConsumerState<DiaryEgoGraphPage>
       data: graph,
       categories: categories,
       palette: palette,
-      mode: .category,
+      mode: .time,
     );
     _dirs = egoDirectionsOf(_scene!);
     if (!sameGraph) {

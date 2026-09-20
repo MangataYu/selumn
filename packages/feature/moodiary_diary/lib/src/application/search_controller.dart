@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -19,7 +20,7 @@ abstract class DiarySearchState with _$DiarySearchState {
     @Default(false) bool isLoadingMore,
     Duration? elapsed,
     @Default('') String query,
-    String? categoryId,
+    String? tag,
     @Default(DateRangePreset.all) DateRangePreset datePreset,
     DateTime? customStart,
     DateTime? customEnd,
@@ -42,6 +43,30 @@ class DiarySearchController extends _$DiarySearchController {
   @override
   DiarySearchState build() {
     unawaited(_repository.warmUpSearch());
+    Timer? refresh;
+    final subscription = _repository.diaryEvents.listen((_) {
+      refresh?.cancel();
+      refresh = Timer(const Duration(milliseconds: 200), () async {
+        if (!ref.mounted || state.query.isEmpty) return;
+        final request = _seq + 1;
+        try {
+          await _run();
+        } catch (error, stackTrace) {
+          logger.e(
+            'Search refresh failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          if (ref.mounted && request == _seq) {
+            state = state.copyWith(isSearching: false, isLoadingMore: false);
+          }
+        }
+      });
+    });
+    ref.onDispose(() {
+      refresh?.cancel();
+      subscription.cancel();
+    });
     return const DiarySearchState();
   }
 
@@ -50,8 +75,8 @@ class DiarySearchController extends _$DiarySearchController {
     await _run();
   }
 
-  Future<void> setCategory(String? categoryId) async {
-    state = state.copyWith(categoryId: categoryId);
+  Future<void> setTag(String? tag) async {
+    state = state.copyWith(tag: tag);
     await _run();
   }
 
@@ -127,13 +152,13 @@ class DiarySearchController extends _$DiarySearchController {
     final (total, results) = await (
       _repository.countSearchDiaries(
         query: trimmed,
-        categoryId: state.categoryId,
+        tag: state.tag,
         start: range.start,
         end: range.end,
       ),
       _repository.searchDiaries(
         query: trimmed,
-        categoryId: state.categoryId,
+        tag: state.tag,
         start: range.start,
         end: range.end,
         sort: state.sort,
@@ -157,7 +182,7 @@ class DiarySearchController extends _$DiarySearchController {
     final range = _resolveRange();
     final next = await _repository.searchDiaries(
       query: state.query,
-      categoryId: state.categoryId,
+      tag: state.tag,
       start: range.start,
       end: range.end,
       sort: state.sort,

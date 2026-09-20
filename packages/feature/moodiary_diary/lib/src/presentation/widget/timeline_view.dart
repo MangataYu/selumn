@@ -27,8 +27,8 @@ class DiaryTimelineView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = diaryControllerProvider(
-      categoryId: filter.categoryId,
-      uncategorized: filter.uncategorized,
+      tag: filter.tagPath,
+      untagged: filter.untagged,
     );
     final diaryAsync = ref.watch(provider);
     final selection = ref.watch(diarySelectionProvider);
@@ -51,8 +51,8 @@ class DiaryTimelineView extends ConsumerWidget {
               final monthCounts = ref
                   .watch(
                     timelineMonthCountsProvider(
-                      categoryId: filter.categoryId,
-                      uncategorized: filter.uncategorized,
+                      tag: filter.tagPath,
+                      untagged: filter.untagged,
                       sort: sort,
                     ),
                   )
@@ -88,9 +88,6 @@ class DiaryTimelineView extends ConsumerWidget {
                         : DiaryCardSyncState.none;
                     return Consumer(
                       builder: (context, ref, _) {
-                        final category = ref.watch(
-                          categoryByIdProvider(diary.categoryId),
-                        );
                         final place = ref.watch(
                           placeByIdProvider(diary.placeId),
                         );
@@ -106,9 +103,17 @@ class DiaryTimelineView extends ConsumerWidget {
                           breakAfter: next?.breakBefore ?? false,
                           hasAbove: flatIndex > 0,
                           moodBelow: next?.diary.mood,
-                          category: category,
                           place: place,
-                          showCategoryLabel: filter.isAll,
+                          onTagTap: selecting
+                              ? null
+                              : (tag) {
+                                  ref
+                                      .read(diarySelectionProvider.notifier)
+                                      .clear();
+                                  ref
+                                      .read(homeDiaryFilterProvider.notifier)
+                                      .select(.tag(tag));
+                                },
                           syncState: syncState,
                           selecting: selecting,
                           selected: selection.contains(diary.id),

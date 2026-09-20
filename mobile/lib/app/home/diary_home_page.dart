@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_data/moodiary_data.dart';
-import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/moodiary_diary.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/shell/root_navigation.dart';
@@ -52,17 +51,6 @@ class _DiaryListViewState extends ConsumerState<_DiaryListView> {
     final selecting = selection.isNotEmpty;
     final filter = ref.watch(homeDiaryFilterProvider);
 
-    ref.listen(orderedCategoriesProvider, (_, next) {
-      final id = ref.read(homeDiaryFilterProvider).categoryId;
-      final categories = next.value;
-      if (id == null || categories == null) return;
-      if (!categories.any((c) => c.id == id)) {
-        ref.read(homeDiaryFilterProvider.notifier).reset();
-        ref.read(diarySelectionProvider.notifier).clear();
-        toast.info(message: context.l10n.app.categoryDeletedReset);
-      }
-    });
-
     final body = _buildDiaryView(filter);
     return PopScope(
       canPop: !selecting,
@@ -99,14 +87,7 @@ class _DiaryListViewState extends ConsumerState<_DiaryListView> {
   PreferredSizeWidget _normalAppBar(BuildContext context, DiaryFilter filter) {
     return RootNavigation(
       onOpenDrawer: widget.onOpenDrawer,
-      menuIcon: ValueListenableBuilder(
-        valueListenable: getIt<SyncPendingTracker>().listenable,
-        builder: (context, pending, _) => Badge(
-          isLabelVisible: pending.newCategoryIds.isNotEmpty,
-          smallSize: 7,
-          child: const Icon(LucideIcons.menu),
-        ),
-      ),
+      menuIcon: const Icon(LucideIcons.menu),
       bottom: filter.isAll
           ? null
           : PreferredSize(
@@ -161,8 +142,8 @@ class _DiaryListViewState extends ConsumerState<_DiaryListView> {
     final n = await ref
         .read(
           diaryControllerProvider(
-            categoryId: filter.categoryId,
-            uncategorized: filter.uncategorized,
+            tag: filter.tagPath,
+            untagged: filter.untagged,
           ).notifier,
         )
         .softDeleteByIds(ids);
@@ -183,52 +164,21 @@ class _FilterTitle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = context.theme.colors;
-    final counts = ref.watch(categoryDiaryCountsProvider).value;
-    final category = filter.categoryId == null
+    final counts = ref.watch(tagDiaryCountsProvider).value;
+    final label = filter.untagged
+        ? context.l10n.diary.tagNoTag
+        : '#${filter.tagPath}';
+    final count = counts == null
         ? null
-        : ref.watch(categoryByIdProvider(filter.categoryId));
-
-    final (String label, Color? dot, int? count) = switch (filter) {
-      _ when filter.isAll => (context.l10n.common.appName, null, null),
-      _ when filter.uncategorized => (
-        context.l10n.diary.categoryNoCategory,
-        null,
-        counts == null
-            ? null
-            : counts.total -
-                  counts.byCategory.values.fold<int>(0, (a, b) => a + b),
-      ),
-      _ => (
-        category?.categoryName ?? context.l10n.common.appName,
-        category == null
-            ? null
-            : categoryColorOf(colorValue: category.color, id: category.id),
-        counts?.byCategory[filter.categoryId],
-      ),
-    };
+        : filter.untagged
+        ? counts.untagged
+        : counts.byTag[filter.tagPath] ?? 0;
 
     return Row(
       mainAxisSize: .min,
       children: [
-        if (dot != null) ...[
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(color: dot, shape: .circle),
-          ),
-          const SizedBox(width: 8),
-        ] else if (filter.uncategorized) ...[
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              shape: .circle,
-              border: .all(color: scheme.outline, width: 1.4),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        Icon(filter.untagged ? LucideIcons.tag : LucideIcons.hash, size: 16),
+        const SizedBox(width: 8),
         Flexible(child: Text(label, maxLines: 1, overflow: .ellipsis)),
         if (count != null) ...[
           const SizedBox(width: 8),

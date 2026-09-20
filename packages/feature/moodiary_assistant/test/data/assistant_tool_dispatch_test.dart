@@ -21,6 +21,15 @@ void main() {
     expect(result, contains('unknown tool'));
   });
 
+  test('旧分类工具保留历史摘要但不再执行', () async {
+    final result = await dispatchAssistantTool(
+      spec: AssistantToolRegistry.byId(AssistantTool.createCategory.id),
+      toolName: AssistantTool.createCategory.id,
+      argsJson: '{"name":"旅行"}',
+    );
+    expect(result, startsWith('Failed: retired tool'));
+  });
+
   test('dispatch 不做审批，直接执行', () async {
     final result = await dispatchAssistantTool(
       spec: probe,

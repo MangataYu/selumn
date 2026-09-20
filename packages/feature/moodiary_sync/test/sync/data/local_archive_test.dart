@@ -316,6 +316,31 @@ void main() {
       );
     });
 
+    test('待迁移分类的标签删除意图经备份恢复保留', () async {
+      final source = buildDiary(
+        id: 'pending',
+        categoryId: 'child',
+        show: false,
+      ).copyWith(legacyCategoryExcludedTags: ['工作']);
+      final dir = await buildArchiveDir(diaries: [source]);
+      final diaryStore = FakeDiaryStore();
+      final report = await LocalArchive.importDirectory(
+        dir,
+        diaryStore: diaryStore,
+        categoryStore: FakeCategoryStore(),
+        placeStore: FakePlaceStore(),
+        mediaInfoStore: FakeMediaInfoStore(),
+        tombstoneStore: diaryStore.tombstones,
+        mediaFiles: FakeMediaFiles(),
+      );
+      expect(report.failed, 0);
+      final imported = diaryStore.diaries['pending']!;
+      expect(imported.legacyCategoryExcludedTags, ['工作']);
+      expect(imported.categoryId, 'child');
+      expect(imported.tags, isEmpty);
+      expect(imported.show, isFalse);
+    });
+
     test('2.7.3 真实布局（根目录 <毫秒戳>.isar）→ errLegacyBackup', () async {
       final dir = p.join(tmp.path, 'legacy273');
       await Directory(dir).create(recursive: true);
@@ -478,6 +503,36 @@ void main() {
       expect(categoryStore.categories.containsKey('c1'), isTrue);
       expect(mediaFiles.files.containsKey('image/img-1.png'), isTrue);
       expect(mediaFiles.files['image/img-1.png'], utf8.encode('img-1.png'));
+    });
+
+    test('分类迁移在整批日记及所有父分类落地后执行', () async {
+      final dir = await buildArchiveDir(
+        diaries: [buildDiary(id: 'legacy', categoryId: 'child')],
+        categories: [
+          buildCategory(id: 'child', name: '项目', parentId: 'parent'),
+          buildCategory(id: 'parent', name: '工作'),
+        ],
+      );
+      final diaryStore = FakeDiaryStore();
+      final categoryStore = FakeCategoryStore();
+      var migrated = false;
+      diaryStore.beforeLegacyCategoryMigration = (_) {
+        expect(diaryStore.diaries['legacy']!.categoryId, 'child');
+        expect(categoryStore.categories.keys.toSet(), {'child', 'parent'});
+        migrated = true;
+      };
+      final report = await LocalArchive.importDirectory(
+        dir,
+        diaryStore: diaryStore,
+        categoryStore: categoryStore,
+        placeStore: FakePlaceStore(),
+        mediaInfoStore: FakeMediaInfoStore(),
+        tombstoneStore: diaryStore.tombstones,
+        mediaFiles: FakeMediaFiles(),
+      );
+      expect(report.failed, 0);
+      expect(migrated, isTrue);
+      expect(diaryStore.calls.last, 'migrateLegacyCategoriesToTags');
     });
 
     test('归档 tombstone 较新 → 删本地落墓碑并清媒体；本地较新 → 保留', () async {

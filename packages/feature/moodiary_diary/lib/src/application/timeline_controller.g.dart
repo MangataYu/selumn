@@ -24,8 +24,7 @@ final class TimelineMonthCountsProvider
         $FutureProvider<Map<DateTime, int>> {
   TimelineMonthCountsProvider._({
     required TimelineMonthCountsFamily super.from,
-    required ({String? categoryId, bool uncategorized, DiarySort sort})
-    super.argument,
+    required ({String? tag, bool untagged, DiarySort sort}) super.argument,
   }) : super(
          retry: null,
          name: r'timelineMonthCountsProvider',
@@ -53,12 +52,11 @@ final class TimelineMonthCountsProvider
   @override
   FutureOr<Map<DateTime, int>> create(Ref ref) {
     final argument =
-        this.argument
-            as ({String? categoryId, bool uncategorized, DiarySort sort});
+        this.argument as ({String? tag, bool untagged, DiarySort sort});
     return timelineMonthCounts(
       ref,
-      categoryId: argument.categoryId,
-      uncategorized: argument.uncategorized,
+      tag: argument.tag,
+      untagged: argument.untagged,
       sort: argument.sort,
     );
   }
@@ -75,13 +73,13 @@ final class TimelineMonthCountsProvider
 }
 
 String _$timelineMonthCountsHash() =>
-    r'274bc4691bf8e2f2da8b8e155f0b86761179a5ba';
+    r'7795aed81be4ed66e6f651d25a6cf58e50574409';
 
 final class TimelineMonthCountsFamily extends $Family
     with
         $FunctionalFamilyOverride<
           FutureOr<Map<DateTime, int>>,
-          ({String? categoryId, bool uncategorized, DiarySort sort})
+          ({String? tag, bool untagged, DiarySort sort})
         > {
   TimelineMonthCountsFamily._()
     : super(
@@ -93,15 +91,11 @@ final class TimelineMonthCountsFamily extends $Family
       );
 
   TimelineMonthCountsProvider call({
-    String? categoryId,
-    bool uncategorized = false,
+    String? tag,
+    bool untagged = false,
     required DiarySort sort,
   }) => TimelineMonthCountsProvider._(
-    argument: (
-      categoryId: categoryId,
-      uncategorized: uncategorized,
-      sort: sort,
-    ),
+    argument: (tag: tag, untagged: untagged, sort: sort),
     from: this,
   );
 

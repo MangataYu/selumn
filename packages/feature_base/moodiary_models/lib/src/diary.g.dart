@@ -9,6 +9,11 @@ part of 'diary.dart';
 _Diary _$DiaryFromJson(Map<String, dynamic> json) => _Diary(
   id: json['id'] as String,
   categoryId: json['categoryId'] as String?,
+  legacyCategoryExcludedTags:
+      (json['legacyCategoryExcludedTags'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
   title: json['title'] as String,
   content: json['content'] as String,
   contentText: json['contentText'] as String,
@@ -43,6 +48,7 @@ _Diary _$DiaryFromJson(Map<String, dynamic> json) => _Diary(
 Map<String, dynamic> _$DiaryToJson(_Diary instance) => <String, dynamic>{
   'id': instance.id,
   'categoryId': instance.categoryId,
+  'legacyCategoryExcludedTags': instance.legacyCategoryExcludedTags,
   'title': instance.title,
   'content': instance.content,
   'contentText': instance.contentText,

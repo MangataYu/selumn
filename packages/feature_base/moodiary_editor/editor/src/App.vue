@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import MoodiaryEditor from './components/MoodiaryEditor.vue'
 import DiaryLinkSuggestion from './components/DiaryLinkSuggestion.vue'
+import TagSuggestion from './components/TagSuggestion.vue'
 import { installBridge } from './bridge'
 import { readBoot } from './bridge/boot'
 import { applyTheme, setFontBase } from './bridge/theme'
@@ -33,6 +34,12 @@ const shell = ref<HTMLElement>()
 
 function onClick(e: MouseEvent): void {
   const target = e.target as HTMLElement | null
+  const tag = target?.closest('[data-tag]') as HTMLElement | null
+  if (tag) {
+    const path = tag.getAttribute('data-tag')
+    if (path) { e.preventDefault(); post('tagTap', { tag: path }) }
+    return
+  }
   const link = target?.closest('[data-type="diaryLink"]') as HTMLElement | null
   if (link) {
     const id = link.getAttribute('data-id')
@@ -71,5 +78,6 @@ onBeforeUnmount(() => shell.value?.removeEventListener('click', onClick))
       :platform="platform"
     />
     <DiaryLinkSuggestion />
+    <TagSuggestion />
   </div>
 </template>

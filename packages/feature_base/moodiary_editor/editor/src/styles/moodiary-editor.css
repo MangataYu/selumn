@@ -1041,3 +1041,12 @@ body {
     background-color: var(--app-scrollbar-hover);
   }
 }
+
+.moodiary-editor .ProseMirror .moodiary-tag {
+  color: var(--app-primary);
+  background: var(--app-selected);
+  border-radius: 4px;
+  padding: 0 2px;
+  box-decoration-break: clone;
+  cursor: pointer;
+}

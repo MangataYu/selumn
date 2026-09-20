@@ -35,6 +35,8 @@ Future<void> _initSystem() async {
   await configureDependencies();
   await AppLockPin.load();
 
+  await getIt<DiaryRepository>().migrateLegacyCategoriesToTags();
+
   try {
     await VersionMigrator.run();
   } catch (e, s) {

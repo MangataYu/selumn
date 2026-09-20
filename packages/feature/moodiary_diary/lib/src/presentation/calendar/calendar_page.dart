@@ -560,7 +560,6 @@ class _TextCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    final categoryId = writing.categoryId;
     final title = writing.title.trim().isEmpty
         ? context.l10n.common.untitled
         : writing.title;
@@ -578,16 +577,6 @@ class _TextCell extends StatelessWidget {
               onCover: false,
               isToday: isToday,
             ),
-            if (categoryId != null)
-              Container(
-                width: 12,
-                height: 3,
-                margin: const .only(top: 2, bottom: 2),
-                decoration: BoxDecoration(
-                  color: categoryColorOf(id: categoryId),
-                  borderRadius: .circular(2),
-                ),
-              ),
             Expanded(
               child: Text(
                 title,
@@ -677,7 +666,6 @@ class _EntryTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = context.theme;
     final colors = theme.colors;
-    final category = ref.watch(categoryByIdProvider(diary.categoryId));
     final cover = diary.imageName.firstOrNull;
     final title = diary.title.trim().isEmpty
         ? context.l10n.common.untitled
@@ -732,23 +720,16 @@ class _EntryTile extends ConsumerWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          if (category != null) ...[
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                shape: .circle,
-                                color: categoryColorOf(
-                                  colorValue: category.color,
-                                  id: category.id,
-                                ),
+                          if (diary.tags.isNotEmpty) ...[
+                            Flexible(
+                              child: Text(
+                                '#${diary.tags.first}',
+                                overflow: .ellipsis,
+                                style: theme
+                                    .typography
+                                    .labelSmall
+                                    .onSurfaceVariant,
                               ),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              category.categoryName,
-                              style:
-                                  theme.typography.labelSmall.onSurfaceVariant,
                             ),
                             const SizedBox(width: 6),
                           ],

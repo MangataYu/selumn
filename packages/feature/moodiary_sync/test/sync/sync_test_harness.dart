@@ -206,6 +206,16 @@ final class FakeDiaryStore implements SyncDiaryStore {
   }
 
   final Map<String, bool> writeOrigins = {};
+  void Function(Set<String> excludeIds)? beforeLegacyCategoryMigration;
+
+  @override
+  Future<int> migrateLegacyCategoriesToTags({
+    Set<String> excludeIds = const {},
+  }) async {
+    calls.add('migrateLegacyCategoriesToTags');
+    beforeLegacyCategoryMigration?.call(excludeIds);
+    return 0;
+  }
 
   @override
   Future<void> insertADiary(Diary diary, {bool fromSync = false}) async {

@@ -118,6 +118,6 @@ void main() {
     final ids = toolIdsWithoutMemory();
     expect(ids, isNot(contains(AssistantTool.recallMemory.id)));
     expect(ids, contains(AssistantTool.searchDiaries.id));
-    expect(ids, hasLength(AssistantTool.values.length - memoryTools.length));
+    expect(ids, hasLength(activeAssistantTools.length - memoryTools.length));
   });
 }

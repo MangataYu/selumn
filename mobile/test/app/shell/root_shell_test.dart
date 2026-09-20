@@ -25,7 +25,12 @@ final _category = Category(
 
 class _EmptyDiaries extends DiaryController {
   @override
-  List<Diary> build({String? categoryId, bool uncategorized = false}) => [];
+  List<Diary> build({
+    String? categoryId,
+    bool uncategorized = false,
+    String? tag,
+    bool untagged = false,
+  }) => [];
 }
 
 class _Categories extends CategoryController {
@@ -80,9 +85,10 @@ Future<ProviderContainer> _pumpShell(WidgetTester tester) async {
       overrides: [
         diaryControllerProvider.overrideWith2((_) => _EmptyDiaries()),
         categoryControllerProvider.overrideWith(_Categories.new),
-        categoryDiaryCountsProvider.overrideWith(
-          (ref) async => (byCategory: <String, int>{}, total: 0),
+        tagDiaryCountsProvider.overrideWith(
+          (ref) async => (byTag: <String, int>{'旅行': 0}, total: 0, untagged: 0),
         ),
+        diaryTagsProvider.overrideWith((ref) async => ['旅行']),
         dashboardControllerProvider.overrideWith(_EmptyDashboard.new),
         placeControllerProvider.overrideWith(_EmptyPlaces.new),
       ],
@@ -152,6 +158,22 @@ void main() {
   });
   tearDown(getIt.popScope);
 
+  testWidgets('正文再次选择同一标签时从我的返回日记', (tester) async {
+    final container = await _pumpShell(tester);
+    container
+        .read(homeDiaryFilterProvider.notifier)
+        .select(const DiaryFilter.tag('旅行'));
+    await tester.pumpAndSettle();
+    await _pickDestination(tester, l10n.app.homeNavigatorMe);
+    expect(find.byType(MePage), findsOneWidget);
+    container
+        .read(homeDiaryFilterProvider.notifier)
+        .select(const DiaryFilter.tag('旅行'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DiaryHomePage), findsOneWidget);
+    expect(container.read(homeDiaryFilterProvider).tagPath, '旅行');
+  });
+
   testWidgets('三个页面均可打开抽屉切换，点击当前页面也会收起抽屉', (tester) async {
     await _pumpShell(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
@@ -174,14 +196,14 @@ void main() {
     expect(find.byType(DiaryHomePage), findsOneWidget);
   });
 
-  testWidgets('从助手或我的选择同一分类仍返回日记，日记菜单恢复全部日记', (tester) async {
+  testWidgets('从助手或我的选择同一标签仍返回日记，日记菜单恢复全部日记', (tester) async {
     final container = await _pumpShell(tester);
     await _openDrawer(tester);
     await tester.tap(find.text(_category.categoryName));
     await tester.pumpAndSettle();
     expect(
       container.read(homeDiaryFilterProvider),
-      const DiaryFilter.category('travel'),
+      const DiaryFilter.tag('旅行'),
     );
 
     for (final label in [
@@ -191,12 +213,12 @@ void main() {
       await _pickDestination(tester, label);
       expect(
         container.read(homeDiaryFilterProvider),
-        const DiaryFilter.category('travel'),
+        const DiaryFilter.tag('旅行'),
       );
       await _openDrawer(tester);
       await tester.tap(
         find.descendant(
-          of: find.byType(CategoryDrawer),
+          of: find.byType(TagDrawer),
           matching: find.text(_category.categoryName),
         ),
       );
@@ -205,7 +227,7 @@ void main() {
       expect(_shellScaffold(tester).isDrawerOpen, isFalse);
       expect(
         container.read(homeDiaryFilterProvider),
-        const DiaryFilter.category('travel'),
+        const DiaryFilter.tag('旅行'),
       );
       expect(tester.takeException(), isNull);
     }

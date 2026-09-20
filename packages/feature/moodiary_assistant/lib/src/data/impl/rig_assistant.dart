@@ -217,6 +217,9 @@ Future<String> dispatchAssistantTool({
   required String argsJson,
 }) async {
   if (spec == null) return 'Failed: unknown tool "$toolName".';
+  if (retiredAssistantTools.contains(spec.tool)) {
+    return 'Failed: retired tool "$toolName". Use diary tags instead.';
+  }
 
   try {
     final trimmed = argsJson.trim();

@@ -880,8 +880,8 @@ class Translations$assistant$zh {
 	/// zh: '查找日记'
 	String get toolSearchTitle => '查找日记';
 
-	/// zh: '按关键词或含义查找你的本地日记，也能按时间范围和分类浏览。语义检索需先在设置中启用本地索引。'
-	String get toolSearchDes => '按关键词或含义查找你的本地日记，也能按时间范围和分类浏览。语义检索需先在设置中启用本地索引。';
+	/// zh: '通过关键词或语义查找本地日记，也可按日期和标签（含子标签）浏览。指定标签时使用关键词检索；语义检索需要开启本地语义索引。'
+	String get toolSearchDes => '通过关键词或语义查找本地日记，也可按日期和标签（含子标签）浏览。指定标签时使用关键词检索；语义检索需要开启本地语义索引。';
 
 	/// zh: '读取日记全文'
 	String get toolGetTitle => '读取日记全文';
@@ -892,8 +892,8 @@ class Translations$assistant$zh {
 	/// zh: '日记概览'
 	String get toolOverviewTitle => '日记概览';
 
-	/// zh: '统计日记总数、各分类篇数与时间跨度。'
-	String get toolOverviewDes => '统计日记总数、各分类篇数与时间跨度。';
+	/// zh: '统计日记总数、各标签篇数、无标签篇数与时间跨度。'
+	String get toolOverviewDes => '统计日记总数、各标签篇数、无标签篇数与时间跨度。';
 
 	/// zh: '创建日记'
 	String get toolCreateTitle => '创建日记';
@@ -904,8 +904,8 @@ class Translations$assistant$zh {
 	/// zh: '修改日记'
 	String get toolUpdateTitle => '修改日记';
 
-	/// zh: '按你的要求修改日记的标题、正文、心情或归类，可一次改多篇。'
-	String get toolUpdateDes => '按你的要求修改日记的标题、正文、心情或归类，可一次改多篇。';
+	/// zh: '按你的要求修改日记的标题、正文、心情或标签，可一次改多篇。'
+	String get toolUpdateDes => '按你的要求修改日记的标题、正文、心情或标签，可一次改多篇。';
 
 	/// zh: '删除日记'
 	String get toolDeleteTitle => '删除日记';
@@ -1530,6 +1530,12 @@ class Translations$common$zh {
 
 	/// zh: '已复制到剪贴板'
 	String get copied => '已复制到剪贴板';
+
+	/// zh: '{count} 个标签'
+	String tagCount({required Object count}) => '${count} 个标签';
+
+	/// zh: '标签'
+	String get tag => '标签';
 }
 
 // Path: diary
@@ -2030,6 +2036,36 @@ class Translations$diary$zh {
 
 	/// zh: '这天没有写'
 	String get calendarEmptyDay => '这天没有写';
+
+	/// zh: '搜索标签'
+	String get tagSearchHint => '搜索标签';
+
+	/// zh: '没有匹配的标签'
+	String get tagNoMatch => '没有匹配的标签';
+
+	/// zh: '无标签'
+	String get tagNoTag => '无标签';
+
+	/// zh: '全部标签'
+	String get allTags => '全部标签';
+
+	/// zh: '重命名标签'
+	String get tagRename => '重命名标签';
+
+	/// zh: '删除标签'
+	String get tagDelete => '删除标签';
+
+	/// zh: '例如：生活/旅行'
+	String get tagRenameHint => '例如：生活/旅行';
+
+	/// zh: '标签路径无效'
+	String get tagInvalid => '标签路径无效';
+
+	/// zh: '移除所有日记中的「{tag}」及其子标签，正文保留标签名称。'
+	String tagDeleteMessage({required Object tag}) => '移除所有日记中的「${tag}」及其子标签，正文保留标签名称。';
+
+	/// zh: '标签更新失败'
+	String get tagUpdateFailed => '标签更新失败';
 }
 
 // Path: editor
@@ -2214,8 +2250,8 @@ class Translations$export$zh {
 	/// zh: '恢复完成：{summary}'
 	String restoreDone({required Object summary}) => '恢复完成：${summary}';
 
-	/// zh: '日记 {diary} 条 / 分类 {category} 条 / 媒体信息 {media} 条'
-	String restoreSummary({required Object diary, required Object category, required Object media}) => '日记 ${diary} 条 / 分类 ${category} 条 / 媒体信息 ${media} 条';
+	/// zh: '日记 {diary} 条 / 媒体信息 {media} 条'
+	String restoreSummary({required Object diary, required Object media}) => '日记 ${diary} 条 / 媒体信息 ${media} 条';
 
 	/// zh: '{base}，跳过 {skipped} 条（本机内容更新）'
 	String restoreSummarySkipped({required Object base, required Object skipped}) => '${base}，跳过 ${skipped} 条（本机内容更新）';
@@ -2535,8 +2571,8 @@ class Translations$export$zh {
 	/// zh: '图片、视频、音频放在 assets/ 目录（可再分子目录），正文里用相对路径引用。'
 	String get importSpecAssets => '图片、视频、音频放在 assets/ 目录（可再分子目录），正文里用相对路径引用。';
 
-	/// zh: '文件开头可选 front matter，记录标题、时间、心情、分类、标签、天气、位置。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。'
-	String get importSpecFrontMatter => '文件开头可选 front matter，记录标题、时间、心情、分类、标签、天气、位置。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。';
+	/// zh: '文件开头可选 front matter，记录标题、时间、心情、标签、天气、位置；旧分类会转换为标签。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。'
+	String get importSpecFrontMatter => '文件开头可选 front matter，记录标题、时间、心情、标签、天气、位置；旧分类会转换为标签。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。';
 
 	/// zh: '本应用「不合并」导出的 Markdown 可以直接导回；合并成一个文件的不支持。'
 	String get importSpecRoundTrip => '本应用「不合并」导出的 Markdown 可以直接导回；合并成一个文件的不支持。';
@@ -2550,8 +2586,8 @@ class Translations$export$zh {
 	/// zh: '正在导入 {done}/{total}'
 	String importProgress({required Object done, required Object total}) => '正在导入 ${done}/${total}';
 
-	/// zh: '日记 {diary} 篇 / 新建分类 {category} 个 / 新建地点 {place} 个'
-	String importSummary({required Object diary, required Object category, required Object place}) => '日记 ${diary} 篇 / 新建分类 ${category} 个 / 新建地点 ${place} 个';
+	/// zh: '日记 {diary} 篇 / 新建地点 {place} 个'
+	String importSummary({required Object diary, required Object place}) => '日记 ${diary} 篇 / 新建地点 ${place} 个';
 
 	/// zh: '{base}，跳过 {skipped} 篇（已存在）'
 	String importSummarySkipped({required Object base, required Object skipped}) => '${base}，跳过 ${skipped} 篇（已存在）';
@@ -2576,6 +2612,9 @@ class Translations$export$zh {
 
 	/// zh: '{count} 个媒体文件无法导入（缺失或无法读取），已按普通链接保留'
 	String importMissingMedia({required Object count}) => '${count} 个媒体文件无法导入（缺失或无法读取），已按普通链接保留';
+
+	/// zh: '按标签选择'
+	String get scopeByTag => '按标签选择';
 }
 
 // Path: lock

@@ -190,7 +190,7 @@ class _ToolSectionState extends State<_ToolSection> {
               trailing: const Icon(LucideIcons.chevronRight),
               onTap: _pickMode,
             ),
-            for (final tool in AssistantTool.values) _toolTile(context, tool),
+            for (final tool in activeAssistantTools) _toolTile(context, tool),
           ],
         ),
         SliverToBoxAdapter(

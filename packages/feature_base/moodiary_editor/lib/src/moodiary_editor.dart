@@ -64,7 +64,10 @@ class MoodiaryEditor extends StatefulWidget {
   final Future<List<DiaryLinkCandidate>> Function(String query)?
   onRequestLinkCandidates;
 
+  final Future<List<String>> Function(String query)? onRequestTagCandidates;
+
   final ValueChanged<String>? onOpenDiaryLink;
+  final ValueChanged<String>? onOpenTag;
 
   final String? metaJson;
 
@@ -135,7 +138,9 @@ class MoodiaryEditor extends StatefulWidget {
     this.onVideoFullscreen,
     this.onSaveImage,
     this.onRequestLinkCandidates,
+    this.onRequestTagCandidates,
     this.onOpenDiaryLink,
+    this.onOpenTag,
     this.metaJson,
     this.linksJson,
     this.onPickDate,
@@ -404,6 +409,21 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
           }
         }
         return;
+      case 'requestTagCandidates':
+        if (payload is Map) {
+          final reqId = payload['reqId'];
+          final query = payload['query'];
+          if (reqId is String) {
+            _handleTagCandidates(reqId, query is String ? query : '');
+          }
+        }
+        return;
+      case 'tagTap':
+        if (payload is Map) {
+          final tag = payload['tag'];
+          if (tag is String && tag.isNotEmpty) widget.onOpenTag?.call(tag);
+        }
+        return;
       case 'linkTap':
         if (payload is Map) {
           final id = payload['id'];
@@ -504,6 +524,20 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
     await _run(
       'window.MoodiaryBridge.resolveLinkCandidates('
       '${jsonEncode(reqId)},${jsonEncode(json)})',
+    );
+  }
+
+  Future<void> _handleTagCandidates(String reqId, String query) async {
+    List<String> list = const [];
+    try {
+      list = await widget.onRequestTagCandidates?.call(query) ?? const [];
+    } catch (e, s) {
+      _log('onRequestTagCandidates failed', error: e, stack: s, level: 1000);
+    }
+    if (!mounted) return;
+    await _run(
+      'window.MoodiaryBridge.resolveTagCandidates('
+      '${jsonEncode(reqId)},${jsonEncode(jsonEncode(list))})',
     );
   }
 
@@ -746,6 +780,10 @@ class MoodiaryEditorController {
 
   Future<void> setContent(String content) async {
     await _state?._setContent(content);
+  }
+
+  Future<void> removeTag(String tag) async {
+    await _state?._run('window.MoodiaryBridge.removeTag(${jsonEncode(tag)})');
   }
 
   Future<String> getContent() async {

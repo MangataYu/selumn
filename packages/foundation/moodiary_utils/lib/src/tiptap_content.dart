@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'markdown_converter.dart';
+import 'tag_path.dart';
 
 class TiptapContent {
   final String _raw;
@@ -12,6 +13,124 @@ class TiptapContent {
       TiptapContent._(content, _tryDoc(content));
 
   bool get isDoc => _doc != null;
+
+  /// Only explicit editor marks are associations. A URL fragment, code or a
+  /// plain hash in old content must never silently create a tag.
+  static List<String> tags(String content) {
+    final found = <String>{};
+    void walk(dynamic node) {
+      if (node is! Map || node['type'] == 'codeBlock') return;
+      final tag = _tagOf(node);
+      if (tag != null) found.add(tag);
+      final children = node['content'];
+      if (children is List) {
+        for (final child in children) {
+          walk(child);
+        }
+      }
+    }
+
+    walk(_tryDoc(content));
+    return found.toList();
+  }
+
+  static String? _tagOf(Map node) {
+    final marks = node['marks'];
+    if (node['type'] != 'text' ||
+        marks is! List ||
+        marks.any((m) => m is Map && m['type'] == 'code')) {
+      return null;
+    }
+    for (final mark in marks) {
+      if (mark is Map && mark['type'] == 'tag') {
+        final attrs = mark['attrs'];
+        final tag = attrs is Map ? attrs['tag'] : null;
+        if (tag is String) return TagPath.normalize(tag);
+      }
+    }
+    return null;
+  }
+
+  static String renameTag(String content, String from, String to) =>
+      _rewriteTags(content, from, to);
+
+  /// Remove the hash and association, retaining the tag name as ordinary text.
+  /// This also prevents the editor from recognizing it again on the next edit.
+  static String removeTag(
+    String content,
+    String tag, {
+    bool descendants = true,
+  }) => _rewriteTags(content, tag, null, descendants: descendants);
+
+  static String _rewriteTags(
+    String content,
+    String from,
+    String? to, {
+    bool descendants = true,
+  }) {
+    final doc = _tryDoc(content);
+    if (doc == null) return content;
+    var changed = false;
+    void walk(Map node) {
+      final children = node['content'];
+      if (children is! List || node['type'] == 'codeBlock') return;
+      final rewritten = <dynamic>[];
+      String? previousTag;
+      for (var i = 0; i < children.length; i++) {
+        final child = children[i];
+        if (child is! Map) {
+          previousTag = null;
+          rewritten.add(child);
+          continue;
+        }
+        final tag = _tagOf(child);
+        final continuesTag = tag != null && tag == previousTag;
+        previousTag = tag;
+        if (tag == null ||
+            !(descendants ? TagPath.matches(tag, from) : tag == from)) {
+          walk(child);
+          rewritten.add(child);
+          continue;
+        }
+        changed = true;
+        if (to == null) {
+          child['marks'] = (child['marks'] as List)
+              .where((mark) => mark is! Map || mark['type'] != 'tag')
+              .toList();
+          final text = child['text'];
+          if (!continuesTag && text is String && text.startsWith('#')) {
+            child['text'] = text.substring(1);
+          }
+          if (child['text'] != '') rewritten.add(child);
+          continue;
+        }
+        // Formatting can split one marked token into adjacent text nodes.
+        // Replace the complete run once, retaining the first node's styling.
+        while (i + 1 < children.length &&
+            children[i + 1] is Map &&
+            _tagOf(children[i + 1] as Map) == tag) {
+          i++;
+        }
+        final next = TagPath.replacePrefix(tag, from, to);
+        child['text'] = '#$next';
+        child['marks'] = [
+          for (final mark in child['marks'] as List)
+            if (mark is Map && mark['type'] == 'tag')
+              {
+                'type': 'tag',
+                'attrs': {'tag': next},
+              }
+            else
+              mark,
+        ];
+        rewritten.add(child);
+      }
+      node['content'] = rewritten;
+    }
+
+    walk(doc);
+    return changed ? jsonEncode(doc) : content;
+  }
 
   static Map<String, dynamic>? _tryDoc(String content) {
     final trimmed = content.trimLeft();

@@ -6,6 +6,7 @@ class DiaryGraphNode {
   final String title;
   final DateTime time;
   final String? categoryId;
+  final List<String> tags;
 
   final int? depth;
 
@@ -18,6 +19,7 @@ class DiaryGraphNode {
     required this.title,
     required this.time,
     required this.categoryId,
+    this.tags = const [],
     this.depth,
     this.preview,
   });

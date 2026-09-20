@@ -613,6 +613,9 @@ class ArchiveApplier {
     }
 
     await tombstones.flush(_tombstoneStore);
+    await diaryRepo.migrateLegacyCategoriesToTags(
+      excludeIds: _openDiaries.snapshot(),
+    );
 
     sw.stop();
     final stopped = _cancellation.isRequested;

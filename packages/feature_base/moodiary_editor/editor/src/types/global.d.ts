@@ -26,6 +26,8 @@ declare global {
       insertVideo: (name: string) => void
       resolveImage: (id: string, name: string) => void
       resolveLinkCandidates: (reqId: string, json: string) => void
+      resolveTagCandidates: (reqId: string, json: string) => void
+      removeTag: (tag: string) => void
       scrollToHeading: (index: number) => void
       resumeVideo: (name: string, seconds: number) => void
       getScrollY: () => number

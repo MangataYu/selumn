@@ -407,6 +407,7 @@ void main() {
           'a',
           '源',
           linkTo: ['b', 'ghost'],
+          tags: ['工作/项目'],
           time: DateTime.utc(2026, 2, 1),
         ),
         makeDiary('alone', '孤立'),
@@ -417,16 +418,18 @@ void main() {
       final src = graph.nodes[graph.edges[0]].id;
       final dst = graph.nodes[graph.edges[1]].id;
       expect((src, dst), ('a', 'b'));
+      expect(graph.nodes.singleWhere((node) => node.id == 'a').tags, ['工作/项目']);
     });
 
     test('buildEgoGraph：中心恒在下标 0，含孤点中心', () async {
       await repo.insertDiaries([
-        makeDiary('center', '中心'),
+        makeDiary('center', '中心', tags: ['生活']),
         makeDiary('n1', '邻居', linkTo: ['center']),
       ]);
       final graph = await repo.buildEgoGraph('center');
       expect(graph.centerIndex, 0);
       expect(graph.nodes.first.id, 'center');
+      expect(graph.nodes.first.tags, ['生活']);
       expect(graph.nodes.map((n) => n.id).toSet(), {'center', 'n1'});
 
       final lonely = await repo.buildEgoGraph('center', depth: 1);

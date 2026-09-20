@@ -41,9 +41,6 @@ Place place() => Place(
   lastModified: DateTime(2026),
 );
 
-Category cat() =>
-    Category(id: 'a', categoryName: 'work', lastModified: DateTime(2026));
-
 Widget wrap(Widget child, {TextScaler textScaler = TextScaler.noScaling}) =>
     MuiTheme(
       data: _mui,
@@ -66,14 +63,7 @@ void main() {
   testWidgets('renders text-only entry inside a ListView without error', (
     t,
   ) async {
-    await t.pumpWidget(
-      wrap(
-        DiaryFeedTile(
-          diary: diary(title: '标题在这'),
-          category: cat(),
-        ),
-      ),
-    );
+    await t.pumpWidget(wrap(DiaryFeedTile(diary: diary(title: '标题在这'))));
     expect(t.takeException(), isNull);
     expect(find.textContaining('标题在这', findRichText: true), findsOneWidget);
   });
@@ -98,9 +88,7 @@ void main() {
     );
   });
 
-  testWidgets('date, category, weather and place precede the note body', (
-    t,
-  ) async {
+  testWidgets('date, weather and place precede the note body', (t) async {
     await t.pumpWidget(
       wrap(
         DiaryFeedTile(
@@ -108,7 +96,6 @@ void main() {
             weather: const DiaryWeather(icon: '100', temp: '26', text: '晴'),
           ),
           place: place(),
-          category: cat(),
         ),
       ),
     );
@@ -118,7 +105,7 @@ void main() {
       return s.contains('26°');
     });
     final plain = meta.textSpan!.toPlainText();
-    expect(plain, contains('work'));
+    expect(plain, isNot(contains('work')));
     expect(plain, contains('厦门 环岛路'));
     expect(
       t.getBottomLeft(find.textContaining('26°', findRichText: true)).dy,
@@ -126,17 +113,21 @@ void main() {
     );
   });
 
-  testWidgets('category label follows showCategoryLabel', (t) async {
+  testWidgets('tag tap filters without opening the diary', (t) async {
+    final tags = <String>[];
+    var opened = false;
     await t.pumpWidget(
       wrap(
         DiaryFeedTile(
-          diary: diary(),
-          category: cat(),
-          showCategoryLabel: false,
+          diary: diary(tags: const ['生活/旅行']),
+          onTap: () => opened = true,
+          onTagTap: tags.add,
         ),
       ),
     );
-    expect(find.textContaining('work'), findsNothing);
+    await t.tap(find.text('#生活/旅行'));
+    expect(tags, ['生活/旅行']);
+    expect(opened, isFalse);
   });
 
   testWidgets('all tags remain visible below the note body', (t) async {
@@ -243,7 +234,6 @@ void main() {
               weather: const DiaryWeather(icon: '100', temp: '26', text: '晴'),
             ),
             place: place(),
-            category: cat(),
           ),
         ),
       );
@@ -265,7 +255,6 @@ void main() {
             images: const ['1.jpg'],
             tags: const ['一个相当长的标签名字', '另一个也不短的标签', '认识自己'],
           ),
-          category: cat(),
           selecting: true,
           selected: true,
           syncState: .dirty,

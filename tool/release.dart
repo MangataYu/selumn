@@ -183,7 +183,15 @@ Future<void> main(List<String> argv) async {
     '--body-file',
     body.path,
   ]);
-  await _run('gh', ['workflow', 'run', 'build.yml', '--ref', branch]);
+  await _run('gh', [
+    'workflow',
+    'run',
+    'build.yml',
+    '--ref',
+    branch,
+    '-f',
+    'create_release=true',
+  ]);
 
   stdout.writeln('''
 

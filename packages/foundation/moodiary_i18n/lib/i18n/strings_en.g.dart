@@ -335,15 +335,15 @@ class _Translations$assistant$en extends Translations$assistant$zh {
 	@override String get memoryEmptyDes => 'Say “remember that…” in a chat, or tell the assistant about a habit, and it saves it.';
 	@override String get memoryNoMatch => 'No memory matches';
 	@override String get toolSearchTitle => 'Search diaries';
-	@override String get toolSearchDes => 'Find your local diaries by keyword or by meaning, or browse them by date and category. The meaning path needs the local semantic index enabled in settings.';
+	@override String get toolSearchDes => 'Find local diaries by keyword or meaning, or browse by date and tag, including child tags. Tag filters use keyword search. Semantic search requires the local index.';
 	@override String get toolGetTitle => 'Read full diary';
 	@override String get toolGetDes => 'Read the full text of diaries by id, several at a time.';
 	@override String get toolOverviewTitle => 'Diary overview';
-	@override String get toolOverviewDes => 'Counts your diaries in total and per category, and their date span.';
+	@override String get toolOverviewDes => 'Counts diaries in total, per tag and without tags, plus their date span.';
 	@override String get toolCreateTitle => 'Create diary';
 	@override String get toolCreateDes => 'Saves content as a new local diary entry when you ask.';
 	@override String get toolUpdateTitle => 'Edit diary';
-	@override String get toolUpdateDes => 'Change the title, body, mood or category of diaries, several at a time.';
+	@override String get toolUpdateDes => 'Change the title, body, mood or tags of diaries, several at a time.';
 	@override String get toolDeleteTitle => 'Delete diary';
 	@override String get toolDeleteDes => 'Move diaries to the recycle bin, where you can restore them.';
 	@override String get toolListCategoriesTitle => 'View categories';
@@ -558,6 +558,8 @@ class _Translations$common$en extends Translations$common$zh {
 	@override String get configured => 'Configured';
 	@override String get notConfigured => 'Not configured';
 	@override String get copied => 'Copied to clipboard';
+	@override String tagCount({required Object count}) => '${count} tags';
+	@override String get tag => 'Tags';
 }
 
 // Path: diary
@@ -733,6 +735,16 @@ class _Translations$diary$en extends Translations$diary$zh {
 	@override String get calendarTitle => 'Calendar';
 	@override String get calendarBackToToday => 'Today';
 	@override String get calendarEmptyDay => 'Nothing written that day';
+	@override String get tagSearchHint => 'Search tags';
+	@override String get tagNoMatch => 'No matching tags';
+	@override String get tagNoTag => 'Untagged';
+	@override String get allTags => 'All tags';
+	@override String get tagRename => 'Rename tag';
+	@override String get tagDelete => 'Delete tag';
+	@override String get tagRenameHint => 'For example: Life/Travel';
+	@override String get tagInvalid => 'Invalid tag path';
+	@override String tagDeleteMessage({required Object tag}) => 'Remove “${tag}” and its subtags from all entries, keeping their names as ordinary text.';
+	@override String get tagUpdateFailed => 'Could not update tag';
 }
 
 // Path: editor
@@ -806,7 +818,7 @@ class _Translations$export$en extends Translations$export$zh {
 	@override String get restoreConfirmLabel => 'Restore';
 	@override String get restoring => 'Restoring…';
 	@override String restoreDone({required Object summary}) => 'Restored: ${summary}';
-	@override String restoreSummary({required Object diary, required Object category, required Object media}) => '${diary} diaries / ${category} categories / ${media} media entries';
+	@override String restoreSummary({required Object diary, required Object media}) => '${diary} diaries / ${media} media entries';
 	@override String restoreSummarySkipped({required Object base, required Object skipped}) => '${base}, ${skipped} skipped (this device has newer content)';
 	@override String restoreSummaryFailed({required Object base, required Object failed}) => '${base}, ${failed} failed';
 	@override String restorePartial({required Object summary}) => 'Restore did not fully succeed: ${summary}. Check storage space and connection, then retry — don\'t delete the old device\'s data yet';
@@ -913,12 +925,12 @@ class _Translations$export$en extends Translations$export$zh {
 	@override String get importSpec => 'Format';
 	@override String get importSpecEntries => 'Every .md file at the top level of the zip is one entry; a single .md file also works.';
 	@override String get importSpecAssets => 'Put images, videos and audio under assets/ (subfolders allowed) and reference them with relative paths.';
-	@override String get importSpecFrontMatter => 'An optional front matter at the top may set title, time, mood, category, tags, weather and position. Without it, the title comes from the first level-1 heading or the file name, and the time from a date at the start of the file name.';
+	@override String get importSpecFrontMatter => 'An optional front matter at the top may set title, time, mood, tags, weather and position; legacy categories are converted to tags. Without it, the title comes from the first level-1 heading or the file name, and the time from a date at the start of the file name.';
 	@override String get importSpecRoundTrip => 'Markdown exported by this app without merging can be imported back directly; merged single-file exports are not supported.';
 	@override String get importSpecExample => 'diaries.zip\n├── 2026-09-06-sunny.md\n├── 2026-09-07-walk.md\n└── assets/\n    ├── image/a.jpg\n    └── video/b.mp4\n\n2026-09-06-sunny.md\n---\ntitle: "Sunny"\ntime: 2026-09-06T10:30:00+08:00\nmood: fulfilled\ncategory: "Life"\ntags: ["weekend"]\n---\n\nWent out for a walk today.\n![](assets/image/a.jpg)';
 	@override String importRunButton({required Object count}) => 'Import ${count} entries';
 	@override String importProgress({required Object done, required Object total}) => 'Importing ${done}/${total}';
-	@override String importSummary({required Object diary, required Object category, required Object place}) => '${diary} entries / ${category} new categories / ${place} new places';
+	@override String importSummary({required Object diary, required Object place}) => '${diary} entries / ${place} new places';
 	@override String importSummarySkipped({required Object base, required Object skipped}) => '${base}, ${skipped} skipped (already exist)';
 	@override String importSummaryFailed({required Object base, required Object failed}) => '${base}, ${failed} failed';
 	@override String importDone({required Object summary}) => 'Imported: ${summary}';
@@ -927,6 +939,7 @@ class _Translations$export$en extends Translations$export$zh {
 	@override String importRunFailed({required Object error}) => 'Import failed: ${error}';
 	@override String get importEmpty => 'No .md files found in the package';
 	@override String importMissingMedia({required Object count}) => '${count} media files could not be imported (missing or unreadable) and were kept as plain links';
+	@override String get scopeByTag => 'By tag';
 }
 
 // Path: lock

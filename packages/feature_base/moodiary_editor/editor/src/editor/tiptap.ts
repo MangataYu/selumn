@@ -1,5 +1,5 @@
 import type { Editor, EditorOptions, JSONContent } from '@tiptap/core'
-import { history } from '@tiptap/pm/history'
+import { history, closeHistory } from '@tiptap/pm/history'
 import { NodeSelection } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import { Placeholder, CharacterCount } from '@tiptap/extensions'
@@ -13,6 +13,7 @@ import { common, createLowlight } from 'lowlight'
 import CodeBlockNodeView from '../components/nodes/CodeBlockNodeView.vue'
 import { DiaryLink, resolveLinkCandidates as applyLinkCandidates } from './diary-link'
 import { SearchExtension } from './search'
+import { Tag, resolveTagCandidates } from './tag'
 
 import { post } from '../bridge/post'
 import { setEditableState } from './editable'
@@ -37,6 +38,8 @@ export interface EditorApi {
   insertVideo(name: string): void
   resolveUpload(id: string, name: string): void
   resolveLinkCandidates(reqId: string, json: string): void
+  resolveTagCandidates(reqId: string, json: string): void
+  removeTag(tag: string): void
   scrollToHeading(index: number): void
   resumeVideo(name: string, seconds: number): void
 }
@@ -149,6 +152,7 @@ export function createEditorKit(opts: EditorKitOptions): EditorKit {
       TaskList,
       TaskItem.configure({ nested: true }),
       DiaryLink,
+      Tag,
       CharacterCount,
       SearchExtension,
       Placeholder.configure({ placeholder }),
@@ -196,6 +200,31 @@ export function createEditorKit(opts: EditorKitOptions): EditorKit {
       }
     },
     resolveLinkCandidates: (reqId, json) => applyLinkCandidates(reqId, json),
+    resolveTagCandidates,
+    removeTag: (tag) => {
+      const ed = editor
+      const mark = ed?.schema.marks.tag
+      if (!ed || !mark) return
+      const ranges: Array<{ from: number; to: number; hash: boolean }> = []
+      let previousTo = -1
+      ed.state.doc.descendants((node, pos) => {
+        if (node.isText && node.marks.some((m) => m.type === mark && m.attrs.tag === tag)) {
+          ranges.push({
+            from: pos,
+            to: pos + node.nodeSize,
+            hash: pos !== previousTo && (node.text?.startsWith('#') ?? false),
+          })
+          previousTo = pos + node.nodeSize
+        }
+      })
+      if (!ranges.length) return
+      const tr = closeHistory(ed.state.tr)
+      for (const range of ranges.reverse()) {
+        tr.removeMark(range.from, range.to, mark)
+        if (range.hash) tr.delete(range.from, range.from + 1)
+      }
+      ed.view.dispatch(tr)
+    },
     resumeVideo: (name, seconds) => {
       const ed = editor
       if (!ed || !name) return

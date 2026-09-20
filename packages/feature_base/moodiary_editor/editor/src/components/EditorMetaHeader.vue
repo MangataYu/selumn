@@ -20,7 +20,6 @@ import IconBriefcase from '~icons/lucide/briefcase'
 import IconPlane from '~icons/lucide/plane'
 import IconDumbbell from '~icons/lucide/dumbbell'
 import IconThermometer from '~icons/lucide/thermometer'
-import IconFolder from '~icons/lucide/folder'
 import IconMapPin from '~icons/lucide/map-pin'
 import IconPlus from '~icons/lucide/plus'
 import IconTrash from '~icons/lucide/trash-2'
@@ -135,7 +134,6 @@ function onTagSelect(index: number): void {
   post('removeTag', { index })
 }
 
-const showCategory = computed(() => props.editable || props.meta.category)
 const showWeather = computed(() => props.editable || props.meta.weather)
 const showPosition = computed(() => props.editable || props.meta.position)
 const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
@@ -213,17 +211,6 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
         <component :is="moodIcon" class="size-4" />
         <span class="meta-mood-label">{{ currentMood?.label }}</span>
       </span>
-      <button
-        v-if="showCategory"
-        type="button"
-        class="meta-plain-btn meta-fn-item"
-        :disabled="!editable"
-        @mousedown.prevent
-        @click="editable && post('pickCategory')"
-      >
-        <IconFolder class="meta-fn-icon" :class="{ 'meta-fn-icon--unset': !meta.category }" />
-        <span v-if="meta.category" class="meta-fn-label">{{ meta.category }}</span>
-      </button>
       <PopupMenu
         v-if="editable && showWeather"
         class="meta-fn-weather"
@@ -392,7 +379,7 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
             <span class="meta-tag">#{{ tag }}</span>
           </template>
         </PopupMenu>
-        <span v-else class="meta-tag">#{{ tag }}</span>
+        <button v-else type="button" class="meta-plain-btn meta-tag" @click="post('tagTap', { tag })">#{{ tag }}</button>
       </template>
       <button
         v-if="editable"

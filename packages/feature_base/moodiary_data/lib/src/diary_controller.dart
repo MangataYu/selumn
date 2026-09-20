@@ -2,6 +2,7 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
+import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'diary_repository.dart';
@@ -58,6 +59,8 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
   FutureOr<List<Diary>> build({
     String? categoryId,
     bool uncategorized = false,
+    String? tag,
+    bool untagged = false,
   }) async {
     final sub = _repository.diaryEvents.listen(_applyChange);
     ref.onDispose(sub.cancel);
@@ -70,6 +73,15 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
 
   @override
   Future<Iterable<Diary>?> load({required int limit, required int offset}) {
+    if (tag != null || untagged) {
+      return _repository.getDiaryByTag(
+        tag: tag,
+        untagged: untagged,
+        limit: limit,
+        offset: offset,
+        sort: _sort,
+      );
+    }
     return _repository.getDiaryByCategory(
       categoryId: categoryId,
       uncategorized: uncategorized,
@@ -91,6 +103,9 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
         event,
         belongs: (d) =>
             d.show &&
+            (!untagged || d.tags.isEmpty) &&
+            (tag == null ||
+                d.tags.any((value) => TagPath.matches(value, tag!))) &&
             (uncategorized
                 ? d.categoryId == null
                 : categoryId == null || d.categoryId == categoryId),
@@ -188,12 +203,15 @@ Stream<Diary?> getDiary(
   String? id,
   DiaryType? defaultType,
   String? defaultCategoryId,
+  String? defaultTag,
 }) async* {
   if (id == null || id.isEmpty) {
     if (defaultType == null) {
       throw ArgumentError('getDiary: 新建空白日记必须显式提供 defaultType（id 为空时）');
     }
-    final empty = Diary.empty(type: defaultType);
+    final empty = Diary.empty(type: defaultType).copyWith(
+      tags: defaultTag == null ? const [] : TagPath.normalizeAll([defaultTag]),
+    );
     yield defaultCategoryId == null
         ? empty
         : empty.copyWith(categoryId: defaultCategoryId);

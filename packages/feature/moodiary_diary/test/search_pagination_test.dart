@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +26,7 @@ void main() {
           imageName: const [],
           audioName: const [],
           videoName: const [],
-          tags: const [],
+          tags: [i < 35 ? '生活/旅行' : '阅读'],
           type: .tiptap,
         ),
     ]);
@@ -57,5 +59,55 @@ void main() {
       container.read(diarySearchControllerProvider).results,
       hasLength(40),
     );
+  });
+
+  test('父标签过滤保持搜索计数与分页一致', () async {
+    final controller = container.read(diarySearchControllerProvider.notifier);
+    await controller.search('苹果');
+    await controller.setTag('生活');
+    var state = container.read(diarySearchControllerProvider);
+    expect(state.totalCount, 35);
+    expect(state.results, hasLength(30));
+    expect(
+      state.results.every((hit) => hit.diary.tags.contains('生活/旅行')),
+      isTrue,
+    );
+
+    await controller.loadMore();
+    state = container.read(diarySearchControllerProvider);
+    expect(state.results, hasLength(35));
+    expect(state.hasMore, isFalse);
+
+    await controller.setTag(null);
+    expect(container.read(diarySearchControllerProvider).totalCount, 40);
+  });
+
+  test('标签重命名事件自动刷新当前搜索结果和计数', () async {
+    final refreshed = Completer<void>();
+    final subscription = container.listen(diarySearchControllerProvider, (
+      previous,
+      next,
+    ) {
+      if (previous?.isSearching == true &&
+          !next.isSearching &&
+          next.totalCount == 0 &&
+          !refreshed.isCompleted) {
+        refreshed.complete();
+      }
+    });
+    addTearDown(subscription.close);
+    final controller = container.read(diarySearchControllerProvider.notifier);
+    await controller.search('苹果');
+    await controller.setTag('生活');
+    expect(container.read(diarySearchControllerProvider).totalCount, 35);
+
+    await getIt<DiaryRepository>().renameTag('生活', '日常');
+    await refreshed.future.timeout(const Duration(seconds: 5));
+
+    final state = container.read(diarySearchControllerProvider);
+    expect(state.tag, '生活');
+    expect(state.results, isEmpty);
+    expect(state.totalCount, 0);
+    expect(state.hasMore, isFalse);
   });
 }

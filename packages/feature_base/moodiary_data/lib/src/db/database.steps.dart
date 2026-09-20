@@ -2220,10 +2220,418 @@ final class Schema4 extends i0.VersionedSchema {
   );
 }
 
+final class Schema5 extends i0.VersionedSchema {
+  Schema5({required super.database}) : super(version: 5);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    diaries,
+    diaryLinks,
+    diaryChunks,
+    idxDiaryChunksDiary,
+    embedQueue,
+    llmProviders,
+    idxLlmProvidersSort,
+    chatSessions,
+    idxChatSessionsUpdated,
+    chatMessages,
+    idxChatMessagesSession,
+    assistantToolCalls,
+    memories,
+    idxMemoriesUpdated,
+    tombstones,
+    idxTombstonesTime,
+    categories,
+    fonts,
+    mediaInfos,
+    places,
+    idxDiariesShowTime,
+    idxDiariesShowCatTime,
+    idxDiariesShowLastmod,
+    diaryMedia,
+    idxDiaryMediaKind,
+    idxDiaryMediaFile,
+    diaryTags,
+    idxDiaryTagsTag,
+    idxDiaryLinksDst,
+    diaryFts,
+  ];
+  late final Shape22 diaries = Shape22(
+    source: i0.VersionedTable(
+      entityName: 'diaries',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_2,
+        _column_3,
+        _column_4,
+        _column_89,
+        _column_5,
+        _column_6,
+        _column_7,
+        _column_8,
+        _column_9,
+        _column_10,
+        _column_11,
+        _column_12,
+        _column_13,
+        _column_14,
+        _column_15,
+        _column_16,
+        _column_17,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape2 diaryLinks = Shape2(
+    source: i0.VersionedTable(
+      entityName: 'diary_links',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(src_id, dst_id)'],
+      columns: [_column_18, _column_19],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape3 diaryChunks = Shape3(
+    source: i0.VersionedTable(
+      entityName: 'diary_chunks',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['UNIQUE(diary_id, seq)'],
+      columns: [
+        _column_2,
+        _column_20,
+        _column_21,
+        _column_22,
+        _column_23,
+        _column_24,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxDiaryChunksDiary = i1.Index(
+    'idx_diary_chunks_diary',
+    'CREATE INDEX idx_diary_chunks_diary ON diary_chunks (diary_id)',
+  );
+  late final Shape4 embedQueue = Shape4(
+    source: i0.VersionedTable(
+      entityName: 'embed_queue',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_25, _column_26],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape5 llmProviders = Shape5(
+    source: i0.VersionedTable(
+      entityName: 'llm_providers',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_27,
+        _column_28,
+        _column_12,
+        _column_29,
+        _column_30,
+        _column_31,
+        _column_32,
+        _column_33,
+        _column_34,
+        _column_35,
+        _column_36,
+        _column_37,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxLlmProvidersSort = i1.Index(
+    'idx_llm_providers_sort',
+    'CREATE INDEX idx_llm_providers_sort ON llm_providers (sort_order)',
+  );
+  late final Shape18 chatSessions = Shape18(
+    source: i0.VersionedTable(
+      entityName: 'chat_sessions',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_27,
+        _column_38,
+        _column_39,
+        _column_40,
+        _column_31,
+        _column_41,
+        _column_42,
+        _column_43,
+        _column_44,
+        _column_45,
+        _column_46,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxChatSessionsUpdated = i1.Index(
+    'idx_chat_sessions_updated',
+    'CREATE INDEX idx_chat_sessions_updated ON chat_sessions (updated_at DESC)',
+  );
+  late final Shape19 chatMessages = Shape19(
+    source: i0.VersionedTable(
+      entityName: 'chat_messages',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_27,
+        _column_50,
+        _column_51,
+        _column_6,
+        _column_31,
+        _column_52,
+        _column_53,
+        _column_54,
+        _column_55,
+        _column_56,
+        _column_57,
+        _column_85,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxChatMessagesSession = i1.Index(
+    'idx_chat_messages_session',
+    'CREATE INDEX idx_chat_messages_session ON chat_messages (session_id, created_at)',
+  );
+  late final Shape8 assistantToolCalls = Shape8(
+    source: i0.VersionedTable(
+      entityName: 'assistant_tool_calls',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(message_id, seq)'],
+      columns: [
+        _column_58,
+        _column_21,
+        _column_59,
+        _column_28,
+        _column_60,
+        _column_61,
+        _column_62,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape20 memories = Shape20(
+    source: i0.VersionedTable(
+      entityName: 'memories',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_27,
+        _column_63,
+        _column_6,
+        _column_31,
+        _column_41,
+        _column_86,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxMemoriesUpdated = i1.Index(
+    'idx_memories_updated',
+    'CREATE INDEX idx_memories_updated ON memories (updated_at DESC)',
+  );
+  late final Shape11 tombstones = Shape11(
+    source: i0.VersionedTable(
+      entityName: 'tombstones',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_67, _column_68, _column_69],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxTombstonesTime = i1.Index(
+    'idx_tombstones_time',
+    'CREATE INDEX idx_tombstones_time ON tombstones (time_ms)',
+  );
+  late final Shape12 categories = Shape12(
+    source: i0.VersionedTable(
+      entityName: 'categories',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_27, _column_28, _column_9, _column_70, _column_71],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape13 fonts = Shape13(
+    source: i0.VersionedTable(
+      entityName: 'fonts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_72, _column_73, _column_74],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape14 mediaInfos = Shape14(
+    source: i0.VersionedTable(
+      entityName: 'media_infos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_75, _column_76, _column_77, _column_9],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape15 places = Shape15(
+    source: i0.VersionedTable(
+      entityName: 'places',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [
+        _column_27,
+        _column_28,
+        _column_78,
+        _column_79,
+        _column_80,
+        _column_9,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxDiariesShowTime = i1.Index(
+    'idx_diaries_show_time',
+    'CREATE INDEX idx_diaries_show_time ON diaries (show, time DESC, id DESC)',
+  );
+  final i1.Index idxDiariesShowCatTime = i1.Index(
+    'idx_diaries_show_cat_time',
+    'CREATE INDEX idx_diaries_show_cat_time ON diaries (show, category_id, time DESC, id DESC)',
+  );
+  final i1.Index idxDiariesShowLastmod = i1.Index(
+    'idx_diaries_show_lastmod',
+    'CREATE INDEX idx_diaries_show_lastmod ON diaries (show, last_modified DESC, id DESC)',
+  );
+  late final Shape16 diaryMedia = Shape16(
+    source: i0.VersionedTable(
+      entityName: 'diary_media',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(diary_id, kind, seq)'],
+      columns: [_column_81, _column_82, _column_21, _column_83],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxDiaryMediaKind = i1.Index(
+    'idx_diary_media_kind',
+    'CREATE INDEX idx_diary_media_kind ON diary_media (kind, diary_id)',
+  );
+  final i1.Index idxDiaryMediaFile = i1.Index(
+    'idx_diary_media_file',
+    'CREATE INDEX idx_diary_media_file ON diary_media (file_name)',
+  );
+  late final Shape17 diaryTags = Shape17(
+    source: i0.VersionedTable(
+      entityName: 'diary_tags',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(diary_id, seq)'],
+      columns: [_column_81, _column_21, _column_84],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index idxDiaryTagsTag = i1.Index(
+    'idx_diary_tags_tag',
+    'CREATE INDEX idx_diary_tags_tag ON diary_tags (tag)',
+  );
+  final i1.Index idxDiaryLinksDst = i1.Index(
+    'idx_diary_links_dst',
+    'CREATE INDEX idx_diary_links_dst ON diary_links (dst_id)',
+  );
+  late final Shape21 diaryFts = Shape21(
+    source: i0.VersionedVirtualTable(
+      entityName: 'diary_fts',
+      moduleAndArgs: 'fts5(title, content_text, content=\'diaries\', content_rowid=\'rid\', tokenize=\'simple\')',
+      columns: [_column_87, _column_88],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+}
+
+class Shape22 extends i0.VersionedTable {
+  Shape22({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<int> get rid =>
+      columnsByName['rid']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get id =>
+      columnsByName['id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get categoryId =>
+      columnsByName['category_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get legacyCategoryExcludedTagsJson =>
+      columnsByName['legacy_category_excluded_tags_json']!
+          as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get title =>
+      columnsByName['title']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get content =>
+      columnsByName['content']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get contentText =>
+      columnsByName['content_text']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get time =>
+      columnsByName['time']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get lastModified =>
+      columnsByName['last_modified']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get show =>
+      columnsByName['show']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get mood =>
+      columnsByName['mood']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get type =>
+      columnsByName['type']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<double> get aspect =>
+      columnsByName['aspect']! as i1.GeneratedColumn<double>;
+  i1.GeneratedColumn<String> get placeId =>
+      columnsByName['place_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get weatherIcon =>
+      columnsByName['weather_icon']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get weatherTemp =>
+      columnsByName['weather_temp']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get weatherText =>
+      columnsByName['weather_text']! as i1.GeneratedColumn<String>;
+}
+
+i1.GeneratedColumn<String> _column_89(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'legacy_category_excluded_tags_json',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+      defaultValue: const i1.CustomExpression('\'[]\''),
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
   required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
+  required Future<void> Function(i1.Migrator m, Schema5 schema) from4To5,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -2242,6 +2650,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from3To4(migrator, schema);
         return 4;
+      case 4:
+        final schema = Schema5(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from4To5(migrator, schema);
+        return 5;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -2252,10 +2665,12 @@ i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
   required Future<void> Function(i1.Migrator m, Schema4 schema) from3To4,
+  required Future<void> Function(i1.Migrator m, Schema5 schema) from4To5,
 }) => i0.VersionedSchema.stepByStepHelper(
   step: migrationSteps(
     from1To2: from1To2,
     from2To3: from2To3,
     from3To4: from3To4,
+    from4To5: from4To5,
   ),
 );

@@ -70,6 +70,11 @@ void main() {
 
     test('NewDiaryRoute always starts in edit', () {
       expect(const NewDiaryRoute().location, '/diary-new');
+      expect(const NewDiaryRoute(tag: '生活/旅行').params, {
+        'category_id': null,
+        'tag': '生活/旅行',
+        'edit': true,
+      });
       expect(const NewDiaryRoute(categoryId: 'c1').params, {
         'category_id': 'c1',
         'edit': true,

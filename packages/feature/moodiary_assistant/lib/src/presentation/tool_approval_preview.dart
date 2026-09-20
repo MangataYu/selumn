@@ -77,6 +77,15 @@ Future<ToolApprovalPreview> buildToolApprovalPreview(
 
 String _str(Object? v) => v?.toString().trim() ?? '';
 
+String _tagNames(Object? raw, Translations l10n) {
+  final tags = raw is List
+      ? TagPath.normalizeAll(raw.whereType<String>())
+      : const <String>[];
+  return tags.isEmpty
+      ? l10n.diary.tagNoTag
+      : tags.map((tag) => '#$tag').join(', ');
+}
+
 int _chars(String text) => text.replaceAll(RegExp(r'\s+'), '').length;
 
 String _diaryLabel(Diary diary, Translations l10n) =>
@@ -95,7 +104,8 @@ Future<ToolApprovalPreview> _createDiary(
           label: '',
           value:
               '${_str(item['title']).isEmpty ? l10n.common.untitled : _str(item['title'])}'
-              ' · ${l10n.assistant.approvalContentNew(count: _chars(_str(item['content'])))}',
+              ' · ${l10n.assistant.approvalContentNew(count: _chars(_str(item['content'])))}'
+              '${item.containsKey('tags') ? ' · ${l10n.common.tag}: ${_tagNames(item['tags'], l10n)}' : ''}',
         ),
     ],
     confirmLabel: l10n.assistant.approvalConfirmCreate,
@@ -107,7 +117,6 @@ Future<ToolApprovalPreview> _updateDiary(
   List<Map<String, dynamic>> items,
 ) async {
   final diaries = getIt<DiaryRepository>();
-  final categories = getIt<CategoryRepository>();
   final rewrites = items.any((i) => i['content'] != null);
   if (items.isEmpty) {
     return ToolApprovalPreview(
@@ -120,7 +129,9 @@ Future<ToolApprovalPreview> _updateDiary(
   Future<String> categoryName(Object? id) async {
     final key = _str(id);
     if (key.isEmpty) return l10n.assistant.approvalNoCategory;
-    return (await categories.getCategoryById(key))?.categoryName ?? key;
+    return (await getIt<CategoryRepository>().getCategoryById(key))
+            ?.categoryName ??
+        key;
   }
 
   if (items.length == 1) {
@@ -141,6 +152,13 @@ Future<ToolApprovalPreview> _updateDiary(
         value:
             '${await categoryName(diary?.categoryId)} → '
             '${await categoryName(item['categoryId'])}',
+      ));
+    }
+    if (item.containsKey('tags')) {
+      lines.add((
+        label: l10n.common.tag,
+        value:
+            '${_tagNames(diary?.tags, l10n)} → ${_tagNames(item['tags'], l10n)}',
       ));
     }
     if (item['content'] != null) {
@@ -178,7 +196,9 @@ Future<ToolApprovalPreview> _updateDiary(
     final diary = await diaries.getDiaryByBusinessId(_str(item['id']));
     lines.add((
       label: '',
-      value: diary == null ? _str(item['id']) : _diaryLabel(diary, l10n),
+      value:
+          '${diary == null ? _str(item['id']) : _diaryLabel(diary, l10n)}'
+          '${item.containsKey('tags') ? ' · ${l10n.common.tag}: ${_tagNames(item['tags'], l10n)}' : ''}',
     ));
   }
   if (items.length > _kPreviewRows) {

@@ -21,7 +21,7 @@ Settings › Personalisation holds exactly two things: the notes (`AssistantNote
 
 ## Tools
 
-14 batch tools in `AssistantToolRegistry`; `searchDiaries` fuses FTS5 keyword and sqlite-vec semantic hits with reciprocal-rank fusion and returns excerpts (full text via `getDiary`). Tool calls persisted under old ids (`queryDiaries`, `semanticSearchDiaries`, `listMemories`, `updateMemory`) are renamed on read by `ChatRepository` through `renamedAssistantToolIds`; `specsFor` drops unknown ids silently, so every rename needs a mapping entry. Every tool must follow the UI's own write paths (soft-delete = `show: false`, content changes re-extract media, invalid category ids fail instead of clearing).
+10 active tools in `AssistantToolRegistry`; the four retired category tools retain their ids and summaries for history but are excluded from model registration, settings and execution. `searchDiaries` fuses FTS5 keyword and sqlite-vec semantic hits with reciprocal-rank fusion and returns excerpts (full text via `getDiary`). A tag filter uses the repository's keyword/date path, including descendants, and explicitly reports that semantic search was not run because the vector index has no tag metadata. Tool calls persisted under old ids (`queryDiaries`, `semanticSearchDiaries`, `listMemories`, `updateMemory`) are renamed on read by `ChatRepository` through `renamedAssistantToolIds`; `specsFor` drops unknown ids silently, so every rename needs a mapping entry. Every tool must follow the UI's own write paths (soft-delete = `show: false`, content changes re-extract media, replacing tags removes corresponding inline marks so deleted tags cannot return).
 
 ## Permission gate
 

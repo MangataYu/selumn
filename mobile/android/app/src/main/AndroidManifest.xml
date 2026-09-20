@@ -71,7 +71,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:host="cn.yooss.moodiary"
+                    android:host="${applicationId}"
                     android:pathPrefix="/open"
                     android:scheme="deeplink" />
             </intent-filter>

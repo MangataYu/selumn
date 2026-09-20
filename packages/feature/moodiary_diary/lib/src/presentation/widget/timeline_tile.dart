@@ -32,12 +32,11 @@ class DiaryTimelineTile extends StatelessWidget {
 
   final DiaryMood? moodBelow;
 
-  final Category? category;
   final Place? place;
-  final bool showCategoryLabel;
   final DiaryCardSyncState syncState;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<String>? onTagTap;
   final bool selecting;
   final bool selected;
 
@@ -50,12 +49,11 @@ class DiaryTimelineTile extends StatelessWidget {
     this.breakAfter = false,
     this.hasAbove = false,
     this.moodBelow,
-    this.category,
     this.place,
-    this.showCategoryLabel = true,
     this.syncState = .none,
     this.onTap,
     this.onLongPress,
+    this.onTagTap,
     this.selecting = false,
     this.selected = false,
   });
@@ -91,14 +89,13 @@ class DiaryTimelineTile extends StatelessWidget {
               child: _Content(
                 diary: diary,
                 stamp: stamp,
-                category: category,
                 place: place,
-                showCategoryLabel: showCategoryLabel,
                 syncState: syncState,
                 selecting: selecting,
                 selected: selected,
                 onTap: onTap,
                 onLongPress: onLongPress,
+                onTagTap: onTagTap,
               ),
             ),
           ],
@@ -140,26 +137,24 @@ class _DateColumn extends StatelessWidget {
 class _Content extends StatelessWidget {
   final Diary diary;
   final DateTime stamp;
-  final Category? category;
   final Place? place;
-  final bool showCategoryLabel;
   final DiaryCardSyncState syncState;
   final bool selecting;
   final bool selected;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<String>? onTagTap;
 
   const _Content({
     required this.diary,
     required this.stamp,
-    required this.category,
     required this.place,
-    required this.showCategoryLabel,
     required this.syncState,
     required this.selecting,
     required this.selected,
     required this.onTap,
     required this.onLongPress,
+    required this.onTagTap,
   });
 
   @override
@@ -179,9 +174,7 @@ class _Content extends StatelessWidget {
           _MetaLine(
             diary: diary,
             stamp: stamp,
-            category: category,
             place: place,
-            showCategoryLabel: showCategoryLabel && !selecting,
             syncState: syncState,
           ),
           if (hasTitle) ...[
@@ -210,7 +203,11 @@ class _Content extends StatelessWidget {
               pending: syncState == .syncing,
             ),
           ],
-          _Footer(diary: diary, place: place),
+          _Footer(
+            diary: diary,
+            place: place,
+            onTagTap: selecting ? null : onTagTap,
+          ),
         ],
       ),
     );
@@ -220,17 +217,13 @@ class _Content extends StatelessWidget {
 class _MetaLine extends StatelessWidget {
   final Diary diary;
   final DateTime stamp;
-  final Category? category;
   final Place? place;
-  final bool showCategoryLabel;
   final DiaryCardSyncState syncState;
 
   const _MetaLine({
     required this.diary,
     required this.stamp,
-    required this.category,
     required this.place,
-    required this.showCategoryLabel,
     required this.syncState,
   });
 
@@ -272,40 +265,6 @@ class _MetaLine extends StatelessWidget {
           DiarySyncBadge(state: syncState),
           const SizedBox(width: 8),
         ],
-        if (showCategoryLabel && category != null)
-          _CategoryLabel(category: category!, style: style),
-      ],
-    );
-  }
-}
-
-class _CategoryLabel extends StatelessWidget {
-  final Category category;
-  final TextStyle? style;
-
-  const _CategoryLabel({required this.category, required this.style});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = categoryColorOf(colorValue: category.color, id: category.id);
-    return Row(
-      mainAxisSize: .min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: .circle),
-        ),
-        const SizedBox(width: 4),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 84),
-          child: Text(
-            category.categoryName,
-            maxLines: 1,
-            overflow: .ellipsis,
-            style: style,
-          ),
-        ),
       ],
     );
   }
@@ -430,7 +389,9 @@ class _Footer extends StatelessWidget {
   final Diary diary;
   final Place? place;
 
-  const _Footer({required this.diary, required this.place});
+  final ValueChanged<String>? onTagTap;
+
+  const _Footer({required this.diary, required this.place, this.onTagTap});
 
   @override
   Widget build(BuildContext context) {
@@ -460,7 +421,18 @@ class _Footer extends StatelessWidget {
       chips.add(
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 108),
-          child: Text('#$tag', maxLines: 1, overflow: .ellipsis, style: style),
+          child: MInkWell(
+            onTap: onTagTap == null ? null : () => onTagTap!(tag),
+            child: Padding(
+              padding: const .symmetric(vertical: 4),
+              child: Text(
+                '#$tag',
+                maxLines: 1,
+                overflow: .ellipsis,
+                style: style,
+              ),
+            ),
+          ),
         ),
       );
     }

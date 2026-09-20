@@ -2,8 +2,10 @@ name: Quality & Tests
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ codex/personal ]
   pull_request:
-    branches: [ develop ]
+    branches: [ develop, codex/personal ]
 
 concurrency:
   group: ci-${{ github.ref }}

@@ -163,5 +163,15 @@
   "autoSaved": "自动保存",
   "calendarTitle": "日历",
   "calendarBackToToday": "回到今天",
-  "calendarEmptyDay": "这天没有写"
+  "calendarEmptyDay": "这天没有写",
+  "tagSearchHint": "搜索标签",
+  "tagNoMatch": "没有匹配的标签",
+  "tagNoTag": "无标签",
+  "allTags": "全部标签",
+  "tagRename": "重命名标签",
+  "tagDelete": "删除标签",
+  "tagRenameHint": "例如：生活/旅行",
+  "tagInvalid": "标签路径无效",
+  "tagDeleteMessage": "移除所有日记中的「{tag}」及其子标签，正文保留标签名称。",
+  "tagUpdateFailed": "标签更新失败"
 }

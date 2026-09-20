@@ -259,6 +259,7 @@ class _FormatExportPageState extends State<FormatExportPage> {
     return switch (_scope.kind) {
       .all => l10n.export.scopeAll,
       .category => detail ?? l10n.export.scopeByCategory,
+      .tag => detail ?? l10n.export.scopeByTag,
       .dateRange => detail ?? l10n.export.scopeByDate,
       .picked => l10n.export.scopePickedLabel(count: _scopeCount ?? 0),
     };

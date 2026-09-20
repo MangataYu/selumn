@@ -71,6 +71,7 @@ class MarkdownImporter {
     Future<void> flush() async {
       if (batch.isEmpty) return;
       await _diaries.insertDiaries(List.of(batch));
+      await _diaries.migrateLegacyCategoriesToTags();
       imported += batch.length;
       batch.clear();
     }

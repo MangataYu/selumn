@@ -16,7 +16,7 @@ typedef _KeywordSearch = ({
   List<Diary> results,
   int total,
   List<String> keywords,
-  String? categoryId,
+  String? tag,
   DateTime? start,
   DateTime? endExclusive,
 });
@@ -88,7 +88,7 @@ abstract final class AssistantToolRegistry {
           'is an optional filter. Give a query to search and it runs both the '
           'keyword path and, where the local semantic index is on, a '
           'meaning-based one, merged into a single ranking; leave it out to '
-          'browse by date and/or category. Each row says how it was found '
+          'browse by date and/or tag. Each row says how it was found '
           '(via=keyword, meaning, or both). '
           'Results carry id, date, mood and a short excerpt — not the full '
           'text (use getDiary for that) — and state the total number of '
@@ -111,9 +111,12 @@ abstract final class AssistantToolRegistry {
                 'synonyms. Pinyin and initials match Chinese text. Omit to '
                 'browse by the filters below.',
           },
-          'categoryId': {
+          'tag': {
             'type': 'string',
-            'description': 'Restrict to one category (id from listCategories).',
+            'description':
+                'Restrict to this slash-separated tag path and its descendants. '
+                'With a tag, query uses keyword search (even in meaning mode); '
+                'semantic search is not run. Omit query to browse all matching entries.',
           },
           'startDate': {
             'type': 'string',
@@ -170,9 +173,9 @@ abstract final class AssistantToolRegistry {
     const AssistantToolSpec(
       tool: .diaryOverview,
       description:
-          'Aggregate stats: total entries, per-category counts, the date span, and '
+          'Aggregate stats: total entries, per-tag counts (parent paths include descendants; tags overlap), the date span, and '
           'the mood distribution. Prefer this over counting query results yourself '
-          'for "how many", "which category", "since when" or mood-trend questions.',
+          'for "how many", "which tag", "since when" or mood-trend questions.',
       jsonSchema: {'type': 'object', 'properties': {}},
       run: _diaryOverview,
       summarize: _summarizeOverview,
@@ -202,9 +205,10 @@ abstract final class AssistantToolRegistry {
                       'Mood or life-state of the entry. Omit unless the user '
                       'conveyed one.',
                 },
-                'categoryId': {
-                  'type': 'string',
-                  'description': 'Optional category id from listCategories.',
+                'tags': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                  'description': 'Optional tag paths, such as life/travel. Use only tags requested by the user.',
                 },
               },
               'required': ['content'],
@@ -246,9 +250,10 @@ abstract final class AssistantToolRegistry {
                   'enum': [for (final m in DiaryMood.values) m.name],
                   'description': 'New mood.',
                 },
-                'categoryId': {
-                  'type': 'string',
-                  'description': 'New category id.',
+                'tags': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                  'description': 'Replace all tags with these paths; an empty list clears them. Removing a tag also turns its inline hashtag into plain text.',
                 },
               },
               'required': ['id'],
@@ -536,10 +541,11 @@ abstract final class AssistantToolRegistry {
   }
 
   static List<AssistantToolSpec> specsFor(List<String>? allowed) {
-    if (allowed == null) return specs;
     return [
       for (final spec in specs)
-        if (allowed.contains(spec.id)) spec,
+        if (!retiredAssistantTools.contains(spec.tool) &&
+            (allowed == null || allowed.contains(spec.id)))
+          spec,
     ];
   }
 
@@ -630,7 +636,7 @@ abstract final class AssistantToolRegistry {
         .split(RegExp(r'\s+'))
         .where((e) => e.isNotEmpty)
         .toList();
-    final categoryId = _trimToNull(input['categoryId']);
+    final tag = _tagFilter(input);
     final sortName = (input['sort'] as String?)?.trim();
     final limit = _parseLimit(input['limit']);
     final start = _parseDate(input['startDate']);
@@ -643,7 +649,7 @@ abstract final class AssistantToolRegistry {
     if (rawKeywords.isNotEmpty) {
       final hits = await repo.searchDiaries(
         query: rawKeywords,
-        categoryId: categoryId,
+        tag: tag,
         start: start,
         end: endExclusive,
         sort: _toSearchSort(sortName),
@@ -653,7 +659,7 @@ abstract final class AssistantToolRegistry {
       if (results.length >= limit) {
         total = await repo.countSearchDiaries(
           query: rawKeywords,
-          categoryId: categoryId,
+          tag: tag,
           start: start,
           end: endExclusive,
         );
@@ -665,23 +671,29 @@ abstract final class AssistantToolRegistry {
       );
       results =
           ranged
-              .where((d) => categoryId == null || d.categoryId == categoryId)
+              .where(
+                (d) =>
+                    tag == null ||
+                    d.tags.any((value) => TagPath.matches(value, tag)),
+              )
               .where((d) => _inRange(d.time, start, endExclusive))
               .toList()
             ..sort(_diaryComparator(sortName));
     } else {
-      results = await repo.getDiaryByCategory(
-        categoryId: categoryId,
+      results = await repo.getDiaryByTag(
+        tag: tag,
         sort: _toDiarySort(sortName),
         limit: limit,
       );
+      final counts = await repo.diaryCountByTag();
+      total = tag == null ? counts.total : counts.byTag[tag] ?? 0;
     }
 
     return (
       results: results,
       total: total ?? results.length,
       keywords: keywordsForDisplay,
-      categoryId: categoryId,
+      tag: tag,
       start: start,
       endExclusive: endExclusive,
     );
@@ -695,26 +707,28 @@ abstract final class AssistantToolRegistry {
     if (query.isEmpty) return const [];
     if (!semanticAvailable) return const [];
     final index = getIt<EmbedIndexService>();
-    final categoryId = _trimToNull(input['categoryId']);
     final start = _parseDate(input['startDate']);
     final endExclusive = _parseDate(input['endDate'])
         ?.add(const Duration(days: 1));
     return index.search(
       query,
       limit: limit,
-      categoryId: categoryId,
       start: start,
       endExclusive: endExclusive,
     );
   }
 
   static Future<String> _searchDiaries(Map<String, dynamic> input) async {
+    if (input.containsKey('categoryId')) {
+      return 'Failed: categories have been replaced by tags. Supply tag instead.';
+    }
+    final tag = _tagFilter(input);
     final mode = (input['mode'] as String?)?.trim() ?? 'auto';
     final limit = _parseLimit(input['limit']);
     final hasQuery = ((input['query'] as String?) ?? '').trim().isNotEmpty;
     final semanticOn = hasQuery && semanticAvailable;
-    final wantKeyword = mode != 'meaning';
-    final wantMeaning = mode != 'keyword' && semanticOn;
+    final wantKeyword = tag != null || mode != 'meaning';
+    final wantMeaning = tag == null && mode != 'keyword' && semanticOn;
 
     final keyword = wantKeyword
         ? await _keywordSearch(input)
@@ -722,7 +736,7 @@ abstract final class AssistantToolRegistry {
             results: <Diary>[],
             total: 0,
             keywords: <String>[],
-            categoryId: _trimToNull(input['categoryId']),
+            tag: _tagFilter(input),
             start: _parseDate(input['startDate']),
             endExclusive: _parseDate(input['endDate'])
                 ?.add(const Duration(days: 1)),
@@ -736,11 +750,13 @@ abstract final class AssistantToolRegistry {
     if (rows.isEmpty) {
       final base = await _emptyQueryMessage(
         keyword.keywords,
-        keyword.categoryId,
+        keyword.tag,
         keyword.start,
         keyword.endExclusive,
       );
-      final how = !hasQuery
+      final how = tag != null && hasQuery
+          ? ' Tag filters use keyword search; semantic search was not run.'
+          : !hasQuery
           ? ''
           : wantMeaning
           ? ' Both the keyword and the meaning path ran.'
@@ -770,11 +786,14 @@ abstract final class AssistantToolRegistry {
         score: row.score,
       ));
     }
-    return _formatSearchRows(
+    final result = _formatSearchRows(
       resolved,
       total: keyword.total + hits.length - _overlap(keyword.results, hits),
       atLeast: wantMeaning && hits.length >= limit,
     );
+    return tag != null && hasQuery
+        ? '$result\nTag filters use keyword search; semantic search was not run.'
+        : result;
   }
 
   static int _overlap(List<Diary> diaries, List<SemanticHit> hits) {
@@ -840,8 +859,7 @@ abstract final class AssistantToolRegistry {
       final title = diary.title.trim().isEmpty
           ? 'Untitled'
           : diary.title.trim();
-      final cat = diary.categoryId;
-      final catPart = (cat != null && cat.isNotEmpty) ? ' categoryId=$cat' : '';
+      final tagPart = ' tags=${jsonEncode(diary.tags)}';
       final via = row.keyword && row.meaning
           ? 'keyword+meaning'
           : row.meaning
@@ -852,7 +870,7 @@ abstract final class AssistantToolRegistry {
           : '';
       buffer.writeln(
         'id=${diary.id} 【${TimeFormat.isoDate(diary.time)}】$title '
-        'mood=${diary.mood.name} via=$via$sim$catPart',
+        'mood=${diary.mood.name} via=$via$sim$tagPart',
       );
       final text = diary.contentText.trim();
       if (text.isNotEmpty) {
@@ -910,9 +928,6 @@ abstract final class AssistantToolRegistry {
       ..writeln('date=${TimeFormat.isoDate(diary.time)}')
       ..writeln('title=$title')
       ..writeln('mood=${diary.mood.name}');
-    if (diary.categoryId != null && diary.categoryId!.isNotEmpty) {
-      buffer.writeln('categoryId=${diary.categoryId}');
-    }
     if (diary.tags.isNotEmpty) {
       buffer.writeln('tags=${diary.tags.join(', ')}');
     }
@@ -988,14 +1003,11 @@ abstract final class AssistantToolRegistry {
 
   static Future<String> _diaryOverview(Map<String, dynamic> input) async {
     final repo = getIt<DiaryRepository>();
-    final counts = await repo.diaryCountByCategory();
+    final counts = await repo.diaryCountByTag();
     if (counts.total == 0) return 'No diaries yet.';
 
-    final cats = await getIt<CategoryRepository>().getAllCategories();
-    final nameById = {for (final c in cats) c.id: c.categoryName};
-    final newest = await repo.getDiaryByCategory(sort: .timeDesc, limit: 1);
-    final oldest = await repo.getDiaryByCategory(sort: .timeAsc, limit: 1);
-
+    final newest = await repo.getDiaryByTag(sort: .timeDesc, limit: 1);
+    final oldest = await repo.getDiaryByTag(sort: .timeAsc, limit: 1);
     final buffer = StringBuffer()..writeln('Total entries=${counts.total}');
     if (newest.isNotEmpty && oldest.isNotEmpty) {
       buffer.writeln(
@@ -1003,22 +1015,15 @@ abstract final class AssistantToolRegistry {
         '${TimeFormat.isoDate(newest.first.time)}',
       );
     }
-    final categorized = counts.byCategory.values.fold<int>(0, (a, b) => a + b);
-    final uncategorized = counts.total - categorized;
-    buffer.writeln('by category:');
-    if (counts.byCategory.isEmpty) {
-      buffer.writeln('- (all uncategorised)');
-    } else {
-      final entries = counts.byCategory.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-      for (final e in entries) {
-        final name = nameById[e.key] ?? '(deleted category)';
-        buffer.writeln('- $name (id=${e.key}): ${e.value}');
-      }
+    buffer.writeln('by tag (parents include descendants; counts overlap):');
+    final entries = counts.byTag.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    for (final entry in entries) {
+      buffer.writeln('- ${entry.key}: ${entry.value}');
     }
-    if (uncategorized > 0) buffer.writeln('- uncategorised: $uncategorized');
+    buffer.writeln('- untagged: ${counts.untagged}');
 
-    final moods = await repo.getDiaryByCategory(sort: .timeDesc, limit: 9999);
+    final moods = await repo.getDiaryByTag(sort: .timeDesc, limit: 9999);
     if (moods.isNotEmpty) {
       final counts = <DiaryMood, int>{};
       for (final d in moods) {
@@ -1046,11 +1051,15 @@ abstract final class AssistantToolRegistry {
     if (content.isEmpty) return 'Failed: the body cannot be empty.';
 
     final mood = _parseMood(input['mood']) ?? DiaryMood.neutral;
-    final categoryId = await _resolveCategoryId(input['categoryId']);
+    if (input.containsKey('categoryId')) {
+      return 'Failed: categories have been replaced by tags. Supply tags instead.';
+    }
+    final tags = input.containsKey('tags')
+        ? _parseTags(input['tags'])
+        : const <String>[];
 
     final converted = _toTiptap(content);
     final diary = Diary.create(
-      categoryId: categoryId,
       title: title,
       content: converted.content,
       contentText: converted.contentText,
@@ -1058,7 +1067,7 @@ abstract final class AssistantToolRegistry {
       imageName: const [],
       audioName: const [],
       videoName: const [],
-      tags: const [],
+      tags: tags,
       type: converted.type,
       aspect: null,
     );
@@ -1115,22 +1124,34 @@ abstract final class AssistantToolRegistry {
     final mood = _parseMood(input['mood']);
     if (mood != null) updated = updated.copyWith(mood: mood);
     if (input.containsKey('categoryId')) {
-      final rawCategory = (input['categoryId'] as String?)?.trim() ?? '';
-      if (rawCategory.isEmpty) {
-        updated = updated.copyWith(categoryId: null);
-      } else {
-        final resolved = await _resolveCategoryId(rawCategory);
-        if (resolved == null) {
-          return 'Failed: no category with id=$rawCategory (check listCategories).';
+      return 'Failed: categories have been replaced by tags. Supply tags instead.';
+    }
+    if (input.containsKey('tags')) {
+      final tags = _parseTags(input['tags'], existing: existing.tags);
+      var body = updated.content;
+      if (updated.type == DiaryType.tiptap.value) {
+        final marked = TiptapContent.tags(body);
+        for (final tag in {...updated.tags, ...marked}) {
+          if (!tags.contains(tag)) {
+            body = TiptapContent.removeTag(body, tag, descendants: false);
+          }
         }
-        updated = updated.copyWith(categoryId: resolved);
       }
+      updated = updated.copyWith(
+        tags: tags,
+        content: body,
+        contentText: body == updated.content
+            ? updated.contentText
+            : TiptapContent.parse(body).plainText,
+      );
     }
     updated = touched(updated);
 
     await repo.updateADiary(
       newDiary: updated,
-      index: (title == null && content == null) ? .skip : .inline,
+      index: title == null && updated.content == existing.content
+          ? .skip
+          : .inline,
     );
     final shown = updated.title.trim().isEmpty
         ? 'Untitled'
@@ -1344,23 +1365,36 @@ abstract final class AssistantToolRegistry {
         : 'Failed: no memory with id=$id.';
   }
 
-  static Future<String?> _resolveCategoryId(Object? raw) async {
-    final id = (raw as String?)?.trim();
-    if (id == null || id.isEmpty) return null;
-    final cat = await getIt<CategoryRepository>().getCategoryById(id);
-    return cat == null ? null : id;
+  static List<String> _parseTags(
+    Object? raw, {
+    List<String> existing = const [],
+  }) {
+    if (raw is! List || raw.any((tag) => tag is! String)) {
+      throw const FormatException('tags must be an array of tag paths.');
+    }
+    final tags = <String>[];
+    for (final value in raw.cast<String>()) {
+      final tag = TagPath.normalize(value);
+      if (tag == null || (!TagPath.isInline(tag) && !existing.contains(tag))) {
+        throw const FormatException(
+          'Invalid tag path. Use letters, numbers, underscores or hyphens separated by slashes.',
+        );
+      }
+      tags.add(tag);
+    }
+    return tags.toSet().toList();
+  }
+
+  static String? _tagFilter(Map<String, dynamic> input) {
+    final raw = _trimToNull(input['tag']);
+    if (raw == null) return null;
+    final tag = TagPath.normalize(raw);
+    if (tag == null) throw const FormatException('Invalid tag path.');
+    return tag;
   }
 
   static DiaryMood? _parseMood(Object? raw) =>
       raw is String ? DiaryMood.values.asNameMap()[raw] : null;
-
-  static Future<String?> _categoryNameOf(String id) async {
-    final cats = await getIt<CategoryRepository>().getAllCategories();
-    for (final c in cats) {
-      if (c.id == id) return c.categoryName;
-    }
-    return null;
-  }
 
   static String? _trimToNull(Object? raw) {
     final s = (raw as String?)?.trim();
@@ -1408,16 +1442,13 @@ abstract final class AssistantToolRegistry {
 
   static Future<String> _emptyQueryMessage(
     List<String> keywords,
-    String? categoryId,
+    String? tag,
     DateTime? start,
     DateTime? endExclusive,
   ) async {
-    final categoryName = categoryId == null
-        ? null
-        : await _categoryNameOf(categoryId);
     final conds = <String>[
       if (keywords.isNotEmpty) 'keywords "${keywords.join(' ')}"',
-      if (categoryName != null) 'category "$categoryName"',
+      if (tag != null) 'tag "$tag"',
       if (start != null) 'from ${TimeFormat.isoDate(start)}',
       if (endExclusive != null)
         'to ${TimeFormat.isoDate(endExclusive.subtract(const Duration(days: 1)))}',

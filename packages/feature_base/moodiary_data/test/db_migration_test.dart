@@ -12,6 +12,7 @@ import 'package:sqlite3_simple/sqlite3_simple.dart';
 import 'drift/moodiary/generated/schema.dart';
 import 'drift/moodiary/generated/schema_v1.dart' as v1;
 import 'drift/moodiary/generated/schema_v2.dart' as v2;
+import 'drift/moodiary/generated/schema_v4.dart' as v4;
 import 'fixtures/personal_v3/generated/schema.dart' as personal_v3;
 
 String marked(String word) => '$searchHitStart$word$searchHitEnd';
@@ -57,10 +58,10 @@ void main() {
     placeName: Value(placeName),
   );
 
-  test('新库直接建到 v4，且与 v4 快照一致', () async {
+  test('新库直接建到 v5，且与 v5 快照一致', () async {
     final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
-    await verifier.migrateAndValidate(db, 4);
-    expect(await userVersion(db), 4);
+    await verifier.migrateAndValidate(db, 5);
+    expect(await userVersion(db), 5);
     await db.close();
   });
 
@@ -116,7 +117,7 @@ void main() {
     await old.close();
 
     final db = MoodiaryDatabase.forTesting(schema.newConnection());
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 5);
     final message = await db
         .customSelect("SELECT provider_id FROM chat_messages WHERE id = 'm1'")
         .getSingle();
@@ -151,7 +152,7 @@ void main() {
     await old.close();
 
     final db = MoodiaryDatabase.forTesting(schema.newConnection());
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 5);
     final places = await PlaceRepository(db).getAllPlaces();
     expect(places, hasLength(2));
     final xihu = places.singleWhere((p) => p.name == '杭州市 西湖区');
@@ -192,7 +193,7 @@ void main() {
     await old.close();
 
     final db = MoodiaryDatabase.forTesting(schema.newConnection());
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 5);
     final hit = (await DiaryRepository(db).searchDiaries(query: '苹果')).single;
     expect(hit.diary.id, 'd1', reason: "'rebuild' 从 diaries 重灌了整个索引");
     expect(hit.titleHighlight, '关于${marked('苹果')}的日记');
@@ -267,8 +268,8 @@ void main() {
       );
 
       var db = MoodiaryDatabase.forTesting(schema.newConnection());
-      await verifier.migrateAndValidate(db, 4);
-      expect(await userVersion(db), 4);
+      await verifier.migrateAndValidate(db, 5);
+      expect(await userVersion(db), 5);
       expect(db.upgradedFrom, 3);
       final diary = await DiaryRepository(db).getDiaryByBusinessId('d1');
       expect(diary!.title, '关于苹果的日记');
@@ -326,15 +327,15 @@ void main() {
       await db.close();
 
       db = MoodiaryDatabase.forTesting(schema.newConnection());
-      expect(await userVersion(db), 4);
+      expect(await userVersion(db), 5);
       expect(db.upgradedFrom, isNull);
       expect((await db.select(db.chatMessages).get()).single.content, '旧消息');
       await db.close();
     });
   }
 
-  test('已是 v4 的库重开不重复建表', () async {
-    final schema = await verifier.schemaAt(4);
+  test('已是 v5 的库重开不重复建表', () async {
+    final schema = await verifier.schemaAt(5);
     var db = MoodiaryDatabase.forTesting(schema.newConnection());
     await PlaceRepository(
       db,
@@ -342,9 +343,51 @@ void main() {
     await db.close();
 
     db = MoodiaryDatabase.forTesting(schema.newConnection());
-    expect(await userVersion(db), 4);
+    expect(await userVersion(db), 5);
     expect(await PlaceRepository(db).getAllPlaces(), hasLength(1));
     expect(await columns(db, 'diaries'), isNot(contains('latitude')));
+    await db.close();
+  });
+
+  test('v4 升级保留旧日记并为空的标签迁移排除列表赋默认值', () async {
+    final schema = await verifier.schemaAt(4);
+    final old = v4.DatabaseAtV4(schema.newConnection());
+    await old
+        .into(old.diaries)
+        .insert(
+          v4.DiariesCompanion.insert(
+            id: 'legacy',
+            categoryId: const Value('late-category'),
+            title: '旧日记',
+            content: '',
+            contentText: '',
+            time: 123,
+            lastModified: 456,
+            show: 0,
+            mood: 'neutral',
+            type: 'tiptap',
+          ),
+        );
+    await old
+        .into(old.diaryTags)
+        .insert(
+          v4.DiaryTagsCompanion.insert(diaryId: 'legacy', seq: 0, tag: '工作/项目'),
+        );
+    await old.close();
+
+    final db = MoodiaryDatabase.forTesting(schema.newConnection());
+    await verifier.migrateAndValidate(db, 5);
+    final diary = (await DiaryRepository(db).getDiaryByBusinessId('legacy'))!;
+    expect(diary.legacyCategoryExcludedTags, isEmpty);
+    expect(diary.categoryId, 'late-category');
+    expect(diary.tags, ['工作/项目']);
+    expect(diary.lastModified.microsecondsSinceEpoch, 456);
+    expect(diary.show, isFalse);
+    expect(
+      (await db.select(db.diaries).getSingle()).legacyCategoryExcludedTagsJson,
+      '[]',
+    );
+    expect(await userVersion(db), 5);
     await db.close();
   });
 }

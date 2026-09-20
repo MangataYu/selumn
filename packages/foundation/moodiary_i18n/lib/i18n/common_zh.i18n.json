@@ -51,5 +51,7 @@
   "appName": "Selume",
   "configured": "已配置",
   "notConfigured": "未配置",
-  "copied": "已复制到剪贴板"
+  "copied": "已复制到剪贴板",
+  "tagCount": "{count} 个标签",
+  "tag": "标签"
 }

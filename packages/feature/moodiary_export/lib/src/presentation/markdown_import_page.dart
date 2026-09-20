@@ -275,7 +275,6 @@ class _MarkdownImportPageState extends State<MarkdownImportPage> {
   Future<void> _report(MarkdownImportReport report, Translations l10n) async {
     final base = l10n.export.importSummary(
       diary: report.diaries,
-      category: report.categories,
       place: report.places,
     );
     final withSkipped = report.skipped > 0

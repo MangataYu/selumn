@@ -60,7 +60,7 @@ class MoodiaryDatabase extends _$MoodiaryDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -126,6 +126,12 @@ class MoodiaryDatabase extends _$MoodiaryDatabase {
                   await m.dropColumn(schema.chatSessions, column);
                 }
               }
+            },
+            from4To5: (m, schema) async {
+              await m.addColumn(
+                schema.diaries,
+                schema.diaries.legacyCategoryExcludedTagsJson,
+              );
             },
           ),
         ),

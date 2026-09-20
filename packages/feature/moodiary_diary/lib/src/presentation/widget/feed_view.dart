@@ -26,8 +26,8 @@ class DiaryFeedView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = diaryControllerProvider(
-      categoryId: filter.categoryId,
-      uncategorized: filter.uncategorized,
+      tag: filter.tagPath,
+      untagged: filter.untagged,
     );
     final diaryAsync = ref.watch(provider);
     final selection = ref.watch(diarySelectionProvider);
@@ -71,9 +71,6 @@ class DiaryFeedView extends ConsumerWidget {
                         : DiaryCardSyncState.none;
                     return Consumer(
                       builder: (context, ref, _) {
-                        final category = ref.watch(
-                          categoryByIdProvider(diary.categoryId),
-                        );
                         final place = ref.watch(
                           placeByIdProvider(diary.placeId),
                         );
@@ -81,9 +78,17 @@ class DiaryFeedView extends ConsumerWidget {
                           key: ValueKey(diary.id),
                           diary: diary,
                           sort: sort,
-                          category: category,
                           place: place,
-                          showCategoryLabel: filter.isAll,
+                          onTagTap: selecting
+                              ? null
+                              : (tag) {
+                                  ref
+                                      .read(diarySelectionProvider.notifier)
+                                      .clear();
+                                  ref
+                                      .read(homeDiaryFilterProvider.notifier)
+                                      .select(.tag(tag));
+                                },
                           syncState: syncState,
                           selecting: selecting,
                           selected: selection.contains(diary.id),

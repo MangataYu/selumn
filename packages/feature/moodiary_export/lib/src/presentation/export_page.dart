@@ -118,7 +118,6 @@ class _BackupSection extends StatelessWidget {
       await toast.dismiss();
       final base = l10n.export.restoreSummary(
         diary: result.diaryCount,
-        category: result.categoryCount,
         media: result.mediaInfoCount,
       );
       final withSkipped = result.skipped > 0

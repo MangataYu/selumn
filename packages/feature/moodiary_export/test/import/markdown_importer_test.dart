@@ -66,7 +66,7 @@ void main() {
 
   MarkdownImportSource source() => MarkdownImportSource.scan(root);
 
-  test('front matter 全量落库，分类复用一次、地点按名新建', () async {
+  test('front matter 全量落库，旧分类转标签、地点按名新建', () async {
     const head = '''
 ---
 time: "2026-09-01T08:00:00.000Z"
@@ -96,7 +96,7 @@ tags: ["a"]
     expect(first.time, DateTime.utc(2026, 9, 1, 8));
     expect(first.mood, DiaryMood.travel);
     expect(first.weather?.temp, '26');
-    expect(first.tags, ['a']);
+    expect(first.tags, ['a', '旅行']);
     expect(first.type, DiaryType.tiptap.value);
     expect(first.contentText, '出发');
     expect(first.lastModified, DateTime.utc(2026, 9, 6, 12));
@@ -104,7 +104,10 @@ tags: ["a"]
     final category = (await categories.getAllCategories()).single;
     expect(category.categoryName, '旅行');
     final withHead = all.where((d) => d.title != '第三天');
-    expect(withHead.every((d) => d.categoryId == category.id), isTrue);
+    expect(
+      withHead.every((d) => d.categoryId == null && d.tags.contains('旅行')),
+      isTrue,
+    );
 
     final place = (await places.getAllPlaces()).single;
     expect(place.id, Place.idForName('西湖'));

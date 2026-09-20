@@ -13,14 +13,14 @@ class DiaryManagerPage extends ConsumerStatefulWidget {
 }
 
 class _DiaryManagerPageState extends ConsumerState<DiaryManagerPage> {
-  String? _categoryFilter;
+  String? _tagFilter;
   final _selected = <String>{};
 
   @override
   Widget build(BuildContext context) {
-    final provider = diaryControllerProvider(categoryId: _categoryFilter);
+    final provider = diaryControllerProvider(tag: _tagFilter);
     final async = ref.watch(provider);
-    final categories = ref.watch(orderedCategoriesProvider);
+    final tags = ref.watch(diaryTagsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -41,10 +41,10 @@ class _DiaryManagerPageState extends ConsumerState<DiaryManagerPage> {
       body: Column(
         children: [
           _FilterBar(
-            current: _categoryFilter,
-            categoriesAsync: categories,
+            current: _tagFilter,
+            tagsAsync: tags,
             onChanged: (id) => setState(() {
-              _categoryFilter = id;
+              _tagFilter = id;
               _selected.clear();
             }),
           ),
@@ -124,12 +124,12 @@ class _DiaryManagerPageState extends ConsumerState<DiaryManagerPage> {
 
 class _FilterBar extends StatelessWidget {
   final String? current;
-  final AsyncValue categoriesAsync;
+  final AsyncValue<List<String>> tagsAsync;
   final void Function(String?) onChanged;
 
   const _FilterBar({
     required this.current,
-    required this.categoriesAsync,
+    required this.tagsAsync,
     required this.onChanged,
   });
 
@@ -137,7 +137,7 @@ class _FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 48,
-      child: categoriesAsync.maybeWhen(
+      child: tagsAsync.maybeWhen(
         data: (cats) => ListView(
           scrollDirection: .horizontal,
           padding: const .symmetric(horizontal: 12, vertical: 8),
@@ -150,9 +150,9 @@ class _FilterBar extends StatelessWidget {
             const SizedBox(width: 8),
             for (final c in cats) ...[
               ChoiceChip(
-                label: Text(c.categoryName),
-                selected: current == c.id,
-                onSelected: (_) => onChanged(c.id),
+                label: Text('#$c'),
+                selected: current == c,
+                onSelected: (_) => onChanged(c),
               ),
               const SizedBox(width: 8),
             ],

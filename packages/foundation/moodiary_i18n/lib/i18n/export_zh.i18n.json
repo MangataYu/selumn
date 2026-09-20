@@ -12,7 +12,7 @@
   "restoreConfirmLabel": "恢复",
   "restoring": "正在恢复…",
   "restoreDone": "恢复完成：{summary}",
-  "restoreSummary": "日记 {diary} 条 / 分类 {category} 条 / 媒体信息 {media} 条",
+  "restoreSummary": "日记 {diary} 条 / 媒体信息 {media} 条",
   "restoreSummarySkipped": "{base}，跳过 {skipped} 条（本机内容更新）",
   "restoreSummaryFailed": "{base}，失败 {failed} 条",
   "restorePartial": "恢复未全部成功：{summary}。请检查存储空间与网络后重试，不要据此删除旧设备的数据",
@@ -119,12 +119,12 @@
   "importSpec": "格式说明",
   "importSpecEntries": "zip 顶层的每个 .md 文件是一篇日记；也可以直接选一个 .md 文件。",
   "importSpecAssets": "图片、视频、音频放在 assets/ 目录（可再分子目录），正文里用相对路径引用。",
-  "importSpecFrontMatter": "文件开头可选 front matter，记录标题、时间、心情、分类、标签、天气、位置。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。",
+  "importSpecFrontMatter": "文件开头可选 front matter，记录标题、时间、心情、标签、天气、位置；旧分类会转换为标签。没有时标题取正文的第一个一级标题或文件名，时间取文件名开头的日期。",
   "importSpecRoundTrip": "本应用「不合并」导出的 Markdown 可以直接导回；合并成一个文件的不支持。",
   "importSpecExample": "日记.zip\n├── 2026-09-06-晴天.md\n├── 2026-09-07-散步.md\n└── assets/\n    ├── image/a.jpg\n    └── video/b.mp4\n\n2026-09-06-晴天.md\n---\ntitle: \"晴天\"\ntime: 2026-09-06T10:30:00+08:00\nmood: fulfilled\ncategory: \"生活\"\ntags: [\"周末\"]\n---\n\n今天出门走了走。\n![](assets/image/a.jpg)",
   "importRunButton": "导入 {count} 篇",
   "importProgress": "正在导入 {done}/{total}",
-  "importSummary": "日记 {diary} 篇 / 新建分类 {category} 个 / 新建地点 {place} 个",
+  "importSummary": "日记 {diary} 篇 / 新建地点 {place} 个",
   "importSummarySkipped": "{base}，跳过 {skipped} 篇（已存在）",
   "importSummaryFailed": "{base}，失败 {failed} 篇",
   "importDone": "导入完成：{summary}",
@@ -132,5 +132,6 @@
   "importStopped": "导入已停止（未完成）：{summary}",
   "importRunFailed": "导入失败：{error}",
   "importEmpty": "包里没有找到 .md 文件",
-  "importMissingMedia": "{count} 个媒体文件无法导入（缺失或无法读取），已按普通链接保留"
+  "importMissingMedia": "{count} 个媒体文件无法导入（缺失或无法读取），已按普通链接保留",
+  "scopeByTag": "按标签选择"
 }

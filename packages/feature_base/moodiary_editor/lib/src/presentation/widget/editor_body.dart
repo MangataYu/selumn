@@ -21,6 +21,7 @@ class EditorBody extends StatefulWidget {
   final void Function(String content, String contentText) onChanged;
 
   final ValueChanged<String>? onOpenDiaryLink;
+  final ValueChanged<String>? onOpenTag;
 
   final String saveStatus;
 
@@ -54,6 +55,7 @@ class EditorBody extends StatefulWidget {
     this.onActiveHeadingChanged,
     this.editable = true,
     this.onOpenDiaryLink,
+    this.onOpenTag,
     this.saveStatus = 'idle',
     this.metaJson,
     this.linksJson,
@@ -122,6 +124,7 @@ class _EditorBodyState extends State<EditorBody> {
         onChanged: (content) =>
             widget.onChanged(content, TiptapContent.parse(content).plainText),
         onOpenDiaryLink: widget.onOpenDiaryLink,
+        onOpenTag: widget.onOpenTag,
         metaJson: widget.metaJson,
         linksJson: widget.linksJson,
         onPickDate: widget.onPickDate,

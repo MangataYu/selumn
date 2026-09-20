@@ -46,6 +46,8 @@ export function installBridge(): void {
     resolveImage: (id: string, name: string) => api?.resolveUpload(id, name),
     resolveLinkCandidates: (reqId: string, json: string) =>
       api?.resolveLinkCandidates(reqId, json),
+    resolveTagCandidates: (reqId: string, json: string) => api?.resolveTagCandidates(reqId, json),
+    removeTag: (tag: string) => api?.removeTag(tag),
     scrollToHeading: (index: number) => api?.scrollToHeading(index),
     resumeVideo: (name: string, seconds: number) =>
       api?.resumeVideo(name ?? '', Number(seconds) || 0),

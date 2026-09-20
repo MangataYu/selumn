@@ -37,6 +37,18 @@ class Diaries extends Table with TableInfo<Diaries, DiaryRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _legacyCategoryExcludedTagsJsonMeta =
+      const VerificationMeta('legacyCategoryExcludedTagsJson');
+  late final GeneratedColumn<String> legacyCategoryExcludedTagsJson =
+      GeneratedColumn<String>(
+        'legacy_category_excluded_tags_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+        defaultValue: const CustomExpression('\'[]\''),
+      );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
     'title',
@@ -173,6 +185,7 @@ class Diaries extends Table with TableInfo<Diaries, DiaryRow> {
     rid,
     id,
     categoryId,
+    legacyCategoryExcludedTagsJson,
     title,
     content,
     contentText,
@@ -214,6 +227,15 @@ class Diaries extends Table with TableInfo<Diaries, DiaryRow> {
       context.handle(
         _categoryIdMeta,
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    }
+    if (data.containsKey('legacy_category_excluded_tags_json')) {
+      context.handle(
+        _legacyCategoryExcludedTagsJsonMeta,
+        legacyCategoryExcludedTagsJson.isAcceptableOrUnknown(
+          data['legacy_category_excluded_tags_json']!,
+          _legacyCategoryExcludedTagsJsonMeta,
+        ),
       );
     }
     if (data.containsKey('title')) {
@@ -346,6 +368,10 @@ class Diaries extends Table with TableInfo<Diaries, DiaryRow> {
         DriftSqlType.string,
         data['${effectivePrefix}category_id'],
       ),
+      legacyCategoryExcludedTagsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}legacy_category_excluded_tags_json'],
+      )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -414,6 +440,7 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
   final int rid;
   final String id;
   final String? categoryId;
+  final String legacyCategoryExcludedTagsJson;
   final String title;
   final String content;
   final String contentText;
@@ -431,6 +458,7 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
     required this.rid,
     required this.id,
     this.categoryId,
+    required this.legacyCategoryExcludedTagsJson,
     required this.title,
     required this.content,
     required this.contentText,
@@ -453,6 +481,9 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<String>(categoryId);
     }
+    map['legacy_category_excluded_tags_json'] = Variable<String>(
+      legacyCategoryExcludedTagsJson,
+    );
     map['title'] = Variable<String>(title);
     map['content'] = Variable<String>(content);
     map['content_text'] = Variable<String>(contentText);
@@ -486,6 +517,7 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
+      legacyCategoryExcludedTagsJson: Value(legacyCategoryExcludedTagsJson),
       title: Value(title),
       content: Value(content),
       contentText: Value(contentText),
@@ -521,6 +553,9 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
       rid: serializer.fromJson<int>(json['rid']),
       id: serializer.fromJson<String>(json['id']),
       categoryId: serializer.fromJson<String?>(json['category_id']),
+      legacyCategoryExcludedTagsJson: serializer.fromJson<String>(
+        json['legacy_category_excluded_tags_json'],
+      ),
       title: serializer.fromJson<String>(json['title']),
       content: serializer.fromJson<String>(json['content']),
       contentText: serializer.fromJson<String>(json['content_text']),
@@ -543,6 +578,9 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
       'rid': serializer.toJson<int>(rid),
       'id': serializer.toJson<String>(id),
       'category_id': serializer.toJson<String?>(categoryId),
+      'legacy_category_excluded_tags_json': serializer.toJson<String>(
+        legacyCategoryExcludedTagsJson,
+      ),
       'title': serializer.toJson<String>(title),
       'content': serializer.toJson<String>(content),
       'content_text': serializer.toJson<String>(contentText),
@@ -563,6 +601,7 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
     int? rid,
     String? id,
     Value<String?> categoryId = const Value.absent(),
+    String? legacyCategoryExcludedTagsJson,
     String? title,
     String? content,
     String? contentText,
@@ -580,6 +619,8 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
     rid: rid ?? this.rid,
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    legacyCategoryExcludedTagsJson:
+        legacyCategoryExcludedTagsJson ?? this.legacyCategoryExcludedTagsJson,
     title: title ?? this.title,
     content: content ?? this.content,
     contentText: contentText ?? this.contentText,
@@ -601,6 +642,10 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      legacyCategoryExcludedTagsJson:
+          data.legacyCategoryExcludedTagsJson.present
+          ? data.legacyCategoryExcludedTagsJson.value
+          : this.legacyCategoryExcludedTagsJson,
       title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
       contentText: data.contentText.present
@@ -633,6 +678,9 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
           ..write('rid: $rid, ')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write(
+            'legacyCategoryExcludedTagsJson: $legacyCategoryExcludedTagsJson, ',
+          )
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('contentText: $contentText, ')
@@ -655,6 +703,7 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
     rid,
     id,
     categoryId,
+    legacyCategoryExcludedTagsJson,
     title,
     content,
     contentText,
@@ -676,6 +725,8 @@ class DiaryRow extends DataClass implements Insertable<DiaryRow> {
           other.rid == this.rid &&
           other.id == this.id &&
           other.categoryId == this.categoryId &&
+          other.legacyCategoryExcludedTagsJson ==
+              this.legacyCategoryExcludedTagsJson &&
           other.title == this.title &&
           other.content == this.content &&
           other.contentText == this.contentText &&
@@ -695,6 +746,7 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
   final Value<int> rid;
   final Value<String> id;
   final Value<String?> categoryId;
+  final Value<String> legacyCategoryExcludedTagsJson;
   final Value<String> title;
   final Value<String> content;
   final Value<String> contentText;
@@ -712,6 +764,7 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.legacyCategoryExcludedTagsJson = const Value.absent(),
     this.title = const Value.absent(),
     this.content = const Value.absent(),
     this.contentText = const Value.absent(),
@@ -730,6 +783,7 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
     this.rid = const Value.absent(),
     required String id,
     this.categoryId = const Value.absent(),
+    this.legacyCategoryExcludedTagsJson = const Value.absent(),
     required String title,
     required String content,
     required String contentText,
@@ -756,6 +810,7 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
     Expression<int>? rid,
     Expression<String>? id,
     Expression<String>? categoryId,
+    Expression<String>? legacyCategoryExcludedTagsJson,
     Expression<String>? title,
     Expression<String>? content,
     Expression<String>? contentText,
@@ -774,6 +829,8 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
       if (rid != null) 'rid': rid,
       if (id != null) 'id': id,
       if (categoryId != null) 'category_id': categoryId,
+      if (legacyCategoryExcludedTagsJson != null)
+        'legacy_category_excluded_tags_json': legacyCategoryExcludedTagsJson,
       if (title != null) 'title': title,
       if (content != null) 'content': content,
       if (contentText != null) 'content_text': contentText,
@@ -794,6 +851,7 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
     Value<int>? rid,
     Value<String>? id,
     Value<String?>? categoryId,
+    Value<String>? legacyCategoryExcludedTagsJson,
     Value<String>? title,
     Value<String>? content,
     Value<String>? contentText,
@@ -812,6 +870,8 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
       rid: rid ?? this.rid,
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
+      legacyCategoryExcludedTagsJson:
+          legacyCategoryExcludedTagsJson ?? this.legacyCategoryExcludedTagsJson,
       title: title ?? this.title,
       content: content ?? this.content,
       contentText: contentText ?? this.contentText,
@@ -839,6 +899,11 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
     }
     if (categoryId.present) {
       map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (legacyCategoryExcludedTagsJson.present) {
+      map['legacy_category_excluded_tags_json'] = Variable<String>(
+        legacyCategoryExcludedTagsJson.value,
+      );
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -888,6 +953,9 @@ class DiariesCompanion extends UpdateCompanion<DiaryRow> {
           ..write('rid: $rid, ')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write(
+            'legacyCategoryExcludedTagsJson: $legacyCategoryExcludedTagsJson, ',
+          )
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('contentText: $contentText, ')
@@ -7313,7 +7381,7 @@ abstract class _$MoodiaryDatabase extends GeneratedDatabase {
   );
   Selectable<BacklinksResult> backlinks(String toId) {
     return customSelect(
-      'SELECT"d"."rid" AS "nested_0.rid", "d"."id" AS "nested_0.id", "d"."category_id" AS "nested_0.category_id", "d"."title" AS "nested_0.title", "d"."content" AS "nested_0.content", "d"."content_text" AS "nested_0.content_text", "d"."time" AS "nested_0.time", "d"."last_modified" AS "nested_0.last_modified", "d"."show" AS "nested_0.show", "d"."mood" AS "nested_0.mood", "d"."type" AS "nested_0.type", "d"."aspect" AS "nested_0.aspect", "d"."place_id" AS "nested_0.place_id", "d"."weather_icon" AS "nested_0.weather_icon", "d"."weather_temp" AS "nested_0.weather_temp", "d"."weather_text" AS "nested_0.weather_text" FROM diary_links AS l INNER JOIN diaries AS d ON d.id = l.src_id WHERE l.dst_id = ?1 AND d.show = 1 ORDER BY d.time DESC, d.id DESC',
+      'SELECT"d"."rid" AS "nested_0.rid", "d"."id" AS "nested_0.id", "d"."category_id" AS "nested_0.category_id", "d"."legacy_category_excluded_tags_json" AS "nested_0.legacy_category_excluded_tags_json", "d"."title" AS "nested_0.title", "d"."content" AS "nested_0.content", "d"."content_text" AS "nested_0.content_text", "d"."time" AS "nested_0.time", "d"."last_modified" AS "nested_0.last_modified", "d"."show" AS "nested_0.show", "d"."mood" AS "nested_0.mood", "d"."type" AS "nested_0.type", "d"."aspect" AS "nested_0.aspect", "d"."place_id" AS "nested_0.place_id", "d"."weather_icon" AS "nested_0.weather_icon", "d"."weather_temp" AS "nested_0.weather_temp", "d"."weather_text" AS "nested_0.weather_text" FROM diary_links AS l INNER JOIN diaries AS d ON d.id = l.src_id WHERE l.dst_id = ?1 AND d.show = 1 ORDER BY d.time DESC, d.id DESC',
       variables: [Variable<String>(toId)],
       readsFrom: {this.diaryLinks, this.diaries},
     ).asyncMap(
@@ -7325,7 +7393,7 @@ abstract class _$MoodiaryDatabase extends GeneratedDatabase {
 
   Selectable<ForwardLinksResult> forwardLinks(String fromId) {
     return customSelect(
-      'SELECT"d"."rid" AS "nested_0.rid", "d"."id" AS "nested_0.id", "d"."category_id" AS "nested_0.category_id", "d"."title" AS "nested_0.title", "d"."content" AS "nested_0.content", "d"."content_text" AS "nested_0.content_text", "d"."time" AS "nested_0.time", "d"."last_modified" AS "nested_0.last_modified", "d"."show" AS "nested_0.show", "d"."mood" AS "nested_0.mood", "d"."type" AS "nested_0.type", "d"."aspect" AS "nested_0.aspect", "d"."place_id" AS "nested_0.place_id", "d"."weather_icon" AS "nested_0.weather_icon", "d"."weather_temp" AS "nested_0.weather_temp", "d"."weather_text" AS "nested_0.weather_text" FROM diary_links AS l INNER JOIN diaries AS d ON d.id = l.dst_id WHERE l.src_id = ?1 AND d.id != ?1 AND d.show = 1 ORDER BY d.time DESC, d.id DESC',
+      'SELECT"d"."rid" AS "nested_0.rid", "d"."id" AS "nested_0.id", "d"."category_id" AS "nested_0.category_id", "d"."legacy_category_excluded_tags_json" AS "nested_0.legacy_category_excluded_tags_json", "d"."title" AS "nested_0.title", "d"."content" AS "nested_0.content", "d"."content_text" AS "nested_0.content_text", "d"."time" AS "nested_0.time", "d"."last_modified" AS "nested_0.last_modified", "d"."show" AS "nested_0.show", "d"."mood" AS "nested_0.mood", "d"."type" AS "nested_0.type", "d"."aspect" AS "nested_0.aspect", "d"."place_id" AS "nested_0.place_id", "d"."weather_icon" AS "nested_0.weather_icon", "d"."weather_temp" AS "nested_0.weather_temp", "d"."weather_text" AS "nested_0.weather_text" FROM diary_links AS l INNER JOIN diaries AS d ON d.id = l.dst_id WHERE l.src_id = ?1 AND d.id != ?1 AND d.show = 1 ORDER BY d.time DESC, d.id DESC',
       variables: [Variable<String>(fromId)],
       readsFrom: {this.diaryLinks, this.diaries},
     ).asyncMap(
@@ -7492,6 +7560,7 @@ typedef $DiariesCreateCompanionBuilder = DiariesCompanion Function({
   Value<int> rid,
   required String id,
   Value<String?> categoryId,
+  Value<String> legacyCategoryExcludedTagsJson,
   required String title,
   required String content,
   required String contentText,
@@ -7510,6 +7579,7 @@ typedef $DiariesUpdateCompanionBuilder = DiariesCompanion Function({
   Value<int> rid,
   Value<String> id,
   Value<String?> categoryId,
+  Value<String> legacyCategoryExcludedTagsJson,
   Value<String> title,
   Value<String> content,
   Value<String> contentText,
@@ -7607,6 +7677,12 @@ class $DiariesFilterComposer extends Composer<_$MoodiaryDatabase, Diaries> {
     column: $table.categoryId,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get legacyCategoryExcludedTagsJson =>
+      $composableBuilder(
+        column: $table.legacyCategoryExcludedTagsJson,
+        builder: (column) => ColumnFilters(column),
+      );
 
   ColumnFilters<String> get title => $composableBuilder(
     column: $table.title,
@@ -7772,6 +7848,12 @@ class $DiariesOrderingComposer extends Composer<_$MoodiaryDatabase, Diaries> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get legacyCategoryExcludedTagsJson =>
+      $composableBuilder(
+        column: $table.legacyCategoryExcludedTagsJson,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -7856,6 +7938,12 @@ class $DiariesAnnotationComposer extends Composer<_$MoodiaryDatabase, Diaries> {
     column: $table.categoryId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get legacyCategoryExcludedTagsJson =>
+      $composableBuilder(
+        column: $table.legacyCategoryExcludedTagsJson,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -8017,6 +8105,8 @@ class $DiariesTableManager
                 Value<int> rid = const Value.absent(),
                 Value<String> id = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
+                Value<String> legacyCategoryExcludedTagsJson =
+                    const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<String> contentText = const Value.absent(),
@@ -8034,6 +8124,7 @@ class $DiariesTableManager
                 rid: rid,
                 id: id,
                 categoryId: categoryId,
+                legacyCategoryExcludedTagsJson: legacyCategoryExcludedTagsJson,
                 title: title,
                 content: content,
                 contentText: contentText,
@@ -8053,6 +8144,8 @@ class $DiariesTableManager
                 Value<int> rid = const Value.absent(),
                 required String id,
                 Value<String?> categoryId = const Value.absent(),
+                Value<String> legacyCategoryExcludedTagsJson =
+                    const Value.absent(),
                 required String title,
                 required String content,
                 required String contentText,
@@ -8070,6 +8163,7 @@ class $DiariesTableManager
                 rid: rid,
                 id: id,
                 categoryId: categoryId,
+                legacyCategoryExcludedTagsJson: legacyCategoryExcludedTagsJson,
                 title: title,
                 content: content,
                 contentText: contentText,
