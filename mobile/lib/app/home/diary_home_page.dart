@@ -4,6 +4,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/moodiary_diary.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_mobile/app/shell/root_navigation.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -96,22 +97,30 @@ class _DiaryListViewState extends ConsumerState<_DiaryListView> {
   }
 
   PreferredSizeWidget _normalAppBar(BuildContext context, DiaryFilter filter) {
-    return AppBar(
-      leadingWidth: 52,
-      leading: ValueListenableBuilder(
+    return RootNavigation(
+      onOpenDrawer: widget.onOpenDrawer,
+      menuIcon: ValueListenableBuilder(
         valueListenable: getIt<SyncPendingTracker>().listenable,
-        builder: (context, pending, _) => IconButton(
-          tooltip: context.l10n.diary.allCategories,
-          onPressed: widget.onOpenDrawer,
-          icon: Badge(
-            isLabelVisible: pending.newCategoryIds.isNotEmpty,
-            smallSize: 7,
-            child: const Icon(LucideIcons.menu),
-          ),
+        builder: (context, pending, _) => Badge(
+          isLabelVisible: pending.newCategoryIds.isNotEmpty,
+          smallSize: 7,
+          child: const Icon(LucideIcons.menu),
         ),
       ),
-      titleSpacing: 0,
-      title: _FilterTitle(filter: filter),
+      bottom: filter.isAll
+          ? null
+          : PreferredSize(
+              preferredSize: Size.fromHeight(
+                MediaQuery.textScalerOf(context).scale(24) + 8,
+              ),
+              child: Padding(
+                padding: const .fromLTRB(16, 0, 16, 8),
+                child: Align(
+                  alignment: .centerLeft,
+                  child: _FilterTitle(filter: filter),
+                ),
+              ),
+            ),
       actions: [
         IconButton(
           tooltip: context.l10n.diary.search,

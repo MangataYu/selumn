@@ -2102,15 +2102,39 @@ class _BubbleActionButton extends StatelessWidget {
 }
 
 class AssistantSessionListPage extends StatelessWidget {
-  const AssistantSessionListPage({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const AssistantSessionListPage({super.key, this.onOpenDrawer});
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.assistant.settingFunctionAIAssistant),
-        actions: const [_ActiveModelAction(), SizedBox(width: 4)],
+        leadingWidth: onOpenDrawer == null ? null : 52,
+        leading: onOpenDrawer == null
+            ? null
+            : IconButton(
+                tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+                onPressed: onOpenDrawer,
+                icon: const Icon(LucideIcons.menu),
+              ),
+        titleSpacing: onOpenDrawer == null ? null : 0,
+        centerTitle: false,
+        title: Text(
+          onOpenDrawer == null
+              ? l10n.assistant.settingFunctionAIAssistant
+              : l10n.common.appName,
+        ),
+        actions: [
+          _ActiveModelAction(compact: onOpenDrawer != null),
+          IconButton(
+            tooltip: l10n.assistant.newChat,
+            icon: const Icon(LucideIcons.messageCirclePlus),
+            onPressed: () => const AssistantConversationRoute().push(context),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _SessionListView(
         onSelect: (session) => AssistantConversationRoute(
@@ -2126,7 +2150,9 @@ class AssistantSessionListPage extends StatelessWidget {
 }
 
 class _ActiveModelAction extends StatefulWidget {
-  const _ActiveModelAction();
+  final bool compact;
+
+  const _ActiveModelAction({this.compact = false});
 
   @override
   State<_ActiveModelAction> createState() => _ActiveModelActionState();
@@ -2159,18 +2185,31 @@ class _ActiveModelActionState extends State<_ActiveModelAction> {
     });
   }
 
+  Future<void> _openSettings() async {
+    await const AssistantSettingRoute().push(context);
+    if (!mounted) return;
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
     final l10n = context.l10n;
     final active = _active;
     final typography = context.theme.typography;
+    if (widget.compact) {
+      return IconButton(
+        tooltip:
+            '${l10n.assistant.settingTitle}: '
+            '${active?.defaultModel ?? l10n.assistant.historyModelUnset}',
+        icon: const Icon(LucideIcons.cpu),
+        color: active == null ? context.theme.colors.error : null,
+        onPressed: _openSettings,
+      );
+    }
     return MInkWell(
       shape: const StadiumBorder(),
-      onTap: () async {
-        await const AssistantSettingRoute().push(context);
-        await _load();
-      },
+      onTap: _openSettings,
       child: Padding(
         padding: const .symmetric(horizontal: 8, vertical: 8),
         child: Row(

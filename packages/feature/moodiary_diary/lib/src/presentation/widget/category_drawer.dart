@@ -11,7 +11,16 @@ import 'package:mui/mui.dart';
 const int _kSearchThreshold = 8;
 
 class CategoryDrawer extends ConsumerStatefulWidget {
-  const CategoryDrawer({super.key});
+  final Widget? navigation;
+  final VoidCallback? onFilterSelected;
+  final bool isDiarySelected;
+
+  const CategoryDrawer({
+    super.key,
+    this.navigation,
+    this.onFilterSelected,
+    this.isDiarySelected = true,
+  });
 
   @override
   ConsumerState<CategoryDrawer> createState() => _CategoryDrawerState();
@@ -25,6 +34,7 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
     ref.read(diarySelectionProvider.notifier).clear();
     ref.read(homeDiaryFilterProvider.notifier).select(filter);
     Navigator.of(context).pop();
+    widget.onFilterSelected?.call();
   }
 
   @override
@@ -52,10 +62,13 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
         child: ValueListenableBuilder(
           valueListenable: getIt<SyncPendingTracker>().listenable,
           builder: (context, pending, _) {
-            return Column(
-              crossAxisAlignment: .stretch,
+            return ListView(
+              padding: .only(
+                bottom: 12 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
               children: [
                 _Header(total: total),
+                if (widget.navigation != null) widget.navigation!,
                 Padding(
                   padding: const .fromLTRB(16, 4, 16, 6),
                   child: Row(
@@ -92,71 +105,51 @@ class _CategoryDrawerState extends ConsumerState<CategoryDrawer> {
                       onChanged: (v) => setState(() => _query = v),
                     ),
                   ),
-                Expanded(
-                  child: ListView(
-                    padding: const .only(bottom: 8),
-                    children: [
-                      if (query.isEmpty)
-                        _Tile(
-                          label: context.l10n.diary.categoryAllDiary,
-                          count: total,
-                          selected: filter.isAll,
-                          leading: _Swatch.all(scheme: colors),
-                          onTap: () => _pick(const .all()),
-                        ),
-                      for (final c in visible)
-                        _Tile(
-                          label: c.categoryName,
-                          count: counts?.byCategory[c.id],
-                          selected: filter.categoryId == c.id,
-                          leading: _Swatch(
-                            color: categoryColorOf(
-                              colorValue: c.color,
-                              id: c.id,
-                            ),
-                          ),
-                          syncing: pending.updateCategoryIds.contains(c.id),
-                          onTap: () => _pick(.category(c.id)),
-                        ),
-                      if (query.isEmpty)
-                        for (var i = 0; i < pending.newCategoryIds.length; i++)
-                          _PendingTile(
-                            label:
-                                context.l10n.diary.categorySyncingPlaceholder,
-                          ),
-                      if (visible.isEmpty && query.isNotEmpty)
-                        Padding(
-                          padding: const .symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Text(
-                            context.l10n.diary.categoryNoMatch,
-                            style: context
-                                .theme
-                                .typography
-                                .bodyMedium
-                                .onSurfaceVariant,
-                          ),
-                        ),
-                    ],
+                if (query.isEmpty)
+                  _Tile(
+                    label: context.l10n.diary.categoryAllDiary,
+                    count: total,
+                    selected: widget.isDiarySelected && filter.isAll,
+                    leading: _Swatch.all(scheme: colors),
+                    onTap: () => _pick(const .all()),
                   ),
-                ),
+                for (final c in visible)
+                  _Tile(
+                    label: c.categoryName,
+                    count: counts?.byCategory[c.id],
+                    selected:
+                        widget.isDiarySelected && filter.categoryId == c.id,
+                    leading: _Swatch(
+                      color: categoryColorOf(colorValue: c.color, id: c.id),
+                    ),
+                    syncing: pending.updateCategoryIds.contains(c.id),
+                    onTap: () => _pick(.category(c.id)),
+                  ),
+                if (query.isEmpty)
+                  for (var i = 0; i < pending.newCategoryIds.length; i++)
+                    _PendingTile(
+                      label: context.l10n.diary.categorySyncingPlaceholder,
+                    ),
+                if (visible.isEmpty && query.isNotEmpty)
+                  Padding(
+                    padding: const .symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      context.l10n.diary.categoryNoMatch,
+                      style:
+                          context.theme.typography.bodyMedium.onSurfaceVariant,
+                    ),
+                  ),
+                const SizedBox(height: 8),
                 Divider(height: 1, color: colors.outlineVariant),
                 _Tile(
                   label: context.l10n.diary.categoryNoCategory,
                   count: uncategorized,
-                  selected: filter.uncategorized,
+                  selected: widget.isDiarySelected && filter.uncategorized,
                   leading: _Swatch.none(scheme: colors),
                   onTap: () => _pick(const .uncategorized()),
                 ),
                 Padding(
-                  padding: .fromLTRB(
-                    12,
-                    4,
-                    12,
-                    12 + MediaQuery.viewInsetsOf(context).bottom,
-                  ),
+                  padding: const .fromLTRB(12, 4, 12, 0),
                   child: Row(
                     children: [
                       Expanded(
@@ -255,50 +248,55 @@ class _Tile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final typo = context.theme.typography;
-    return Padding(
-      padding: const .symmetric(horizontal: 12, vertical: 1),
-      child: Material(
-        color: selected ? colors.secondaryContainer : Colors.transparent,
-        borderRadius: const .all(.circular(28)),
-        clipBehavior: .antiAlias,
-        child: MInkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const .symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                leading,
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: .ellipsis,
-                    style: selected
-                        ? typo.bodyLarge.emphasized.onSecondaryContainer
-                        : typo.bodyLarge.onSurface,
+    return Semantics(
+      selected: selected,
+      child: Padding(
+        padding: const .symmetric(horizontal: 12, vertical: 1),
+        child: Material(
+          color: selected ? colors.secondaryContainer : Colors.transparent,
+          borderRadius: const .all(.circular(28)),
+          clipBehavior: .antiAlias,
+          child: MInkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const .symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: selected
+                          ? typo.bodyLarge.emphasized.onSecondaryContainer
+                          : typo.bodyLarge.onSurface,
+                    ),
                   ),
-                ),
-                if (syncing) ...[
-                  const SizedBox(width: 6),
-                  Icon(
-                    LucideIcons.cloudUpload,
-                    size: 14,
-                    color: colors.primary,
-                  ),
+                  if (syncing) ...[
+                    const SizedBox(width: 6),
+                    Icon(
+                      LucideIcons.cloudUpload,
+                      size: 14,
+                      color: colors.primary,
+                    ),
+                  ],
+                  if (count != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '$count',
+                      style:
+                          (selected
+                                  ? typo.labelMedium.onSecondaryContainer
+                                  : typo.labelMedium.onSurfaceVariant)
+                              .copyWith(
+                                fontFeatures: const [.tabularFigures()],
+                              ),
+                    ),
+                  ],
                 ],
-                if (count != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '$count',
-                    style:
-                        (selected
-                                ? typo.labelMedium.onSecondaryContainer
-                                : typo.labelMedium.onSurfaceVariant)
-                            .copyWith(fontFeatures: const [.tabularFigures()]),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
@@ -328,9 +326,11 @@ class _PendingTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            label,
-            style: context.theme.typography.bodyMedium.onSurfaceVariant,
+          Expanded(
+            child: Text(
+              label,
+              style: context.theme.typography.bodyMedium.onSurfaceVariant,
+            ),
           ),
         ],
       ),

@@ -7,7 +7,7 @@ import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/home/diary_home_page.dart'
     show DiaryHomePage;
 import 'package:moodiary_mobile/app/me/me_page.dart' show MePage;
-import 'package:moodiary_mobile/app/shell/root_navigation.dart';
+import 'package:moodiary_mobile/app/shell/root_drawer_navigation.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:mui/mui.dart';
 
@@ -26,10 +26,12 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late final List<Widget> _pages = [
-    DiaryHomePage(onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer()),
-    const AssistantSessionListPage(),
-    const MePage(),
+    DiaryHomePage(onOpenDrawer: _openDrawer),
+    AssistantSessionListPage(onOpenDrawer: _openDrawer),
+    MePage(onOpenDrawer: _openDrawer),
   ];
+
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
   Future<void> _newDiary() async {
     final categoryId = _tab == .diary
@@ -38,55 +40,41 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
     await NewDiaryRoute(categoryId: categoryId).push(context);
   }
 
-  void _selectTab(int index) {
-    if (_tab.index == index) return;
-    ref.read(diarySelectionProvider.notifier).clear();
-    setState(() => _tab = _ShellTab.values[index]);
+  void _selectDestination(int index) {
+    _scaffoldKey.currentState?.closeDrawer();
+    if (index == _ShellTab.diary.index) {
+      ref.read(homeDiaryFilterProvider.notifier).reset();
+    }
+    _selectTab(_ShellTab.values[index]);
   }
 
-  MNavAction? _navAction(BuildContext context) {
-    final l10n = context.l10n;
-    return switch (_tab) {
-      .diary => null,
-      .assistant => MNavAction(
-        icon: const Icon(LucideIcons.messageCirclePlus),
-        tooltip: l10n.assistant.newChat,
-        onPressed: () => const AssistantConversationRoute().push(context),
-      ),
-      .me => MNavAction(
-        icon: const Icon(LucideIcons.settings),
-        tooltip: l10n.app.settingsTitle,
-        onPressed: () => const SettingRoute().push(context),
-      ),
-    };
+  void _selectTab(_ShellTab tab) {
+    ref.read(diarySelectionProvider.notifier).clear();
+    if (_tab == tab) return;
+    setState(() => _tab = tab);
   }
 
   @override
   Widget build(BuildContext context) {
     final selecting =
         ref.watch(diarySelectionProvider).isNotEmpty && _tab == .diary;
-    final drawerUsable = _tab == .diary && !selecting;
+    final drawerUsable = !selecting;
     return Scaffold(
       key: _scaffoldKey,
-      drawer: drawerUsable ? const CategoryDrawer() : null,
+      drawer: drawerUsable
+          ? CategoryDrawer(
+              navigation: RootDrawerNavigation(
+                selectedIndex: _tab.index,
+                onDestinationSelected: _selectDestination,
+              ),
+              isDiarySelected: _tab == .diary,
+              onFilterSelected: () => _selectTab(.diary),
+            )
+          : null,
       drawerEnableOpenDragGesture: drawerUsable,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            Visibility(
-              visible: !selecting,
-              child: RootNavigation(
-                selectedIndex: _tab.index,
-                onDestinationSelected: _selectTab,
-                action: _navAction(context),
-              ),
-            ),
-            Expanded(
-              child: MLazyIndexedStack(index: _tab.index, children: _pages),
-            ),
-          ],
-        ),
+        child: MLazyIndexedStack(index: _tab.index, children: _pages),
       ),
       floatingActionButton: _tab == .diary && !selecting
           ? FloatingActionButton(

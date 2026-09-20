@@ -22,9 +22,9 @@ Widget wrap({
   required List<Category> categories,
   required Map<String, int> byCategory,
   required int total,
-  ProviderContainer? container,
+  CategoryDrawer drawer = const CategoryDrawer(),
 }) => muiTestApp(
-  const CategoryDrawer(),
+  drawer,
   overrides: [
     orderedCategoriesProvider.overrideWithValue(.data(categories)),
     categoryDiaryCountsProvider.overrideWith(
@@ -78,11 +78,13 @@ void main() {
     expect(find.text('-7'), findsNothing);
   });
 
-  testWidgets('picking a category writes the filter and closes the drawer', (
+  testWidgets('filter picks notify after updating state and close the drawer', (
     t,
   ) async {
     final key = GlobalKey<ScaffoldState>();
     late ProviderContainer container;
+    final selectedFilters = <DiaryFilter>[];
+    final selectionsAtCallback = <Set<String>>[];
     await t.pumpWidget(
       ProviderScope(
         overrides: [
@@ -106,7 +108,17 @@ void main() {
                   locale: const Locale('zh'),
                   home: Scaffold(
                     key: key,
-                    drawer: const CategoryDrawer(),
+                    drawer: CategoryDrawer(
+                      isDiarySelected: false,
+                      onFilterSelected: () {
+                        selectedFilters.add(
+                          container.read(homeDiaryFilterProvider),
+                        );
+                        selectionsAtCallback.add(
+                          container.read(diarySelectionProvider),
+                        );
+                      },
+                    ),
                     body: const SizedBox.expand(),
                   ),
                 ),
@@ -119,24 +131,25 @@ void main() {
 
     expect(container.read(homeDiaryFilterProvider).isAll, isTrue);
 
-    key.currentState!.openDrawer();
-    await t.pumpAndSettle();
-    await t.tap(find.text('旅行'));
-    await t.pumpAndSettle();
-    expect(
-      container.read(homeDiaryFilterProvider),
-      const DiaryFilter.category('tr'),
-    );
-    expect(find.text('管理分类'), findsNothing);
+    const picks = [
+      ('旅行', DiaryFilter.category('tr')),
+      ('全部日记', DiaryFilter.all()),
+      ('无分类', DiaryFilter.uncategorized()),
+    ];
+    for (final (label, expectedFilter) in picks) {
+      container.read(diarySelectionProvider.notifier).enter('some-diary-id');
+      key.currentState!.openDrawer();
+      await t.pumpAndSettle();
+      await t.scrollUntilVisible(find.text(label), 200);
+      await t.tap(find.text(label));
+      await t.pumpAndSettle();
 
-    key.currentState!.openDrawer();
-    await t.pumpAndSettle();
-    await t.tap(find.text('无分类'));
-    await t.pumpAndSettle();
-    expect(
-      container.read(homeDiaryFilterProvider),
-      const DiaryFilter.uncategorized(),
-    );
+      expect(container.read(homeDiaryFilterProvider), expectedFilter);
+      expect(container.read(diarySelectionProvider), isEmpty);
+      expect(key.currentState!.isDrawerOpen, isFalse);
+    }
+    expect(selectedFilters, picks.map((pick) => pick.$2).toList());
+    expect(selectionsAtCallback, everyElement(isEmpty));
   });
 
   testWidgets('picking a category drops the pending multi-selection', (
@@ -221,10 +234,149 @@ void main() {
   });
 
   testWidgets('the manage entry is always reachable', (t) async {
-    await t.pumpWidget(wrap(categories: three, byCategory: const {}, total: 0));
+    await t.pumpWidget(
+      wrap(
+        categories: [for (var i = 0; i < 30; i++) cat('c$i', '分类$i')],
+        byCategory: const {},
+        total: 0,
+      ),
+    );
     await t.pumpAndSettle();
-    expect(find.text('管理分类'), findsOneWidget);
+    await t.scrollUntilVisible(
+      find.text('管理分类'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('管理分类').hitTestable(), findsOneWidget);
   });
+
+  testWidgets('injected navigation is shown below the header', (t) async {
+    await t.pumpWidget(
+      wrap(
+        categories: three,
+        byCategory: const {},
+        total: 0,
+        drawer: const CategoryDrawer(
+          navigation: Column(
+            children: [
+              ListTile(title: Text('智能助手')),
+              ListTile(title: Text('我的')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(find.text('智能助手').hitTestable(), findsOneWidget);
+    expect(find.text('我的').hitTestable(), findsOneWidget);
+    expect(
+      t.getTopLeft(find.text('智能助手')).dy,
+      greaterThan(t.getBottomLeft(find.text('Selume')).dy),
+    );
+    expect(
+      t.getBottomLeft(find.text('我的')).dy,
+      lessThan(t.getTopLeft(find.text('分类')).dy),
+    );
+  });
+
+  testWidgets('category highlights are cleared outside the diary page', (
+    t,
+  ) async {
+    for (final isDiarySelected in [true, false]) {
+      await t.pumpWidget(
+        wrap(
+          categories: three,
+          byCategory: const {},
+          total: 0,
+          drawer: CategoryDrawer(isDiarySelected: isDiarySelected),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        t.element(find.byType(CategoryDrawer)),
+      );
+      for (final filter in const [
+        DiaryFilter.all(),
+        DiaryFilter.category('tr'),
+        DiaryFilter.uncategorized(),
+      ]) {
+        container.read(homeDiaryFilterProvider.notifier).select(filter);
+        await t.pumpAndSettle();
+
+        final selectedTiles = find.byWidgetPredicate(
+          (widget) => widget is Semantics && widget.properties.selected == true,
+        );
+        expect(selectedTiles, isDiarySelected ? findsOneWidget : findsNothing);
+      }
+    }
+  });
+
+  testWidgets(
+    'all drawer entries scroll with large text and an open keyboard',
+    (t) async {
+      t.view.physicalSize = const Size(320, 480);
+      t.view.devicePixelRatio = 1;
+      t.view.viewInsets = const FakeViewPadding(bottom: 180);
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      addTearDown(t.view.resetViewInsets);
+      final key = GlobalKey<ScaffoldState>();
+      await t.pumpWidget(
+        muiTestApp(
+          Scaffold(
+            key: key,
+            drawer: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: const TextScaler.linear(2)),
+                child: const CategoryDrawer(
+                  navigation: Column(
+                    children: [
+                      ListTile(title: Text('智能助手')),
+                      ListTile(title: Text('我的')),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            body: const SizedBox.expand(),
+          ),
+          wrapScaffold: false,
+          overrides: [
+            orderedCategoriesProvider.overrideWithValue(
+              .data([for (var i = 0; i < 30; i++) cat('c$i', '分类$i')]),
+            ),
+            categoryDiaryCountsProvider.overrideWith(
+              (ref) async => (byCategory: const <String, int>{}, total: 0),
+            ),
+          ],
+        ),
+      );
+      key.currentState!.openDrawer();
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+      expect(find.byType(ListView), findsOneWidget);
+
+      for (final label in ['分类29', '无分类', '管理分类']) {
+        await t.scrollUntilVisible(
+          find.text(label),
+          180,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await t.pumpAndSettle();
+        expect(find.text(label).hitTestable(), findsOneWidget);
+        expect(t.takeException(), isNull);
+      }
+      await t.drag(find.byType(ListView), const Offset(0, -500));
+      await t.pumpAndSettle();
+      expect(find.text('管理分类').hitTestable(), findsOneWidget);
+      expect(find.byTooltip('设置').hitTestable(), findsOneWidget);
+      expect(t.getBottomLeft(find.text('管理分类')).dy, lessThanOrEqualTo(300));
+      expect(t.takeException(), isNull);
+    },
+  );
 
   testWidgets('search box only appears once categories pile up', (t) async {
     await t.pumpWidget(wrap(categories: three, byCategory: const {}, total: 0));

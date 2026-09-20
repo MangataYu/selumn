@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_mobile/app/shell/root_navigation.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
 class MePage extends ConsumerStatefulWidget {
-  const MePage({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const MePage({super.key, this.onOpenDrawer});
 
   @override
   ConsumerState<MePage> createState() => _MePageState();
@@ -45,7 +48,16 @@ class _MePageState extends ConsumerState<MePage> with RouteAware {
   Widget build(BuildContext context) {
     final stats = ref.watch(dashboardControllerProvider).value;
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.app.meTitle)),
+      appBar: RootNavigation(
+        onOpenDrawer: widget.onOpenDrawer,
+        actions: [
+          IconButton(
+            tooltip: context.l10n.app.settingsTitle,
+            icon: const Icon(LucideIcons.settings),
+            onPressed: () => const SettingRoute().push(context),
+          ),
+        ],
+      ),
       body: ListView(
         padding: .fromLTRB(
           12,
