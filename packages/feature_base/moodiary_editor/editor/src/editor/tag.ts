@@ -6,11 +6,16 @@ import { reactive } from 'vue'
 import { post } from '../bridge/post'
 
 const pathPattern = /^[\p{L}\p{M}\p{N}_-]+(?:\/[\p{L}\p{M}\p{N}_-]+)*$/u
-const tokenPattern = /(^|\s)#([\p{L}\p{M}\p{N}_/-]+)(?=\s|$)/gu
+const tokenPattern = /#([\p{L}\p{M}\p{N}_/-]+)(?=\s|$)/gu
 const pathCharacter = /[\p{L}\p{M}\p{N}_/-]/u
 export const validTag = (value: string): boolean => pathPattern.test(value)
 const validStoredTag = (value: string): boolean => value.length > 0 &&
   !/[\r\n\t]/.test(value) && value.split('/').every((part) => part.trim().length > 0)
+
+// Tags can touch ordinary text, but repeated hashes and URL fragments stay literal.
+const validTagStart = (text: string, start: number): boolean =>
+  text[start - 1] !== '#' &&
+  !/(?:[a-z][a-z\d+.-]*:\/\/|www\.)\S*$/iu.test(text.slice(0, start))
 
 export const tagSuggestion = reactive({
   open: false,
@@ -115,11 +120,10 @@ function normalizeTags(state: EditorState, pasted: boolean, edits: EditedRange[]
         if (run && validStoredTag(run.tag) && run.text === `#${run.tag}`) {
           const start = run.from - pos - 1
           const end = run.to - pos - 1
-          const validStart = start === 0 || /\s/.test(text[start - 1]!)
           // A non-inclusive mark leaves appended characters outside the mark.
           // Reparse that token instead of preserving only its old prefix.
           const extended = end < text.length && pathCharacter.test(text[end]!)
-          if (validStart && !extended) ranges.push(run)
+          if (validTagStart(text, start) && !extended) ranges.push(run)
         }
         run = null
       }
@@ -140,9 +144,9 @@ function normalizeTags(state: EditorState, pasted: boolean, edits: EditedRange[]
       const pattern = new RegExp(tokenPattern)
       let match: RegExpExecArray | null
       while ((match = pattern.exec(text)) !== null) {
-        const tag = match[2]!
-        if (!validTag(tag)) continue
-        const start = match.index + match[1]!.length
+        const tag = match[1]!
+        const start = match.index
+        if (!validTag(tag) || !validTagStart(text, start)) continue
         const from = pos + 1 + start
         const to = from + tag.length + 1
         if (ranges.some((range) => from < range.to && to > range.from)) continue
@@ -239,10 +243,12 @@ export const Tag = Mark.create({
         editor,
         pluginKey: new PluginKey('tagSuggestion'),
         char: '#',
-        allowedPrefixes: [' ', '\n', '\t'],
+        allowedPrefixes: null,
         allow: ({ state, range }) => {
           const at = state.doc.resolve(range.from)
+          const prefix = at.parent.textBetween(0, at.parentOffset, '\n', '\ufffc')
           return at.parent.type.name !== 'codeBlock' && at.parent.type.name !== 'heading' &&
+            validTagStart(prefix, prefix.length) &&
             !at.marks().some((m) => ['code', 'link', 'tag'].includes(m.type.name))
         },
         items: () => [],

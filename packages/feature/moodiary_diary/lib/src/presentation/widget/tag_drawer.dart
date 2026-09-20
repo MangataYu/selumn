@@ -6,6 +6,7 @@ import 'package:moodiary_diary/src/application/diary_filter.dart';
 import 'package:moodiary_diary/src/application/diary_selection.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_router/moodiary_router.dart';
+import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
@@ -27,6 +28,19 @@ class TagDrawer extends ConsumerStatefulWidget {
 
 class _TagDrawerState extends ConsumerState<TagDrawer> {
   String _query = '';
+  late Set<String> _expandedPaths = MoodiaryKVs.expandedTagPaths.get()!.toSet();
+
+  void _saveExpandedPaths(Set<String> paths) {
+    MoodiaryKVs.expandedTagPaths.set(paths.toList()..sort());
+    setState(() => _expandedPaths = paths);
+  }
+
+  void _toggleExpanded(String path) {
+    final paths = {..._expandedPaths};
+    // Keep descendant states so reopening a parent restores its subtree.
+    if (!paths.remove(path)) paths.add(path);
+    _saveExpandedPaths(paths);
+  }
 
   void _pick(DiaryFilter filter) {
     ref.read(diarySelectionProvider.notifier).clear();
@@ -73,6 +87,10 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
         },
       );
       if (!mounted || value == null) return;
+      _saveExpandedPaths({
+        for (final path in _expandedPaths)
+          TagPath.replacePrefix(path, tag, TagPath.normalize(value)!),
+      });
       final selected = ref.read(homeDiaryFilterProvider).tagPath;
       if (selected != null && TagPath.matches(selected, tag)) {
         ref
@@ -96,6 +114,10 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
       try {
         await repository.deleteTag(tag);
         if (!mounted) return;
+        _saveExpandedPaths({
+          for (final path in _expandedPaths)
+            if (!TagPath.matches(path, tag)) path,
+        });
         final selected = ref.read(homeDiaryFilterProvider).tagPath;
         if (selected != null && TagPath.matches(selected, tag)) {
           ref.read(homeDiaryFilterProvider.notifier).reset();
@@ -117,9 +139,18 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
       for (final tag in tags) ...TagPath.ancestors(tag),
       ...tags,
     }.toList()..sort();
+    final ancestorsByPath = {
+      for (final path in paths) path: TagPath.ancestors(path)..removeLast(),
+    };
+    final parentPaths = ancestorsByPath.values.expand((paths) => paths).toSet();
     final counts = ref.watch(tagDiaryCountsProvider).value;
     final query = _query.trim().toLowerCase();
-    final visible = paths.where((path) => path.toLowerCase().contains(query));
+    final visible = paths.where(
+      (path) => query.isEmpty
+          ? ancestorsByPath[path]!.every(_expandedPaths.contains)
+          : path.toLowerCase().contains(query),
+    );
+    final localizations = MaterialLocalizations.of(context);
 
     return Drawer(
       child: SafeArea(
@@ -198,6 +229,24 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                 icon: LucideIcons.hash,
                 onTap: () => _pick(.tag(path)),
                 onLongPress: () => _manage(path),
+                trailing: query.isEmpty && parentPaths.contains(path)
+                    ? Semantics(
+                        expanded: _expandedPaths.contains(path),
+                        child: IconButton(
+                          key: ValueKey('tag-expand:$path'),
+                          tooltip: _expandedPaths.contains(path)
+                              ? localizations.expandedIconTapHint
+                              : localizations.collapsedIconTapHint,
+                          icon: Icon(
+                            _expandedPaths.contains(path)
+                                ? LucideIcons.chevronDown
+                                : LucideIcons.chevronRight,
+                            size: 18,
+                          ),
+                          onPressed: () => _toggleExpanded(path),
+                        ),
+                      )
+                    : null,
               ),
             if (visible.isEmpty && query.isNotEmpty)
               Padding(
@@ -247,6 +296,7 @@ class _TagTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final Widget? trailing;
 
   const _TagTile({
     required this.label,
@@ -256,6 +306,7 @@ class _TagTile extends StatelessWidget {
     required this.onTap,
     this.depth = 0,
     this.onLongPress,
+    this.trailing,
   });
 
   @override
@@ -273,23 +324,30 @@ class _TagTile extends StatelessWidget {
             onTap: onTap,
             onLongPress: onLongPress,
             child: Padding(
-              padding: .fromLTRB(14 + depth.clamp(0, 4) * 12, 12, 14, 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 18),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(label, maxLines: 1, overflow: .ellipsis),
-                  ),
-                  if (count != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      '$count',
-                      style:
-                          context.theme.typography.labelMedium.onSurfaceVariant,
+              padding: .fromLTRB(14 + depth.clamp(0, 4) * 12, 0, 14, 0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 18),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(label, maxLines: 1, overflow: .ellipsis),
                     ),
+                    if (count != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '$count',
+                        style: context
+                            .theme
+                            .typography
+                            .labelMedium
+                            .onSurfaceVariant,
+                      ),
+                    ],
+                    ?trailing,
                   ],
-                ],
+                ),
               ),
             ),
           ),

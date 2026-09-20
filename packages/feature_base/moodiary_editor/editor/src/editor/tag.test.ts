@@ -26,13 +26,21 @@ afterEach(() => {
 })
 
 describe('inline tags', () => {
-  it('recognizes a Chinese hierarchical tag on space, preserving normal text', async () => {
-    await type('今天又改了方案 #工作/项目')
-    expect(tags()).toEqual([])
+  it.each(['', '今天又改了方案', 'text', '。', '正文 '])('recognizes a hierarchical tag after "%s" on space, preserving normal text', async (prefix) => {
+    if (prefix) await type(prefix)
+    for (const character of '#tag-a/tag-a1') {
+      await type(character)
+      expect(tags()).toEqual([])
+    }
     await type(' ')
-    expect(tags()).toEqual(['工作/项目'])
-    expect(h.editor.getText()).toBe('今天又改了方案 #工作/项目 ')
+    expect(tags()).toEqual(['tag-a/tag-a1'])
+    expect(h.editor.getJSON().content?.[0]?.content).toEqual([
+      ...(prefix ? [{ type: 'text', text: prefix }] : []),
+      { type: 'text', text: '#tag-a/tag-a1', marks: [{ type: 'tag', attrs: { tag: 'tag-a/tag-a1' } }] },
+      { type: 'text', text: ' ' },
+    ])
     await type('继续写')
+    expect(h.editor.getText()).toBe(`${prefix}#tag-a/tag-a1 继续写`)
     expect(h.editor.state.doc.lastChild?.lastChild?.marks).toEqual([])
   })
 
@@ -101,15 +109,16 @@ describe('inline tags', () => {
   })
 
   it('preserves undo and redo of tag completion', async () => {
-    await type('#工作')
+    await type('正文#工作')
     h.editor.view.dispatch(closeHistory(h.editor.state.tr))
     await type(' ')
     expect(tags()).toEqual(['工作'])
     h.editor.commands.undo()
     expect(tags()).toEqual([])
-    expect(h.editor.getText()).toBe('#工作')
+    expect(h.editor.getText()).toBe('正文#工作')
     h.editor.commands.redo()
     expect(tags()).toEqual(['工作'])
+    expect(h.editor.getText()).toBe('正文#工作 ')
   })
 
   it('removes a header tag without clearing undo history or removing child tags', async () => {
@@ -138,7 +147,7 @@ describe('inline tags', () => {
   })
 
   it('does not interpret plain hashes, URL fragments or invalid hierarchy paths', async () => {
-    await type('# ##标题 C#语言 https://a.test/#片段 #/空 #空//段 #尾/ ')
+    await type('# ##标题 https://a.test/#片段 http://a.test/#片段 www.a.test/#片段 #/空 #空//段 #尾/ ')
     expect(tags()).toEqual([])
   })
 
@@ -155,8 +164,9 @@ describe('inline tags', () => {
   })
 
   it('recognizes pasted text including a final tag without a trailing space', () => {
-    h.editor.view.dispatch(h.editor.state.tr.insertText('记一笔 #生活/运动').setMeta('uiEvent', 'paste'))
+    h.editor.view.dispatch(h.editor.state.tr.insertText('记一笔#生活/运动').setMeta('uiEvent', 'paste'))
     expect(tags()).toEqual(['生活/运动'])
+    expect(h.editor.state.doc.firstChild?.firstChild?.marks).toEqual([])
   })
 
   it('does not rewrite legacy hashes when loading a saved document', () => {
@@ -204,7 +214,7 @@ describe('inline tags', () => {
 
   it('retains the edited range through IME composition without recognizing old hashes', async () => {
     h.api.setContent(JSON.stringify({ type: 'doc', content: [
-      { type: 'paragraph', content: [{ type: 'text', text: '#旧说明 后文 ' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '#旧说明 后文' }] },
     ] }))
     h.editor.commands.setTextSelection(h.editor.state.doc.content.size - 1)
     const composing = vi.spyOn(h.editor.view, 'composing', 'get').mockReturnValue(true)
@@ -216,16 +226,18 @@ describe('inline tags', () => {
     expect(tags()).toEqual(['工作'])
   })
 
-  it('retains explicit legacy tags with spaces after other edits', async () => {
+  it.each(['工作 会议', 'C#'])('retains the explicit legacy tag "%s" directly after text when editing', async (tag) => {
     h.api.setContent(JSON.stringify({ type: 'doc', content: [
       { type: 'paragraph', content: [
-        { type: 'text', text: '#工作 会议', marks: [{ type: 'tag', attrs: { tag: '工作 会议' } }] },
+        { type: 'text', text: '正文' },
+        { type: 'text', text: `#${tag}`, marks: [{ type: 'tag', attrs: { tag } }] },
         { type: 'text', text: ' ' },
       ] },
     ] }))
     h.editor.commands.setTextSelection(h.editor.state.doc.content.size - 1)
     await type('继续写')
-    expect(tags()).toEqual(['工作 会议'])
+    expect(tags()).toEqual([tag])
+    expect(h.editor.getText()).toBe(`正文#${tag} 继续写`)
   })
 
   it('exports the visible hashtag to Markdown without HTML markup', async () => {
@@ -237,19 +249,20 @@ describe('inline tags', () => {
 
 describe('tag suggestions', () => {
   it('can select a legacy C# tag without losing the internal hash', async () => {
-    await type('#')
+    await type('正文#')
     const request = h.lastPost('requestTagCandidates')!
     h.api.resolveTagCandidates(request.payload!.reqId, JSON.stringify(['C#']))
     expect(tagChoices()).toEqual(['C#'])
     selectTag('C#')
     await type('继续写')
     expect(tags()).toEqual(['C#'])
-    expect(h.editor.getText()).toBe('#C# 继续写')
+    expect(h.editor.getText()).toBe('正文#C# 继续写')
   })
 
-  it('requests history at # and supports creating a new path', async () => {
-    await type('#')
+  it('requests history at # directly after text and replaces only the new path', async () => {
+    await type('正文#')
     const first = h.lastPost('requestTagCandidates')!
+    expect(tagSuggestion.open).toBe(true)
     expect(first.payload?.query).toBe('')
     h.api.resolveTagCandidates(first.payload!.reqId, JSON.stringify(['工作/项目']))
     expect(tagChoices()).toEqual(['工作/项目'])
@@ -257,7 +270,15 @@ describe('tag suggestions', () => {
     expect(tagChoices()).toEqual(['生活/运动'])
     selectTag('生活/运动')
     expect(tags()).toEqual(['生活/运动'])
-    expect(h.editor.getText()).toBe('#生活/运动 ')
+    expect(h.editor.getText()).toBe('正文#生活/运动 ')
+    expect(h.editor.state.doc.firstChild?.firstChild?.marks).toEqual([])
+    expect(h.editor.state.doc.firstChild?.lastChild?.marks).toEqual([])
+  })
+
+  it.each(['##标题', 'https://a.test/#片段', 'http://a.test/#片段', 'www.a.test/#片段'])('does not open suggestions for "%s"', async (text) => {
+    await type(text)
+    expect(tagSuggestion.open).toBe(false)
+    expect(h.lastPost('requestTagCandidates')).toBeUndefined()
   })
 
   it('filters stale responses and lets the user choose historical tags', async () => {

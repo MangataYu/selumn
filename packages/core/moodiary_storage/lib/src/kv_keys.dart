@@ -48,6 +48,8 @@ enum MoodiaryKVs<T extends Object> {
   homeViewMode<int>(defaultValue: 4 /* ViewModeType.feed.number */),
   homeSortMode<int>(defaultValue: 0 /* DiarySort.timeDesc.number */),
 
+  expandedTagPaths<List<String>>(defaultValue: []),
+
   categoryOrder<List<String>>(),
 
   exportSettings<String>(defaultValue: ''),
