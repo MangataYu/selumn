@@ -15,11 +15,10 @@ class DiarySettingPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.app.diarySettings)),
       body: Padding(
-        padding: const .symmetric(horizontal: 8.0),
+        padding: .symmetric(horizontal: context.spacing.sm),
         child: CustomScrollView(
           slivers: [
             MSliverSettingGroup(
-              title: context.l10n.app.diaryPrefsEditor,
               children: [
                 _KvSwitchTile(
                   kv: .firstLineIndent,
@@ -36,7 +35,6 @@ class DiarySettingPage extends StatelessWidget {
               ],
             ),
             MSliverSettingGroup(
-              title: context.l10n.app.diaryPrefsWeather,
               children: [
                 _GatedKvSwitchTile(
                   kv: .autoWeather,

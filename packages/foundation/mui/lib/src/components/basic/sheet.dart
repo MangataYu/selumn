@@ -4,9 +4,7 @@ const RoundedRectangleBorder _kSheetShape = RoundedRectangleBorder(
   borderRadius: .vertical(top: .circular(24)),
 );
 
-const double _kSheetActionHeight = 52;
-const double _kSheetActionGap = 12;
-const double _kSheetPadding = 20;
+const double _kSheetActionHeight = 48;
 
 abstract final class MSheet {
   static Future<T?> show<T>(
@@ -31,7 +29,7 @@ abstract final class MSheet {
         explicitChildNodes: true,
         label: MaterialLocalizations.of(sheetContext).bottomSheetLabel,
         child: _SheetInsets(
-          topGap: showHandle ? 0 : 12,
+          topGap: showHandle ? 0 : sheetContext.spacing.md,
           child: Builder(builder: builder),
         ),
       ),
@@ -125,19 +123,20 @@ class MSheetOptionTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = context.theme.colors;
     final typography = context.theme.typography;
+    final spacing = context.spacing;
     final foreground = selected ? scheme.onPrimaryContainer : scheme.onSurface;
     return Semantics(
       selected: selected,
       enabled: option.enabled,
       child: Padding(
-        padding: const .only(bottom: 6),
+        padding: .only(bottom: spacing.xs),
         child: Material(
           color: selected
               ? scheme.primaryContainer
               : scheme.surfaceContainerHighest,
           clipBehavior: .antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: MuiRadius.md,
+            borderRadius: MuiRadius.sm,
             side: selected
                 ? BorderSide(color: scheme.primary, width: 1.5)
                 : .none,
@@ -146,41 +145,51 @@ class MSheetOptionTile<T> extends StatelessWidget {
             onTap: option.enabled ? onTap : null,
             child: Opacity(
               opacity: option.enabled ? 1 : 0.4,
-              child: Padding(
-                padding: const .symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    if (option.icon != null) ...[
-                      Icon(option.icon, size: 20, color: foreground),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: .start,
-                        mainAxisSize: .min,
-                        children: [
-                          Text(
-                            option.label,
-                            style:
-                                (selected
-                                        ? typography.bodyLarge.emphasized
-                                        : typography.bodyLarge)
-                                    .onSurface
-                                    .copyWith(color: foreground),
-                          ),
-                          if (option.subtitle != null)
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: option.subtitle == null ? 48 : 64,
+                ),
+                child: Padding(
+                  padding: .symmetric(
+                    horizontal: spacing.md,
+                    vertical: spacing.sm,
+                  ),
+                  child: Row(
+                    children: [
+                      if (option.icon != null) ...[
+                        Icon(option.icon, size: 20, color: foreground),
+                        SizedBox(width: spacing.md),
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          mainAxisSize: .min,
+                          children: [
                             Text(
-                              option.subtitle!,
-                              style: selected
-                                  ? typography.bodySmall.onPrimaryContainer
-                                  : typography.bodySmall.onSurfaceVariant,
+                              option.label,
+                              style:
+                                  (selected
+                                          ? typography.bodyLarge.emphasized
+                                          : typography.bodyLarge)
+                                      .onSurface
+                                      .copyWith(color: foreground),
                             ),
-                        ],
+                            if (option.subtitle != null)
+                              Text(
+                                option.subtitle!,
+                                style: selected
+                                    ? typography.bodyMedium.onPrimaryContainer
+                                    : typography.bodyMedium.onSurfaceVariant,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    if (selected)
-                      Icon(LucideIcons.check, size: 18, color: foreground),
-                  ],
+                      if (selected) ...[
+                        SizedBox(width: spacing.md),
+                        Icon(LucideIcons.check, size: 20, color: foreground),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -229,17 +238,18 @@ class MSheetScaffold<T> extends StatelessWidget {
   Widget _build(BuildContext context, {required bool foldHeader}) {
     final scheme = context.theme.colors;
     final typography = context.theme.typography;
+    final spacing = context.spacing;
     final hasHeader = title != null || subtitle != null || icon != null;
 
     final header = hasHeader
         ? Padding(
-            padding: .symmetric(horizontal: foldHeader ? 0 : _kSheetPadding),
+            padding: .symmetric(horizontal: foldHeader ? 0 : spacing.lg),
             child: Row(
               children: [
                 if (icon != null) ...[
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       shape: .circle,
                       color: isDestructive
@@ -254,7 +264,7 @@ class MSheetScaffold<T> extends StatelessWidget {
                           : scheme.onSecondaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: spacing.md),
                 ],
                 Expanded(
                   child: Column(
@@ -264,12 +274,12 @@ class MSheetScaffold<T> extends StatelessWidget {
                       if (title != null)
                         Text(
                           title!,
-                          style: typography.titleLarge.emphasized.onSurface,
+                          style: typography.titleMedium.emphasized.onSurface,
                         ),
                       if (subtitle != null)
                         Text(
                           subtitle!,
-                          style: typography.bodySmall.onSurfaceVariant,
+                          style: typography.bodyMedium.onSurfaceVariant,
                         ),
                     ],
                   ),
@@ -287,23 +297,27 @@ class MSheetScaffold<T> extends StatelessWidget {
         Flexible(
           child: SingleChildScrollView(
             padding: .fromLTRB(
-              _kSheetPadding,
-              hasHeader && !foldHeader ? 16 : 8,
-              _kSheetPadding,
-              actions.isEmpty ? 16 : 4,
+              spacing.lg,
+              hasHeader && !foldHeader ? spacing.md : spacing.sm,
+              spacing.lg,
+              actions.isEmpty ? spacing.md : spacing.xs,
             ),
             child: foldHeader && header != null
                 ? Column(
                     mainAxisSize: .min,
                     crossAxisAlignment: .stretch,
-                    children: [header, const SizedBox(height: 16), child],
+                    children: [
+                      header,
+                      SizedBox(height: spacing.md),
+                      child,
+                    ],
                   )
                 : child,
           ),
         ),
         if (actions.isNotEmpty)
           Container(
-            padding: const .fromLTRB(_kSheetPadding, 12, _kSheetPadding, 16),
+            padding: .fromLTRB(spacing.lg, spacing.sm, spacing.lg, spacing.md),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
@@ -315,7 +329,7 @@ class MSheetScaffold<T> extends StatelessWidget {
               actions: actions,
               layout: actionsLayout,
               height: _kSheetActionHeight,
-              gap: _kSheetActionGap,
+              gap: spacing.md,
             ),
           ),
       ],

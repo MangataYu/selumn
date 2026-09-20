@@ -17,7 +17,7 @@ class MSliverSettingGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final radius = Radius.circular(theme.radii.lg);
+    final radius = Radius.circular(theme.radii.sm);
     final last = children.length - 1;
 
     Widget item(int i) {
@@ -36,7 +36,9 @@ class MSliverSettingGroup extends StatelessWidget {
     return SliverMainAxisGroup(
       slivers: [
         if (title != null)
-          SliverToBoxAdapter(child: SettingTitleTile(title: title)),
+          SliverToBoxAdapter(child: SettingTitleTile(title: title))
+        else if (children.isNotEmpty)
+          SliverToBoxAdapter(child: SizedBox(height: context.spacing.md)),
         DecoratedSliver(
           decoration: ShapeDecoration(
             color: color ?? theme.colors.surfaceContainerLow,

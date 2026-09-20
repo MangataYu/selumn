@@ -16,13 +16,11 @@ class RootNavigation extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize =>
-      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
+  Size get preferredSize => AppBar(bottom: bottom).preferredSize;
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      leadingWidth: 52,
       leading: IconButton(
         tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
         onPressed: onOpenDrawer,

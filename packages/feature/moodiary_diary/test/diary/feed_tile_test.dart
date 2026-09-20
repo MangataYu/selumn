@@ -68,6 +68,96 @@ void main() {
     expect(find.textContaining('标题在这', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('card spacing follows window resizing without scaling text', (
+    t,
+  ) async {
+    t.view.devicePixelRatio = 1;
+    t.view.physicalSize = const Size(320, 900);
+    addTearDown(t.view.reset);
+
+    const title = '随窗口调整间距';
+    await t.pumpWidget(wrap(DiaryFeedTile(diary: diary(title: title))));
+    final titleFinder = find.text(title);
+    final fontSize = t.widget<Text>(titleFinder).style!.fontSize;
+    final card = find.descendant(
+      of: find.byType(DiaryTileFrame),
+      matching: find.byType(AnimatedContainer),
+    );
+    final insets = <double>[];
+
+    for (final width in [320.0, 390.0, 768.0]) {
+      t.view.physicalSize = Size(width, 900);
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull, reason: '窗口宽度=$width');
+
+      final cardRect = t.getRect(card);
+      final titleRect = t.getRect(titleFinder);
+      insets.add(titleRect.left);
+      expect(cardRect.left, greaterThan(0));
+      expect(cardRect.right, closeTo(width - cardRect.left, 0.01));
+      expect(titleRect.left, greaterThan(cardRect.left));
+      expect(titleRect.right, lessThan(cardRect.right));
+      expect(t.widget<Text>(titleFinder).style!.fontSize, fontSize);
+      if (width <= 390) {
+        expect(titleRect.left, lessThan(32), reason: '手机上减少原有双层留白');
+      }
+    }
+
+    expect(insets[1], greaterThan(insets[0]));
+    expect(insets[2], greaterThan(insets[1]));
+    expect(insets[2], lessThan(insets[0] * 2), reason: '宽屏间距有上限');
+  });
+
+  for (final width in [320.0, 390.0, 768.0]) {
+    testWidgets('content remains usable at width $width with large text', (
+      t,
+    ) async {
+      t.view.devicePixelRatio = 1;
+      t.view.physicalSize = Size(width, 1200);
+      addTearDown(t.view.reset);
+
+      const longTag = '旅行/记录旅途中的所见与所想';
+      await t.pumpWidget(
+        wrap(
+          DiaryFeedTile(
+            diary: diary(
+              title: '一段有些长的日记标题',
+              text: '第一段记录当时的感受。\n\n第二段记录今天发生的事。',
+              images: const ['1.jpg', '2.jpg', '3.jpg'],
+              audios: const ['a.m4a'],
+              tags: const [longTag, '认识自己'],
+              weather: const DiaryWeather(icon: '100', temp: '26', text: '晴'),
+            ),
+            place: place(),
+            selecting: true,
+            selected: true,
+            syncState: .dirty,
+          ),
+          textScaler: const .linear(2),
+        ),
+      );
+
+      expect(t.takeException(), isNull);
+      expect(find.byType(Image), findsNWidgets(3));
+      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+      expect(
+        t
+            .getRect(find.byType(DiarySyncBadge))
+            .overlaps(t.getRect(find.byType(DiarySelectMark))),
+        isFalse,
+      );
+      for (final tag in [longTag, '认识自己']) {
+        final rect = t.getRect(find.text('#$tag'));
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(width));
+      }
+      await t.ensureVisible(find.text('#认识自己'));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+      expect(find.text('#认识自己').hitTestable(), findsOneWidget);
+    });
+  }
+
   testWidgets('untitled entry keeps paragraphs as a multiline note', (t) async {
     const body = '第一段记录当时的感受。\n\n第二段想一想发生了什么。';
     await t.pumpWidget(

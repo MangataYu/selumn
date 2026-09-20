@@ -181,6 +181,12 @@ ThemeData buildMuiTheme({
 
     appBarTheme: AppBarTheme(
       backgroundColor: cs.surface,
+      toolbarHeight: 48,
+      leadingWidth: 48,
+      titleSpacing: 8,
+      titleTextStyle: text.titleMedium?.copyWith(fontSize: 18),
+      iconTheme: IconThemeData(size: 20, color: cs.onSurface),
+      actionsIconTheme: IconThemeData(size: 20, color: cs.onSurfaceVariant),
       scrolledUnderElevation: 0,
       systemOverlayStyle: systemOverlayStyleOf(brightness),
     ),

@@ -1,12 +1,5 @@
 import 'package:mui/mui.dart';
 
-const double _kOneLineHeight = 56;
-const double _kTwoLineHeight = 72;
-
-const double _kHorizontalPadding = 16;
-
-const double _kSlotGap = 16;
-
 class SettingTitleTile extends StatelessWidget {
   const SettingTitleTile({super.key, required this.title, this.subtitle});
 
@@ -25,15 +18,19 @@ class SettingTitleTile extends StatelessWidget {
       'subtitle must be a String or a Widget',
     );
     final theme = context.theme;
+    final spacing = context.spacing;
     return Padding(
-      padding: const .fromLTRB(_kHorizontalPadding, 16, _kHorizontalPadding, 8),
+      padding: .fromLTRB(spacing.md, spacing.sm, spacing.md, spacing.xs),
       child: Column(
         crossAxisAlignment: .start,
         mainAxisSize: .min,
         children: [
-          _asText(title, theme.typography.titleLarge.primary)!,
+          _asText(
+            title,
+            theme.typography.labelMedium.emphasized.onSurfaceVariant,
+          )!,
           if (subtitle != null)
-            _asText(subtitle, theme.typography.bodyMedium.onSurfaceVariant)!,
+            _asText(subtitle, theme.typography.bodySmall.onSurfaceVariant)!,
         ],
       ),
     );
@@ -44,7 +41,7 @@ Widget? _asText(dynamic value, TextStyle style) => switch (value) {
   null => null,
   String() => Text(value, style: style),
   Text(style: null, data: final data?) => Text(data, style: style),
-  Widget() => value,
+  Widget() => DefaultTextStyle.merge(style: style, child: value),
   _ => throw ArgumentError('必须是 String 或 Widget，收到 ${value.runtimeType}'),
 };
 
@@ -52,11 +49,11 @@ class MSettingDivider extends StatelessWidget {
   const MSettingDivider({super.key});
 
   @override
-  Widget build(BuildContext context) => const Divider(
+  Widget build(BuildContext context) => Divider(
     height: 0,
     thickness: 0,
-    indent: _kHorizontalPadding,
-    endIndent: _kHorizontalPadding,
+    indent: context.spacing.md,
+    endIndent: context.spacing.md,
   );
 }
 
@@ -101,6 +98,7 @@ class SettingListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final spacing = context.spacing;
     final fg = selected ? theme.colors.onSecondaryContainer : null;
     final titleStyle = selected
         ? theme.typography.bodyLarge.emphasized.onSecondaryContainer
@@ -113,30 +111,53 @@ class SettingListTile extends StatelessWidget {
     final subtitleWidget = _asText(subtitle, subtitleStyle);
 
     Widget row = Padding(
-      padding:
-          contentPadding ??
-          const .symmetric(horizontal: _kHorizontalPadding, vertical: 8),
+      padding: contentPadding ?? .symmetric(horizontal: spacing.md),
       child: Row(
         children: [
           if (leading != null) ...[
             IconTheme.merge(
-              data: IconThemeData(color: fg ?? theme.colors.onSurfaceVariant),
+              data: IconThemeData(
+                size: 20,
+                color: fg ?? theme.colors.onSurfaceVariant,
+              ),
               child: leading!,
             ),
-            const SizedBox(width: _kSlotGap),
+            SizedBox(width: spacing.md),
           ],
           Expanded(
-            child: Column(
-              crossAxisAlignment: .start,
-              mainAxisSize: .min,
-              children: [titleWidget, ?subtitleWidget],
+            child: Padding(
+              padding: contentPadding == null
+                  ? .symmetric(vertical: spacing.xs)
+                  : EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
+                children: [
+                  titleWidget,
+                  if (subtitleWidget != null) ...[
+                    SizedBox(height: spacing.xs),
+                    subtitleWidget,
+                  ],
+                ],
+              ),
             ),
           ),
           if (trailing != null) ...[
-            const SizedBox(width: _kSlotGap),
-            IconTheme.merge(
-              data: IconThemeData(color: fg ?? theme.colors.onSurfaceVariant),
-              child: trailing!,
+            SizedBox(width: spacing.md),
+            SwitchTheme(
+              data: SwitchTheme.of(context).copyWith(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  size: 20,
+                  color: fg ?? theme.colors.onSurfaceVariant,
+                ),
+                child: DefaultTextStyle.merge(
+                  style: subtitleStyle,
+                  child: trailing!,
+                ),
+              ),
             ),
           ],
         ],
@@ -144,9 +165,7 @@ class SettingListTile extends StatelessWidget {
     );
 
     row = ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: subtitleWidget == null ? _kOneLineHeight : _kTwoLineHeight,
-      ),
+      constraints: BoxConstraints(minHeight: subtitleWidget == null ? 48 : 64),
       child: Align(alignment: .centerLeft, child: row),
     );
 
@@ -163,7 +182,7 @@ class SettingListTile extends StatelessWidget {
 
   BorderRadius? _groupRadius(BuildContext context) {
     if (isFirst != true && isLast != true) return null;
-    final r = Radius.circular(context.theme.radii.lg);
+    final r = Radius.circular(context.theme.radii.sm);
     return .vertical(
       top: isFirst == true ? r : Radius.zero,
       bottom: isLast == true ? r : Radius.zero,
@@ -262,6 +281,13 @@ class SettingInputTile extends StatelessWidget {
               ? context.muiL10n.configured
               : context.muiL10n.notConfigured),
       trailing: IconButton.filled(
+        iconSize: 20,
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(48),
+          fixedSize: const Size.square(48),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
+        ),
         tooltip: context.muiL10n.input,
         icon: Icon(LucideIcons.squarePen, color: scheme.onPrimary),
         onPressed: () => _showInputDialog(context),

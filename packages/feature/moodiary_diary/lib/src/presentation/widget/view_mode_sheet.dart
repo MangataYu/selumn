@@ -72,6 +72,7 @@ class _ViewModeSheetState extends State<ViewModeSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final spacing = context.spacing;
     final showModes = ViewModeSheet._showModes;
     return MSheetScaffold<void>(
       title: showModes ? l10n.diary.pageViewModeButton : l10n.diary.sortTitle,
@@ -88,6 +89,11 @@ class _ViewModeSheetState extends State<ViewModeSheet> {
             SegmentedButton<ViewModeType>(
               showSelectedIcon: false,
               selected: {.getType(_mode)},
+              style: ButtonStyle(
+                textStyle: WidgetStatePropertyAll(
+                  context.theme.typography.bodyLarge.onSurface,
+                ),
+              ),
               segments: [
                 for (final type in ViewModeType.values)
                   ButtonSegment(
@@ -97,9 +103,7 @@ class _ViewModeSheetState extends State<ViewModeSheet> {
               ],
               onSelectionChanged: (value) => _pickMode(value.first),
             ),
-            const SizedBox(height: 20),
-            MFormSection(l10n.diary.sortTitle),
-            const SizedBox(height: 10),
+            SizedBox(height: spacing.sm),
           ],
           for (final sort in _availableSorts)
             MSheetOptionTile<int>(

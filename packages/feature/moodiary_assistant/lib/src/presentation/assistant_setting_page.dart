@@ -21,7 +21,7 @@ class AssistantSettingPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.assistant.settingTitle)),
       body: Padding(
-        padding: const .symmetric(horizontal: 8.0),
+        padding: .symmetric(horizontal: context.spacing.sm),
         child: CustomScrollView(
           slivers: [
             const _ProviderSection(),
@@ -40,10 +40,7 @@ class _ProviderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MSliverSettingGroup(
-      title: context.l10n.assistant.modelProviderTitle,
-      children: const [_ProviderEntryTile()],
-    );
+    return const MSliverSettingGroup(children: [_ProviderEntryTile()]);
   }
 }
 
@@ -123,7 +120,6 @@ class _PersonalSectionState extends State<_PersonalSection> {
     final notes = (MoodiaryKVs.assistantUserNotes.get() ?? '').trim();
     final memoryOn = MoodiaryKVs.assistantMemoryEnabled.get() ?? true;
     return MSliverSettingGroup(
-      title: l10n.assistant.personalSectionTitle,
       children: [
         SettingListTile(
           title: l10n.assistant.notesTitle,
@@ -181,7 +177,6 @@ class _ToolSectionState extends State<_ToolSection> {
     return SliverMainAxisGroup(
       slivers: [
         MSliverSettingGroup(
-          title: l10n.assistant.tool,
           children: [
             SettingListTile(
               title: l10n.assistant.permissionTitle,

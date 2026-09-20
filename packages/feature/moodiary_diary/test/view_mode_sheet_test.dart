@@ -45,6 +45,68 @@ void main() {
 
   int? storedSort() => kv.data[MoodiaryKVs.homeSortMode.name] as int?;
 
+  testWidgets('视图和排序保留适度留白，不重复显示分类大标题', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host());
+    await open(tester);
+
+    final modes = find.byType(SegmentedButton<ViewModeType>);
+    final options = find.byType(MSheetOptionTile<int>);
+    final firstOption = tester.getRect(options.first);
+    expect(find.byType(MFormSection), findsNothing);
+    expect(firstOption.top - tester.getRect(modes).bottom, closeTo(8, 0.01));
+    expect(
+      tester
+          .widget<SegmentedButton<ViewModeType>>(modes)
+          .style!
+          .textStyle!
+          .resolve({})!
+          .fontSize,
+      16,
+    );
+    expect(
+      tester
+          .getSize(
+            find.descendant(of: options.first, matching: find.byType(MInkWell)),
+          )
+          .height,
+      48,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('窄屏大字号下选项增高，仍可切换模式并保存', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(host());
+    await open(tester);
+
+    final firstOption = find.byType(MSheetOptionTile<int>).first;
+    expect(
+      tester
+          .getSize(
+            find.descendant(of: firstOption, matching: find.byType(MInkWell)),
+          )
+          .height,
+      greaterThan(48),
+    );
+    expect(tester.takeException(), isNull);
+    await pick(tester, '时间线');
+    await pick(tester, '最早在前');
+    await pick(tester, '确认');
+    expect(storedSort(), DiarySort.timeAsc.number);
+    expect(
+      kv.data[MoodiaryKVs.homeViewMode.name],
+      ViewModeType.timeline.number,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('未设置视图时默认信息流，打开不落盘', (tester) async {
     await tester.pumpWidget(host());
     await open(tester);

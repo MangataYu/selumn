@@ -39,7 +39,7 @@ class SettingPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.app.settingsTitle)),
       body: Padding(
-        padding: const .symmetric(horizontal: 8.0),
+        padding: .symmetric(horizontal: context.spacing.sm),
         child: CustomScrollView(
           slivers: [
             const _FeatureSection(),
@@ -61,7 +61,6 @@ class _FeatureSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MSliverSettingGroup(
-      title: context.l10n.app.sectionFeature,
       children: [
         SettingListTile(
           title: context.l10n.app.diarySettings,
@@ -93,7 +92,6 @@ class _DisplaySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(appSettingsControllerProvider);
     return MSliverSettingGroup(
-      title: context.l10n.app.sectionDisplay,
       children: [
         ValueListenableBuilder(
           valueListenable: MoodiaryKVs.themeMode.getNotifier(),
@@ -147,7 +145,6 @@ class _PrivacySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MSliverSettingGroup(
-      title: context.l10n.app.sectionPrivacy,
       children: [
         const AppLockTile(),
         ValueListenableBuilder(
@@ -172,9 +169,8 @@ class _DataSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MSliverSettingGroup(
-      title: context.l10n.app.sectionData,
-      children: const [DataRepairTile(), ImageOptimizeTile(), CacheUsageTile()],
+    return const MSliverSettingGroup(
+      children: [DataRepairTile(), ImageOptimizeTile(), CacheUsageTile()],
     );
   }
 }
@@ -191,7 +187,6 @@ class _MoreSection extends ConsumerWidget {
       orElse: () => Language.system,
     );
     return MSliverSettingGroup(
-      title: context.l10n.app.sectionMore,
       children: [
         SettingListTile(
           title: context.l10n.app.about,

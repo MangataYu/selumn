@@ -226,25 +226,37 @@ class MSwitchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = context.theme.colors;
+    final theme = context.theme;
+    final spacing = context.spacing;
     return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: MuiRadius.md,
+      color: theme.colors.surfaceContainerHighest,
+      borderRadius: .circular(theme.radii.sm),
       clipBehavior: .antiAlias,
       child: MInkWell(
         onTap: onChanged == null ? null : () => onChanged!(!value),
-        child: Padding(
-          padding: const .fromLTRB(16, 6, 10, 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: context.theme.typography.bodyLarge.onSurface,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: .symmetric(horizontal: spacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: .symmetric(vertical: spacing.sm),
+                    child: Text(
+                      label,
+                      style: theme.typography.bodyLarge.onSurface,
+                    ),
+                  ),
                 ),
-              ),
-              Switch(value: value, onChanged: onChanged),
-            ],
+                SizedBox(width: spacing.sm),
+                Switch(
+                  value: value,
+                  onChanged: onChanged,
+                  materialTapTargetSize: .shrinkWrap,
+                ),
+              ],
+            ),
           ),
         ),
       ),

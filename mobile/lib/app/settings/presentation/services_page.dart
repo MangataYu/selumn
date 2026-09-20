@@ -20,7 +20,7 @@ class ServicesPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.app.services)),
       body: Padding(
-        padding: const .symmetric(horizontal: 8.0),
+        padding: .symmetric(horizontal: context.spacing.sm),
         child: CustomScrollView(
           slivers: [
             const _AiSection(),
@@ -155,7 +155,10 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
         crossAxisAlignment: .stretch,
         children: [
           Padding(
-            padding: const .fromLTRB(24, 8, 24, 8),
+            padding: .symmetric(
+              horizontal: context.spacing.md,
+              vertical: context.spacing.sm,
+            ),
             child: Text(
               context.l10n.app.semanticPickTitle,
               style: context.theme.typography.titleMedium.onSurface,
@@ -376,7 +379,10 @@ class _MoodLlmPickerSheetState extends State<_MoodLlmPickerSheet> {
         crossAxisAlignment: .stretch,
         children: [
           Padding(
-            padding: const .fromLTRB(24, 8, 24, 8),
+            padding: .symmetric(
+              horizontal: context.spacing.md,
+              vertical: context.spacing.sm,
+            ),
             child: Text(
               context.l10n.app.moodSuggestPickTitle,
               style: context.theme.typography.titleMedium.onSurface,

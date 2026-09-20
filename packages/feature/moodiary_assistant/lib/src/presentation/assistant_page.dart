@@ -1466,11 +1466,13 @@ class _AssistantPageState extends State<AssistantPage> {
               ),
             ],
             onSelected: _onConversationAction,
-            child: Padding(
-              padding: const .all(12),
-              child: Icon(
-                LucideIcons.ellipsisVertical,
-                color: context.theme.colors.onSurfaceVariant,
+            child: SizedBox.square(
+              dimension: 48,
+              child: Center(
+                child: Icon(
+                  LucideIcons.ellipsisVertical,
+                  color: context.theme.colors.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -2559,7 +2561,6 @@ class AssistantSessionListPage extends StatelessWidget {
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: onOpenDrawer == null ? null : 52,
         leading: onOpenDrawer == null
             ? null
             : IconButton(

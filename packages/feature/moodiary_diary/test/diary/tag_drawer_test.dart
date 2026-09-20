@@ -205,6 +205,9 @@ void main() {
     await toggleTag(tester, '生活');
     expect(find.text('旅行'), findsOneWidget);
     expect(find.text('项目'), findsNothing);
+    expect(find.byType(SearchBar), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byType(SearchBar));
     await tester.enterText(find.byType(SearchBar), '工作/项');
     await tester.pumpAndSettle();
@@ -219,6 +222,24 @@ void main() {
     expect(find.text('项目'), findsNothing);
     expect(find.text('工作/项目'), findsNothing);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
+
+    await tester.enterText(find.byType(SearchBar), '工作/项');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchBar), findsNothing);
+    expect(find.text('旅行'), findsOneWidget);
+    expect(find.text('工作'), findsOneWidget);
+    expect(find.text('工作/项目'), findsNothing);
+    expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
+
+    await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      isEmpty,
+    );
+    expect(find.text('旅行'), findsOneWidget);
   });
 
   testWidgets('tag management is available from a long press', (tester) async {

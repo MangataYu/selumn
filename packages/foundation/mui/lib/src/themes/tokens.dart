@@ -40,7 +40,7 @@ class MuiSpacing with MuiValue {
     this.md = 12,
     this.lg = 16,
     this.xl = 24,
-    this.pagePadding = const .symmetric(horizontal: 16),
+    this.pagePadding = const .symmetric(horizontal: 12),
     this.minTapTarget = 48,
   });
 
@@ -51,6 +51,23 @@ class MuiSpacing with MuiValue {
   final double xl;
   final EdgeInsets pagePadding;
   final double minTapTarget;
+
+  /// Resolves visual spacing for a logical viewport width, using 390 as the
+  /// phone baseline. Bounds keep narrow screens usable and wide screens dense.
+  /// Touch targets stay independent of the visual spacing scale.
+  MuiSpacing forWidth(double width) {
+    assert(width.isFinite && width >= 0);
+    final scale = (width / 390).clamp(5 / 6, 4 / 3);
+    return MuiSpacing(
+      xs: xs * scale,
+      sm: sm * scale,
+      md: md * scale,
+      lg: lg * scale,
+      xl: xl * scale,
+      pagePadding: pagePadding * scale,
+      minTapTarget: minTapTarget,
+    );
+  }
 
   @override
   List<Object?> get props => [xs, sm, md, lg, xl, pagePadding, minTapTarget];

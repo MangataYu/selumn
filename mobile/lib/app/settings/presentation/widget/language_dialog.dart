@@ -15,7 +15,18 @@ class LanguageDialog extends StatelessWidget {
       orElse: () => Language.system,
     );
     return SimpleDialog(
-      title: Text(context.l10n.app.language),
+      title: Padding(
+        padding: .fromLTRB(
+          context.spacing.md,
+          context.spacing.md,
+          context.spacing.md,
+          0,
+        ),
+        child: Text(context.l10n.app.language),
+      ),
+      titleTextStyle: context.theme.typography.titleMedium.emphasized.onSurface,
+      titlePadding: EdgeInsets.zero,
+      contentPadding: .symmetric(vertical: context.spacing.sm),
       children: [
         for (final lang in Language.values)
           _Option(
@@ -47,12 +58,30 @@ class _Option extends StatelessWidget {
   Widget build(BuildContext context) {
     return SimpleDialogOption(
       onPressed: onTap,
-      child: Row(
-        children: [
-          Icon(selected ? LucideIcons.check : LucideIcons.languages),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
+      padding: EdgeInsets.zero,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: .symmetric(
+            horizontal: context.spacing.md,
+            vertical: context.spacing.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected ? LucideIcons.check : LucideIcons.languages,
+                size: 20,
+              ),
+              SizedBox(width: context.spacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  style: context.theme.typography.bodyLarge.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

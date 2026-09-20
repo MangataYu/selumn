@@ -24,7 +24,7 @@ class _FontPageState extends ConsumerState<FontPage> {
       body: ValueListenableBuilder<String>(
         valueListenable: MoodiaryKVs.customFont.getNotifier(),
         builder: (context, currentFamily, _) => ListView(
-          padding: const .all(8),
+          padding: .all(context.spacing.sm),
           children: [
             SettingTitleTile(
               title: context.l10n.app.fontTitle,
@@ -34,7 +34,7 @@ class _FontPageState extends ConsumerState<FontPage> {
               color: scheme.surfaceContainerLow,
               margin: .zero,
               child: Padding(
-                padding: const .symmetric(vertical: 16),
+                padding: .symmetric(vertical: context.spacing.md),
                 child: _FontPicker(currentFamily: currentFamily),
               ),
             ),
@@ -47,7 +47,7 @@ class _FontPageState extends ConsumerState<FontPage> {
               color: scheme.surfaceContainerLow,
               margin: .zero,
               child: Padding(
-                padding: const .all(16),
+                padding: .all(context.spacing.md),
                 child: _Preview(fontFamily: currentFamily),
               ),
             ),
@@ -68,10 +68,10 @@ class _FontPicker extends ConsumerWidget {
     final asyncFonts = ref.watch(fontControllerProvider);
     return SingleChildScrollView(
       scrollDirection: .horizontal,
-      padding: const .symmetric(horizontal: 16),
+      padding: .symmetric(horizontal: context.spacing.md),
       child: Row(
         crossAxisAlignment: .start,
-        spacing: 12,
+        spacing: context.spacing.md,
         children: [
           _FontCard(
             label: context.l10n.app.fontSystem,

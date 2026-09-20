@@ -4,7 +4,10 @@ import 'package:mui/mui.dart';
 final _mui = buildMuiTheme(brightness: Brightness.light);
 
 void main() {
-  Widget host(void Function(BuildContext context) onReady) {
+  Widget host(
+    void Function(BuildContext context) onReady, {
+    double textScale = 1,
+  }) {
     final body = Builder(
       builder: (context) => Center(
         child: TextButton(
@@ -16,6 +19,11 @@ void main() {
     return MuiTheme(
       data: _mui,
       child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         locale: const Locale('zh'),
         localizationsDelegates: const [
           ...GlobalMaterialLocalizations.delegates,
@@ -238,6 +246,138 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('保存'), findsOneWidget, reason: '动作条不能被挤掉');
+    });
+  });
+
+  group('响应式间距', () {
+    for (final (width, outerInset, innerInset) in [
+      (320.0, 40 / 3, 10.0),
+      (390.0, 16.0, 12.0),
+      (768.0, 64 / 3, 16.0),
+    ]) {
+      testWidgets('$width 宽下选项保留适度留白且适配屏幕', (tester) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        int? picked;
+        await tester.pumpWidget(
+          host((context) async {
+            picked = await MSheet.picker<int>(
+              context,
+              title: 'Options',
+              options: const [MSheetOption(value: 1, label: 'Choice')],
+            );
+          }),
+        );
+        await open(tester);
+
+        final sheet = tester.getRect(find.byType(MSheetScaffold<int>));
+        final tile = find.byType(MSheetOptionTile<int>);
+        final hitRect = tester.getRect(
+          find.descendant(of: tile, matching: find.byType(MInkWell)),
+        );
+        final label = tester.getRect(find.text('Choice'));
+        expect(hitRect.left - sheet.left, closeTo(outerInset, 0.01));
+        expect(sheet.right - hitRect.right, closeTo(outerInset, 0.01));
+        expect(label.left - hitRect.left, closeTo(innerInset, 0.01));
+        expect(hitRect.height, 48);
+        expect(tester.widget<Text>(find.text('Choice')).style!.fontSize, 16);
+        expect(tester.widget<Text>(find.text('Options')).style!.fontSize, 16);
+        expect(tester.getSize(find.byType(MActionBar<int>)).height, 48);
+        expect(tester.takeException(), isNull);
+
+        await tester.tapAt(Offset(hitRect.center.dx, hitRect.top + 1));
+        await tester.pumpAndSettle();
+        expect(picked, 1);
+      });
+    }
+
+    testWidgets('窄屏大字号下选项自然增高，仍可选择', (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      int? picked;
+      await tester.pumpWidget(
+        host((context) async {
+          picked = await MSheet.picker<int>(
+            context,
+            title: 'Options',
+            options: const [
+              MSheetOption(
+                value: 1,
+                label: 'A longer choice that wraps',
+                subtitle: 'Additional details remain visible',
+                icon: LucideIcons.tag,
+              ),
+            ],
+          );
+        }, textScale: 2),
+      );
+      await open(tester);
+      final option = tester.getRect(find.byType(MSheetOptionTile<int>));
+      final label = tester.getRect(find.text('A longer choice that wraps'));
+      final subtitle = tester.getRect(
+        find.text('Additional details remain visible'),
+      );
+      expect(option.height, greaterThan(80));
+      expect(label.bottom, lessThanOrEqualTo(subtitle.top));
+      expect(subtitle.bottom, lessThan(option.bottom));
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('A longer choice that wraps'));
+      await tester.pumpAndSettle();
+      expect(picked, 1);
+    });
+
+    testWidgets('键盘弹起时不重复添加安全区，矮空间标题随内容滚动', (tester) async {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 30);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 30);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        host(
+          (context) => MSheet.show<void>(
+            context,
+            builder: (_) => const MSheetScaffold<void>(
+              title: 'Keyboard form',
+              subtitle: 'Scrollable content',
+              icon: LucideIcons.cloud,
+              actions: [MAction(label: 'Save', isPrimary: true)],
+              child: SizedBox(height: 500),
+            ),
+          ),
+        ),
+      );
+      await open(tester);
+      expect(tester.getRect(find.byType(MSheetScaffold<void>)).bottom, 670);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 450);
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(MSheetScaffold<void>)).bottom, 250);
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text('Keyboard form'),
+        ),
+        findsOneWidget,
+      );
+      final actions = tester.getRect(find.byType(MActionBar<void>));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -150),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(MActionBar<void>)), actions);
+      expect(actions.bottom, lessThanOrEqualTo(250));
+      expect(tester.takeException(), isNull);
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      tester.view.padding = const FakeViewPadding(bottom: 30);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(MSheetScaffold<void>)).bottom, 670);
+      expect(tester.takeException(), isNull);
     });
   });
 

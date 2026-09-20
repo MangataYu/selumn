@@ -83,50 +83,57 @@ class _AccentModeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = context.theme.colors;
+    final spacing = context.spacing;
     return Semantics(
       selected: selected,
       child: Padding(
-        padding: const .only(bottom: 6),
+        padding: .only(bottom: spacing.xs),
         child: Material(
           color: selected ? scheme.surfaceContainerLow : Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: AppBorderRadius.mediumBorderRadius,
+            borderRadius: MuiRadius.sm,
             side: BorderSide(
               color: selected ? scheme.primary : scheme.outlineVariant,
               width: selected ? 1.5 : 1,
             ),
           ),
           child: MInkWell(
-            borderRadius: AppBorderRadius.mediumBorderRadius,
+            borderRadius: MuiRadius.sm,
             onTap: onTap,
-            child: Padding(
-              padding: const .symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                spacing: 12,
-                children: [
-                  SizedBox(width: 28, height: 28, child: _swatch(context)),
-                  Expanded(
-                    child: Text(
-                      _label(context),
-                      style: selected
-                          ? context
-                                .theme
-                                .typography
-                                .bodyLarge
-                                .emphasized
-                                .onSurface
-                          : context.theme.typography.bodyLarge.onSurface,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: .symmetric(
+                  horizontal: spacing.md,
+                  vertical: spacing.sm,
+                ),
+                child: Row(
+                  spacing: spacing.md,
+                  children: [
+                    SizedBox(width: 28, height: 28, child: _swatch(context)),
+                    Expanded(
+                      child: Text(
+                        _label(context),
+                        style: selected
+                            ? context
+                                  .theme
+                                  .typography
+                                  .bodyLarge
+                                  .emphasized
+                                  .onSurface
+                            : context.theme.typography.bodyLarge.onSurface,
+                      ),
                     ),
-                  ),
-                  if (selected)
-                    Icon(LucideIcons.check, size: 18, color: scheme.primary)
-                  else if (mode == .custom)
-                    Icon(
-                      LucideIcons.chevronRight,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                ],
+                    if (selected)
+                      Icon(LucideIcons.check, size: 20, color: scheme.primary)
+                    else if (mode == .custom)
+                      Icon(
+                        LucideIcons.chevronRight,
+                        size: 20,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

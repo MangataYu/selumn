@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:mui/src/themes/theme_data.dart';
+import 'package:mui/src/themes/tokens.dart';
 
 final Expando<MuiThemeData> _views = Expando<MuiThemeData>('mui theme view');
 
@@ -20,6 +21,10 @@ class MuiTheme extends StatelessWidget {
 
 extension MuiThemeContext on BuildContext {
   MuiThemeData get theme => MuiTheme.of(this);
+
+  /// Visual spacing that updates when the window width changes.
+  MuiSpacing get spacing =>
+      theme.spacing.forWidth(MediaQuery.sizeOf(this).width);
 
   double get safeBottom => MediaQuery.paddingOf(this).bottom;
 }

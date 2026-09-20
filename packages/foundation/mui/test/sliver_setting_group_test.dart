@@ -56,10 +56,10 @@ void main() {
   });
 
   group('圆角落在首末项上', () {
-    final lg = buildMuiTheme(brightness: Brightness.light)
+    final radius = buildMuiTheme(brightness: Brightness.light)
         .extension<MuiTokens>()!
         .radii
-        .lg;
+        .sm;
 
     List<BorderRadius> radiiOf(WidgetTester tester) => tester
         .widgetList<ClipRRect>(
@@ -75,13 +75,16 @@ void main() {
       await tester.pumpWidget(_host(itemCount: 3));
       final radii = radiiOf(tester);
       expect(radii.length, 2, reason: '中间那项不该多包一层');
-      expect(radii.first, BorderRadius.vertical(top: Radius.circular(lg)));
-      expect(radii.last, BorderRadius.vertical(bottom: Radius.circular(lg)));
+      expect(radii.first, BorderRadius.vertical(top: Radius.circular(radius)));
+      expect(
+        radii.last,
+        BorderRadius.vertical(bottom: Radius.circular(radius)),
+      );
     });
 
     testWidgets('只有一项时四个角都圆', (tester) async {
       await tester.pumpWidget(_host(itemCount: 1));
-      expect(radiiOf(tester).single, BorderRadius.all(Radius.circular(lg)));
+      expect(radiiOf(tester).single, BorderRadius.all(Radius.circular(radius)));
     });
 
     testWidgets('按压反馈是 MInkWell 的自绘遮罩，不吃 material 水波', (tester) async {
@@ -90,5 +93,39 @@ void main() {
       expect(find.byType(InkWell), findsNothing);
       expect(find.byType(ListTile), findsNothing);
     });
+  });
+
+  testWidgets('无标题组块用短留白分开，组内仍连续', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 800);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildMuiTheme(brightness: Brightness.light),
+        home: const Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              MSliverSettingGroup(
+                children: [
+                  SettingListTile(title: 'First'),
+                  SettingListTile(title: 'Second'),
+                ],
+              ),
+              MSliverSettingGroup(children: [SettingListTile(title: 'Third')]),
+            ],
+          ),
+        ),
+      ),
+    );
+    final rows = find.byType(SettingListTile);
+    expect(find.byType(SettingTitleTile), findsNothing);
+    expect(
+      tester.getRect(rows.at(1)).top,
+      closeTo(tester.getRect(rows.first).bottom, 0.01),
+    );
+    final gap =
+        tester.getRect(rows.at(2)).top - tester.getRect(rows.at(1)).bottom;
+    expect(gap, closeTo(12, 0.01));
+    expect(find.byType(MSettingDivider), findsOneWidget);
   });
 }

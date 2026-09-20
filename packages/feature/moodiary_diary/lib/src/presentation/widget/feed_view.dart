@@ -25,6 +25,7 @@ class DiaryFeedView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = context.spacing;
     final provider = diaryControllerProvider(
       tag: filter.tagPath,
       untagged: filter.untagged,
@@ -54,12 +55,12 @@ class DiaryFeedView extends ConsumerWidget {
                 child: ListView.separated(
                   padding: .fromLTRB(
                     0,
-                    12,
+                    spacing.sm,
                     0,
                     96 + MediaQuery.paddingOf(context).bottom,
                   ),
                   itemCount: diaries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => SizedBox(height: spacing.sm),
                   itemBuilder: (context, index) {
                     final diary = diaries[index];
                     final syncState =
@@ -113,7 +114,7 @@ class DiaryFeedView extends ConsumerWidget {
             return Column(
               children: [
                 Padding(
-                  padding: const .fromLTRB(12, 12, 12, 0),
+                  padding: spacing.pagePadding.add(.only(top: spacing.sm)),
                   child: SyncPendingSummaryCard(
                     newCount: pending.newDiaryIds.length,
                     updateCount: pending.updateDiaryIds.length,

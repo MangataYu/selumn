@@ -52,6 +52,7 @@ class DiaryFeedTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = context.spacing;
     final cells = _cellsOf(diary);
     final stamp = diaryStampOf(diary, sort);
     final title = diary.title.trim();
@@ -68,8 +69,8 @@ class DiaryFeedTile extends StatelessWidget {
       onLongPress: onLongPress,
       card: true,
       borderRadius: AppBorderRadius.largeBorderRadius,
-      margin: const .symmetric(horizontal: 16),
-      padding: const .all(16),
+      margin: spacing.pagePadding,
+      padding: .all(spacing.md),
       child: Column(
         crossAxisAlignment: .start,
         children: [
@@ -83,7 +84,7 @@ class DiaryFeedTile extends StatelessWidget {
             ),
           ),
           if (title.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: spacing.sm),
             Text(
               title,
               maxLines: 2,
@@ -93,18 +94,18 @@ class DiaryFeedTile extends StatelessWidget {
             ),
           ],
           if (body.isNotEmpty) ...[
-            SizedBox(height: title.isEmpty ? 10 : 6),
+            SizedBox(height: title.isEmpty ? spacing.sm : spacing.xs),
             Text(
               body,
               maxLines: 8,
               overflow: .ellipsis,
               style: context.theme.typography.bodyMedium.onSurface.copyWith(
-                height: 1.65,
+                height: 1.5,
               ),
             ),
           ],
           if (cells.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.sm),
             _Strip(
               cells: cells,
               aspect: diary.aspect,
@@ -112,14 +113,14 @@ class DiaryFeedTile extends StatelessWidget {
             ),
           ],
           if (diary.audioName.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.sm),
             _AudioBar(count: diary.audioName.length),
           ],
           if (diary.tags.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.sm),
             Wrap(
-              spacing: 12,
-              runSpacing: 6,
+              spacing: spacing.sm,
+              runSpacing: spacing.xs,
               children: [
                 for (final tag in diary.tags)
                   _TagChip(

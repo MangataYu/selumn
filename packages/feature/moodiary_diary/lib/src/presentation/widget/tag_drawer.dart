@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_data/moodiary_data.dart';
@@ -9,6 +10,20 @@ import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
+
+const _maxTagIndentDepth = 4;
+const _tagRowHeight = 40.0;
+const _tagIconSize = 16.0;
+
+int _compareTagPaths(String a, String b) {
+  final left = a.split('/');
+  final right = b.split('/');
+  for (var i = 0; i < left.length && i < right.length; i++) {
+    final order = left[i].compareTo(right[i]);
+    if (order != 0) return order;
+  }
+  return left.length.compareTo(right.length);
+}
 
 class TagDrawer extends ConsumerStatefulWidget {
   final Widget? navigation;
@@ -28,6 +43,7 @@ class TagDrawer extends ConsumerStatefulWidget {
 
 class _TagDrawerState extends ConsumerState<TagDrawer> {
   String _query = '';
+  bool _searchVisible = false;
   late Set<String> _expandedPaths = MoodiaryKVs.expandedTagPaths.get()!.toSet();
 
   void _saveExpandedPaths(Set<String> paths) {
@@ -132,79 +148,201 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
+    final spacing = context.spacing;
     final filter = ref.watch(homeDiaryFilterProvider);
     final tagsAsync = ref.watch(diaryTagsProvider);
     final tags = tagsAsync.value ?? const <String>[];
     final paths = {
       for (final tag in tags) ...TagPath.ancestors(tag),
       ...tags,
-    }.toList()..sort();
+    }.toList()..sort(_compareTagPaths);
     final ancestorsByPath = {
       for (final path in paths) path: TagPath.ancestors(path)..removeLast(),
     };
     final parentPaths = ancestorsByPath.values.expand((paths) => paths).toSet();
     final counts = ref.watch(tagDiaryCountsProvider).value;
     final query = _query.trim().toLowerCase();
-    final visible = paths.where(
-      (path) => query.isEmpty
-          ? ancestorsByPath[path]!.every(_expandedPaths.contains)
-          : path.toLowerCase().contains(query),
-    );
+    final visible = paths
+        .where(
+          (path) => query.isEmpty
+              ? ancestorsByPath[path]!.every(_expandedPaths.contains)
+              : path.toLowerCase().contains(query),
+        )
+        .toList();
     final localizations = MaterialLocalizations.of(context);
+    final compactButtonStyle = IconButton.styleFrom(
+      minimumSize: const Size.square(_tagRowHeight),
+      fixedSize: const Size.square(_tagRowHeight),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+    );
+
+    Widget tagTile(int index) {
+      final path = visible[index];
+      final ancestors = ancestorsByPath[path]!;
+      final next = index + 1 < visible.length ? visible[index + 1] : null;
+      final expandable = query.isEmpty && parentPaths.contains(path);
+      final expanded = _expandedPaths.contains(path);
+      final selected = widget.isDiarySelected && filter.tagPath == path;
+      return _TagTile(
+        key: ValueKey('tag-row:$path'),
+        label: query.isEmpty ? path.split('/').last : path,
+        count: counts == null ? null : counts.byTag[path] ?? 0,
+        depth: query.isEmpty ? ancestors.length : 0,
+        guideEnds: query.isEmpty
+            ? [
+                for (final ancestor in ancestors.take(_maxTagIndentDepth))
+                  next == null || !TagPath.matches(next, ancestor),
+              ]
+            : const [],
+        showChildGuide: expandable && expanded,
+        selected: selected,
+        icon: LucideIcons.hash,
+        onTap: () => _pick(.tag(path)),
+        onLongPress: () => _manage(path),
+        trailing: expandable
+            ? Semantics(
+                expanded: expanded,
+                child: IconButton(
+                  key: ValueKey('tag-expand:$path'),
+                  tooltip: expanded
+                      ? localizations.expandedIconTapHint
+                      : localizations.collapsedIconTapHint,
+                  alignment: .centerRight,
+                  padding: EdgeInsets.zero,
+                  style: compactButtonStyle,
+                  icon: Icon(
+                    expanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: _tagIconSize,
+                    color: selected
+                        ? colors.onSecondaryContainer
+                        : colors.onSurfaceVariant,
+                  ),
+                  onPressed: () => _toggleExpanded(path),
+                ),
+              )
+            : null,
+      );
+    }
 
     return Drawer(
       child: SafeArea(
         child: ListView(
-          padding: .only(bottom: 12 + MediaQuery.viewInsetsOf(context).bottom),
+          padding: .only(
+            bottom: spacing.sm + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           children: [
             Padding(
-              padding: const .fromLTRB(20, 20, 20, 14),
-              child: Column(
-                crossAxisAlignment: .start,
+              key: const ValueKey('tag-drawer-header'),
+              padding: .fromLTRB(spacing.lg, spacing.xs, 8, spacing.sm),
+              child: Row(
                 children: [
-                  Text(
-                    context.l10n.common.appName,
-                    style: context
-                        .theme
-                        .typography
-                        .titleLarge
-                        .emphasized
-                        .onSurface,
-                  ),
-                  if (counts != null)
-                    Text(
-                      context.l10n.diary.searchResult(count: counts.total),
-                      style:
-                          context.theme.typography.labelMedium.onSurfaceVariant,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: .start,
+                      children: [
+                        Text(
+                          context.l10n.common.appName,
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                          style: context
+                              .theme
+                              .typography
+                              .titleMedium
+                              .emphasized
+                              .onSurface,
+                        ),
+                        if (counts != null)
+                          Text(
+                            context.l10n.diary.searchResult(
+                              count: counts.total,
+                            ),
+                            style: context
+                                .theme
+                                .typography
+                                .labelMedium
+                                .onSurfaceVariant,
+                          ),
+                      ],
                     ),
+                  ),
+                  IconButton(
+                    key: const ValueKey('tag-drawer-settings'),
+                    tooltip: context.l10n.app.homeNavigatorSetting,
+                    style: compactButtonStyle,
+                    icon: const Icon(LucideIcons.settings, size: 18),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      const SettingRoute().push(context);
+                    },
+                  ),
                 ],
               ),
             ),
             if (widget.navigation != null) widget.navigation!,
             Padding(
-              padding: const .fromLTRB(16, 4, 16, 6),
-              child: Row(
-                children: [
-                  Text(
-                    context.l10n.common.tag,
-                    style:
-                        context.theme.typography.labelMedium.onSurfaceVariant,
-                  ),
-                  const Spacer(),
-                  Text(
-                    context.l10n.common.tagCount(count: tags.length),
-                    style: context.theme.typography.labelSmall.outline,
-                  ),
-                ],
+              padding: .only(left: spacing.lg, right: 8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 32),
+                child: Row(
+                  children: [
+                    Text(
+                      context.l10n.common.tag,
+                      style:
+                          context.theme.typography.labelMedium.onSurfaceVariant,
+                    ),
+                    const Spacer(),
+                    Text(
+                      context.l10n.common.tagCount(count: tags.length),
+                      style: context.theme.typography.labelSmall.outline,
+                    ),
+                    SizedBox(
+                      width: _tagRowHeight,
+                      child: paths.length >= 8 || _searchVisible
+                          ? Semantics(
+                              expanded: _searchVisible,
+                              child: IconButton(
+                                key: const ValueKey('tag-search-toggle'),
+                                tooltip: _searchVisible
+                                    ? context.l10n.common.cancel
+                                    : context.l10n.diary.tagSearchHint,
+                                style: compactButtonStyle,
+                                icon: Icon(
+                                  _searchVisible
+                                      ? LucideIcons.x
+                                      : LucideIcons.search,
+                                  size: _tagIconSize,
+                                ),
+                                onPressed: () {
+                                  if (_searchVisible) {
+                                    FocusScope.of(context).unfocus();
+                                  }
+                                  setState(() {
+                                    _searchVisible = !_searchVisible;
+                                    if (!_searchVisible) _query = '';
+                                  });
+                                },
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
-            if (paths.length >= 8)
+            if (_searchVisible)
               Padding(
-                padding: const .fromLTRB(12, 0, 12, 8),
+                padding: .fromLTRB(spacing.sm, 0, 8, spacing.xs),
                 child: SearchBar(
+                  autoFocus: true,
                   hintText: context.l10n.diary.tagSearchHint,
-                  leading: const Icon(LucideIcons.search, size: 20),
-                  constraints: const BoxConstraints(minHeight: 42),
+                  leading: const Icon(LucideIcons.search, size: _tagIconSize),
+                  constraints: const BoxConstraints(minHeight: _tagRowHeight),
+                  textStyle: WidgetStatePropertyAll(
+                    context.theme.typography.bodyMedium.onSurface,
+                  ),
                   elevation: const WidgetStatePropertyAll(0),
                   backgroundColor: WidgetStatePropertyAll(
                     colors.surfaceContainerHigh,
@@ -220,66 +358,30 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                 icon: LucideIcons.notebookPen,
                 onTap: () => _pick(const .all()),
               ),
-            for (final path in visible)
-              _TagTile(
-                label: query.isEmpty ? path.split('/').last : path,
-                count: counts == null ? null : counts.byTag[path] ?? 0,
-                depth: query.isEmpty ? path.split('/').length - 1 : 0,
-                selected: widget.isDiarySelected && filter.tagPath == path,
-                icon: LucideIcons.hash,
-                onTap: () => _pick(.tag(path)),
-                onLongPress: () => _manage(path),
-                trailing: query.isEmpty && parentPaths.contains(path)
-                    ? Semantics(
-                        expanded: _expandedPaths.contains(path),
-                        child: IconButton(
-                          key: ValueKey('tag-expand:$path'),
-                          tooltip: _expandedPaths.contains(path)
-                              ? localizations.expandedIconTapHint
-                              : localizations.collapsedIconTapHint,
-                          icon: Icon(
-                            _expandedPaths.contains(path)
-                                ? LucideIcons.chevronDown
-                                : LucideIcons.chevronRight,
-                            size: 18,
-                          ),
-                          onPressed: () => _toggleExpanded(path),
-                        ),
-                      )
-                    : null,
-              ),
+            for (var i = 0; i < visible.length; i++) tagTile(i),
             if (visible.isEmpty && query.isNotEmpty)
               Padding(
-                padding: const .all(16),
+                padding: .all(spacing.md),
                 child: Text(context.l10n.diary.tagNoMatch),
               ),
             if (tagsAsync.hasError)
               Padding(
-                padding: const .all(16),
+                padding: .all(spacing.md),
                 child: Text(context.l10n.diary.tagUpdateFailed),
               ),
-            const SizedBox(height: 8),
-            Divider(height: 1, color: colors.outlineVariant),
+            SizedBox(height: spacing.xs),
+            Divider(
+              height: 1,
+              indent: spacing.lg,
+              endIndent: 8,
+              color: colors.outlineVariant,
+            ),
             _TagTile(
               label: context.l10n.diary.tagNoTag,
               count: counts?.untagged,
               selected: widget.isDiarySelected && filter.untagged,
               icon: LucideIcons.tag,
               onTap: () => _pick(const .untagged()),
-            ),
-            Padding(
-              padding: const .fromLTRB(12, 4, 12, 0),
-              child: Align(
-                alignment: .centerRight,
-                child: IconButton.filledTonal(
-                  tooltip: context.l10n.app.homeNavigatorSetting,
-                  icon: const Icon(LucideIcons.settings, size: 20),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    const SettingRoute().push(context);
-                  },
-                ),
-              ),
             ),
           ],
         ),
@@ -297,8 +399,11 @@ class _TagTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final Widget? trailing;
+  final List<bool> guideEnds;
+  final bool showChildGuide;
 
   const _TagTile({
+    super.key,
     required this.label,
     required this.count,
     required this.selected,
@@ -307,46 +412,92 @@ class _TagTile extends StatelessWidget {
     this.depth = 0,
     this.onLongPress,
     this.trailing,
+    this.guideEnds = const [],
+    this.showChildGuide = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    return Semantics(
-      selected: selected,
-      child: Padding(
-        padding: const .symmetric(horizontal: 12, vertical: 1),
-        child: Material(
-          color: selected ? colors.secondaryContainer : Colors.transparent,
-          borderRadius: .circular(28),
-          clipBehavior: .antiAlias,
-          child: MInkWell(
-            onTap: onTap,
-            onLongPress: onLongPress,
-            child: Padding(
-              padding: .fromLTRB(14 + depth.clamp(0, 4) * 12, 0, 14, 0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 18),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(label, maxLines: 1, overflow: .ellipsis),
-                    ),
-                    if (count != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '$count',
-                        style: context
-                            .theme
-                            .typography
-                            .labelMedium
-                            .onSurfaceVariant,
+    final spacing = context.spacing;
+    return CustomPaint(
+      foregroundPainter: guideEnds.isNotEmpty || showChildGuide
+          ? _TagGuidesPainter(
+              depth: depth,
+              guideEnds: guideEnds,
+              showChildGuide: showChildGuide,
+              color: colors.outlineVariant,
+              iconCenter: spacing.sm * 2 + _tagIconSize / 2,
+              indent: spacing.lg,
+            )
+          : null,
+      child: Semantics(
+        selected: selected,
+        child: Padding(
+          padding: .only(left: spacing.sm, right: 8),
+          child: Material(
+            color: selected ? colors.secondaryContainer : Colors.transparent,
+            borderRadius: MuiRadius.sm,
+            clipBehavior: .antiAlias,
+            child: MInkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: Padding(
+                padding: .only(
+                  left:
+                      spacing.sm +
+                      depth.clamp(0, _maxTagIndentDepth) * spacing.lg,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: _tagRowHeight),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: _tagIconSize,
+                        color: selected
+                            ? colors.onSecondaryContainer
+                            : colors.onSurfaceVariant,
                       ),
+                      SizedBox(width: spacing.sm),
+                      Expanded(
+                        child: Padding(
+                          padding: .symmetric(vertical: spacing.xs),
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: .ellipsis,
+                            style: selected
+                                ? context
+                                      .theme
+                                      .typography
+                                      .bodyMedium
+                                      .onSecondaryContainer
+                                : context.theme.typography.bodyMedium.onSurface,
+                          ),
+                        ),
+                      ),
+                      if (count != null) ...[
+                        SizedBox(width: spacing.sm),
+                        Text(
+                          '$count',
+                          textAlign: .right,
+                          style: selected
+                              ? context
+                                    .theme
+                                    .typography
+                                    .labelMedium
+                                    .onSecondaryContainer
+                              : context
+                                    .theme
+                                    .typography
+                                    .labelMedium
+                                    .onSurfaceVariant,
+                        ),
+                      ],
+                      SizedBox(width: _tagRowHeight, child: trailing),
                     ],
-                    ?trailing,
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -355,4 +506,54 @@ class _TagTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TagGuidesPainter extends CustomPainter {
+  final int depth;
+  final List<bool> guideEnds;
+  final bool showChildGuide;
+  final Color color;
+  final double iconCenter;
+  final double indent;
+
+  const _TagGuidesPainter({
+    required this.depth,
+    required this.guideEnds,
+    required this.showChildGuide,
+    required this.color,
+    required this.iconCenter,
+    required this.indent,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    for (var level = 0; level < guideEnds.length; level++) {
+      final x = iconCenter + level * indent;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, guideEnds[level] ? size.height / 2 : size.height),
+        paint,
+      );
+    }
+    if (showChildGuide && depth < _maxTagIndentDepth) {
+      final x = iconCenter + depth * indent;
+      canvas.drawLine(
+        Offset(x, size.height / 2 + _tagIconSize / 2 + 2),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TagGuidesPainter oldDelegate) =>
+      depth != oldDelegate.depth ||
+      showChildGuide != oldDelegate.showChildGuide ||
+      color != oldDelegate.color ||
+      iconCenter != oldDelegate.iconCenter ||
+      indent != oldDelegate.indent ||
+      !listEquals(guideEnds, oldDelegate.guideEnds);
 }
