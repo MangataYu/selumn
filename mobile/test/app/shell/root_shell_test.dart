@@ -158,6 +158,8 @@ void main() {
 
     await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
     expect(find.byType(AssistantSessionListPage), findsOneWidget);
+    expect(find.byTooltip(l10n.assistant.menuSettings), findsOneWidget);
+    expect(find.byTooltip(l10n.assistant.newChat), findsOneWidget);
     await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
     expect(find.byType(AssistantSessionListPage), findsOneWidget);
 
