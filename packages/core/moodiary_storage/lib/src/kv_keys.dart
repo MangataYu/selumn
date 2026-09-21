@@ -50,6 +50,8 @@ enum MoodiaryKVs<T extends Object> {
 
   expandedTagPaths<List<String>>(defaultValue: []),
   tagTreeExpanded<bool>(defaultValue: true),
+  diaryFiltersExpanded<bool>(defaultValue: true),
+  tagOrder<List<String>>(defaultValue: []),
 
   categoryOrder<List<String>>(),
 

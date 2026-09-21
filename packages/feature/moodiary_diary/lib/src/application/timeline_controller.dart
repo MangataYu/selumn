@@ -12,6 +12,7 @@ Future<Map<DateTime, int>> timelineMonthCounts(
   Ref ref, {
   String? tag,
   bool untagged = false,
+  DiaryContentFilter? content,
   required DiarySort sort,
 }) async {
   final repository = getIt<DiaryRepository>();
@@ -24,5 +25,10 @@ Future<Map<DateTime, int>> timelineMonthCounts(
     debounce?.cancel();
     sub.cancel();
   });
-  return repository.diaryCountByMonth(tag: tag, untagged: untagged, sort: sort);
+  return repository.diaryCountByMonth(
+    tag: tag,
+    untagged: untagged,
+    content: content,
+    sort: sort,
+  );
 }

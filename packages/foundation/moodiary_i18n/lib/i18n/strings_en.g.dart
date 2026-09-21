@@ -739,6 +739,11 @@ class _Translations$diary$en extends Translations$diary$zh {
 	@override String get tagNoMatch => 'No matching tags';
 	@override String get tagNoTag => 'Untagged';
 	@override String get allTags => 'All tags';
+	@override String get tagSortTitle => 'Sort tags';
+	@override String get tagSortEmpty => 'No tags yet';
+	@override String get filterImages => 'With images';
+	@override String get filterLinks => 'With links';
+	@override String get filterAudio => 'With audio';
 	@override String get tagRename => 'Rename tag';
 	@override String get tagDelete => 'Delete tag';
 	@override String get tagRenameHint => 'For example: Life/Travel';

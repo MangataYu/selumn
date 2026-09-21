@@ -24,7 +24,13 @@ final class TimelineMonthCountsProvider
         $FutureProvider<Map<DateTime, int>> {
   TimelineMonthCountsProvider._({
     required TimelineMonthCountsFamily super.from,
-    required ({String? tag, bool untagged, DiarySort sort}) super.argument,
+    required ({
+      String? tag,
+      bool untagged,
+      DiaryContentFilter? content,
+      DiarySort sort,
+    })
+    super.argument,
   }) : super(
          retry: null,
          name: r'timelineMonthCountsProvider',
@@ -52,11 +58,18 @@ final class TimelineMonthCountsProvider
   @override
   FutureOr<Map<DateTime, int>> create(Ref ref) {
     final argument =
-        this.argument as ({String? tag, bool untagged, DiarySort sort});
+        this.argument
+            as ({
+              String? tag,
+              bool untagged,
+              DiaryContentFilter? content,
+              DiarySort sort,
+            });
     return timelineMonthCounts(
       ref,
       tag: argument.tag,
       untagged: argument.untagged,
+      content: argument.content,
       sort: argument.sort,
     );
   }
@@ -73,13 +86,18 @@ final class TimelineMonthCountsProvider
 }
 
 String _$timelineMonthCountsHash() =>
-    r'7795aed81be4ed66e6f651d25a6cf58e50574409';
+    r'82b041cfc3d6f6026e400ad695ca4e322bd494cd';
 
 final class TimelineMonthCountsFamily extends $Family
     with
         $FunctionalFamilyOverride<
           FutureOr<Map<DateTime, int>>,
-          ({String? tag, bool untagged, DiarySort sort})
+          ({
+            String? tag,
+            bool untagged,
+            DiaryContentFilter? content,
+            DiarySort sort,
+          })
         > {
   TimelineMonthCountsFamily._()
     : super(
@@ -93,9 +111,10 @@ final class TimelineMonthCountsFamily extends $Family
   TimelineMonthCountsProvider call({
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
     required DiarySort sort,
   }) => TimelineMonthCountsProvider._(
-    argument: (tag: tag, untagged: untagged, sort: sort),
+    argument: (tag: tag, untagged: untagged, content: content, sort: sort),
     from: this,
   );
 

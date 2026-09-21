@@ -5,6 +5,7 @@ import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'diary_content.dart';
 import 'diary_repository.dart';
 import 'loadmore.dart';
 
@@ -61,6 +62,7 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
     bool uncategorized = false,
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
   }) async {
     final sub = _repository.diaryEvents.listen(_applyChange);
     ref.onDispose(sub.cancel);
@@ -73,10 +75,11 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
 
   @override
   Future<Iterable<Diary>?> load({required int limit, required int offset}) {
-    if (tag != null || untagged) {
+    if (tag != null || untagged || content != null) {
       return _repository.getDiaryByTag(
         tag: tag,
         untagged: untagged,
+        content: content,
         limit: limit,
         offset: offset,
         sort: _sort,
@@ -103,6 +106,7 @@ class DiaryController extends _$DiaryController with LoadMoreMixin<Diary> {
         event,
         belongs: (d) =>
             d.show &&
+            (content == null || DiaryContent.of(d).matches(content!)) &&
             (!untagged || d.tags.isEmpty) &&
             (tag == null ||
                 d.tags.any((value) => TagPath.matches(value, tag!))) &&

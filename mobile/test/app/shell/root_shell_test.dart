@@ -30,8 +30,15 @@ class _EmptyDiaries extends DiaryController {
     bool uncategorized = false,
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
   }) => [];
 }
+
+const _contentCounts = {
+  DiaryContentFilter.images: 3,
+  DiaryContentFilter.links: 5,
+  DiaryContentFilter.audio: 7,
+};
 
 class _Categories extends CategoryController {
   @override
@@ -89,6 +96,16 @@ Future<ProviderContainer> _pumpShell(WidgetTester tester) async {
           (ref) async => (byTag: <String, int>{'旅行': 0}, total: 0, untagged: 0),
         ),
         diaryTagsProvider.overrideWith((ref) async => ['旅行']),
+        for (final entry in _contentCounts.entries)
+          timelineMonthCountsProvider(
+            content: entry.key,
+            sort: DiarySort.timeDesc,
+          ).overrideWith(
+            (ref) async => {
+              DateTime(2026, 6): entry.value - 1,
+              DateTime(2026, 7): 1,
+            },
+          ),
         dashboardControllerProvider.overrideWith(_EmptyDashboard.new),
         placeControllerProvider.overrideWith(_EmptyPlaces.new),
       ],
@@ -128,14 +145,34 @@ Future<void> _openDrawer(WidgetTester tester) async {
   await tester.pumpAndSettle();
   expect(_shellScaffold(tester).isDrawerOpen, isTrue);
   expect(find.byType(RootDrawerNavigation), findsOneWidget);
+  expect(
+    find.descendant(
+      of: find.byType(RootDrawerNavigation),
+      matching: find.text(l10n.app.homeNavigatorDiary),
+    ),
+    findsNothing,
+  );
 }
 
 Future<void> _pickDestination(WidgetTester tester, String label) async {
   await _openDrawer(tester);
-  await tester.tap(find.widgetWithText(ListTile, label));
+  final destination = find.widgetWithText(ListTile, label);
+  await tester.ensureVisible(destination);
+  await tester.tap(destination);
   await tester.pumpAndSettle();
   expect(_shellScaffold(tester).isDrawerOpen, isFalse);
   expect(find.byType(AppBar), findsOneWidget);
+  expect(tester.takeException(), isNull);
+}
+
+Future<void> _pickAllDiaries(WidgetTester tester) async {
+  await _openDrawer(tester);
+  final row = find.byKey(const ValueKey('all-diaries-row'));
+  await tester.ensureVisible(row);
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+  expect(_shellScaffold(tester).isDrawerOpen, isFalse);
+  expect(find.byType(DiaryHomePage), findsOneWidget);
   expect(tester.takeException(), isNull);
 }
 
@@ -185,20 +222,22 @@ void main() {
     await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
     expect(find.byType(AssistantSessionListPage), findsOneWidget);
 
+    await _pickAllDiaries(tester);
     await _pickDestination(tester, l10n.app.homeNavigatorMe);
     expect(find.byType(MePage), findsOneWidget);
     await _pickDestination(tester, l10n.app.homeNavigatorMe);
     expect(find.byType(MePage), findsOneWidget);
 
-    await _pickDestination(tester, l10n.app.homeNavigatorDiary);
+    await _pickAllDiaries(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
-    await _pickDestination(tester, l10n.app.homeNavigatorDiary);
+    await _pickAllDiaries(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
   });
 
-  testWidgets('从助手或我的选择同一标签仍返回日记，日记菜单恢复全部日记', (tester) async {
+  testWidgets('从助手或我的选择同一标签仍返回日记，全部日记恢复所有内容', (tester) async {
     final container = await _pumpShell(tester);
     await _openDrawer(tester);
+    await tester.ensureVisible(find.text(_category.categoryName));
     await tester.tap(find.text(_category.categoryName));
     await tester.pumpAndSettle();
     expect(
@@ -216,12 +255,12 @@ void main() {
         const DiaryFilter.tag('旅行'),
       );
       await _openDrawer(tester);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(TagDrawer),
-          matching: find.text(_category.categoryName),
-        ),
+      final tag = find.descendant(
+        of: find.byType(TagDrawer),
+        matching: find.text(_category.categoryName),
       );
+      await tester.ensureVisible(tag);
+      await tester.tap(tag);
       await tester.pumpAndSettle();
       expect(find.byType(DiaryHomePage), findsOneWidget);
       expect(_shellScaffold(tester).isDrawerOpen, isFalse);
@@ -232,8 +271,59 @@ void main() {
       expect(tester.takeException(), isNull);
     }
 
-    await _pickDestination(tester, l10n.app.homeNavigatorDiary);
+    await _pickAllDiaries(tester);
     expect(container.read(homeDiaryFilterProvider).isAll, isTrue);
+  });
+
+  testWidgets('从助手或我的选择内容筛选返回日记并显示相应标题和总数', (tester) async {
+    final container = await _pumpShell(tester);
+    for (final (key, label, filter) in [
+      ('filter-images', l10n.diary.filterImages, const DiaryFilter.images()),
+      ('filter-links', l10n.diary.filterLinks, const DiaryFilter.links()),
+      ('filter-audio', l10n.diary.filterAudio, const DiaryFilter.audio()),
+    ]) {
+      for (final destination in [
+        l10n.app.homeNavigatorAssistant,
+        l10n.app.homeNavigatorMe,
+      ]) {
+        await _pickDestination(tester, destination);
+        await _openDrawer(tester);
+        final row = find.byKey(ValueKey(key));
+        await tester.ensureVisible(row);
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DiaryHomePage), findsOneWidget);
+        expect(_shellScaffold(tester).isDrawerOpen, isFalse);
+        expect(container.read(homeDiaryFilterProvider), filter);
+        expect(container.read(diarySelectionProvider), isEmpty);
+        final appBar = find.byType(AppBar);
+        expect(
+          find.descendant(of: appBar, matching: find.text(label)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: appBar,
+            matching: find.text(
+              l10n.diary.searchResult(count: _contentCounts[filter.content]!),
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }
+
+    await _pickAllDiaries(tester);
+    expect(container.read(homeDiaryFilterProvider).isAll, isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text(l10n.diary.filterAudio),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('日记多选时隐藏菜单并禁用抽屉，取消后恢复', (tester) async {

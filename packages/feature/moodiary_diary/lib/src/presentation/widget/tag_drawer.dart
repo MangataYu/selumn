@@ -5,6 +5,8 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/application/diary_filter.dart';
 import 'package:moodiary_diary/src/application/diary_selection.dart';
+import 'package:moodiary_diary/src/application/tag_order.dart';
+import 'package:moodiary_diary/src/presentation/widget/tag_sort_page.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -14,16 +16,6 @@ import 'package:mui/mui.dart';
 const _maxTagIndentDepth = 4;
 const _tagRowHeight = 40.0;
 const _tagIconSize = 16.0;
-
-int _compareTagPaths(String a, String b) {
-  final left = a.split('/');
-  final right = b.split('/');
-  for (var i = 0; i < left.length && i < right.length; i++) {
-    final order = left[i].compareTo(right[i]);
-    if (order != 0) return order;
-  }
-  return left.length.compareTo(right.length);
-}
 
 class TagDrawer extends ConsumerStatefulWidget {
   final Widget? navigation;
@@ -44,13 +36,48 @@ class TagDrawer extends ConsumerStatefulWidget {
 class _TagDrawerState extends ConsumerState<TagDrawer> {
   String _query = '';
   bool _searchVisible = false;
-  late bool _tagTreeExpanded = MoodiaryKVs.tagTreeExpanded.get()!;
+  late bool _filtersExpanded = MoodiaryKVs.diaryFiltersExpanded.get()!;
+  late bool _tagsExpanded = MoodiaryKVs.tagTreeExpanded.get()!;
+  late List<String> _tagOrder = MoodiaryKVs.tagOrder.get()!;
   late Set<String> _expandedPaths = MoodiaryKVs.expandedTagPaths.get()!.toSet();
 
-  void _toggleTagTree() {
-    final expanded = !_tagTreeExpanded;
+  void _toggleFilters() {
+    final expanded = !_filtersExpanded;
+    MoodiaryKVs.diaryFiltersExpanded.set(expanded);
+    setState(() => _filtersExpanded = expanded);
+  }
+
+  void _toggleTags() {
+    final expanded = !_tagsExpanded;
     MoodiaryKVs.tagTreeExpanded.set(expanded);
-    setState(() => _tagTreeExpanded = expanded);
+    if (!expanded) FocusScope.of(context).unfocus();
+    setState(() {
+      _tagsExpanded = expanded;
+      if (!expanded) {
+        _searchVisible = false;
+        _query = '';
+      }
+    });
+  }
+
+  void _saveTagOrder(List<String> order) {
+    try {
+      MoodiaryKVs.tagOrder.set(order);
+      setState(() => _tagOrder = order);
+    } catch (_) {
+      toast.error(message: l10n.diary.saveFailed);
+    }
+  }
+
+  Future<void> _sortTags(List<String> tags) async {
+    final order = await showTagSortPage(
+      context,
+      tags: tags,
+      initialOrder: _tagOrder,
+    );
+    if (!mounted || order == null) return;
+    final currentTags = ref.read(diaryTagsProvider).value;
+    _saveTagOrder(orderedTagPaths(currentTags ?? tags, order));
   }
 
   void _saveExpandedPaths(Set<String> paths) {
@@ -110,6 +137,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
         },
       );
       if (!mounted || value == null) return;
+      _saveTagOrder(renameTagOrder(_tagOrder, tag, TagPath.normalize(value)!));
       _saveExpandedPaths({
         for (final path in _expandedPaths)
           TagPath.replacePrefix(path, tag, TagPath.normalize(value)!),
@@ -137,6 +165,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
       try {
         await repository.deleteTag(tag);
         if (!mounted) return;
+        _saveTagOrder(deleteTagOrder(_tagOrder, tag));
         _saveExpandedPaths({
           for (final path in _expandedPaths)
             if (!TagPath.matches(path, tag)) path,
@@ -159,10 +188,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
     final filter = ref.watch(homeDiaryFilterProvider);
     final tagsAsync = ref.watch(diaryTagsProvider);
     final tags = tagsAsync.value ?? const <String>[];
-    final paths = {
-      for (final tag in tags) ...TagPath.ancestors(tag),
-      ...tags,
-    }.toList()..sort(_compareTagPaths);
+    final paths = orderedTagPaths(tags, _tagOrder);
     final ancestorsByPath = {
       for (final path in paths) path: TagPath.ancestors(path)..removeLast(),
     };
@@ -172,8 +198,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
     final visible = paths
         .where(
           (path) => query.isEmpty
-              ? _tagTreeExpanded &&
-                    ancestorsByPath[path]!.every(_expandedPaths.contains)
+              ? ancestorsByPath[path]!.every(_expandedPaths.contains)
               : path.toLowerCase().contains(query),
         )
         .toList();
@@ -244,6 +269,24 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
       );
     }
 
+    Widget filterTile({
+      required String key,
+      required String label,
+      required IconData icon,
+      required DiaryFilter value,
+      int? count,
+      bool last = false,
+    }) => _TagTile(
+      key: ValueKey(key),
+      label: label,
+      count: count,
+      depth: 1,
+      guideEnds: [last],
+      selected: widget.isDiarySelected && filter == value,
+      icon: icon,
+      onTap: () => _pick(value),
+    );
+
     return Drawer(
       child: SafeArea(
         child: ListView(
@@ -299,116 +342,170 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
               ),
             ),
             if (widget.navigation != null) widget.navigation!,
-            Padding(
-              padding: .only(left: spacing.lg, right: 8),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 32),
-                child: Row(
-                  children: [
-                    Text(
-                      context.l10n.common.tag,
-                      style:
-                          context.theme.typography.labelMedium.onSurfaceVariant,
-                    ),
-                    const Spacer(),
-                    Text(
-                      context.l10n.common.tagCount(count: tags.length),
-                      style: context.theme.typography.labelSmall.outline,
-                    ),
-                    SizedBox(
-                      width: _tagRowHeight,
-                      child: paths.length >= 8 || _searchVisible
-                          ? Semantics(
-                              expanded: _searchVisible,
-                              child: IconButton(
-                                key: const ValueKey('tag-search-toggle'),
-                                tooltip: _searchVisible
-                                    ? context.l10n.common.cancel
-                                    : context.l10n.diary.tagSearchHint,
-                                style: compactButtonStyle,
-                                icon: Icon(
-                                  _searchVisible
-                                      ? LucideIcons.x
-                                      : LucideIcons.search,
-                                  size: _tagIconSize,
-                                ),
-                                onPressed: () {
-                                  if (_searchVisible) {
-                                    FocusScope.of(context).unfocus();
-                                  }
-                                  setState(() {
-                                    _searchVisible = !_searchVisible;
-                                    if (!_searchVisible) _query = '';
-                                  });
-                                },
-                              ),
-                            )
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (_searchVisible)
-              Padding(
-                padding: .fromLTRB(spacing.sm, 0, 8, spacing.xs),
-                child: SearchBar(
-                  autoFocus: true,
-                  hintText: context.l10n.diary.tagSearchHint,
-                  leading: const Icon(LucideIcons.search, size: _tagIconSize),
-                  constraints: const BoxConstraints(minHeight: _tagRowHeight),
-                  textStyle: WidgetStatePropertyAll(
-                    context.theme.typography.bodyMedium.onSurface,
-                  ),
-                  elevation: const WidgetStatePropertyAll(0),
-                  backgroundColor: WidgetStatePropertyAll(
-                    colors.surfaceContainerHigh,
-                  ),
-                  onChanged: (value) => setState(() => _query = value),
-                ),
-              ),
-            if (query.isEmpty)
-              _TagTile(
-                key: const ValueKey('all-diaries-row'),
-                label: context.l10n.diary.categoryAllDiary,
-                count: counts?.total,
-                selected: widget.isDiarySelected && filter.isAll,
-                icon: LucideIcons.notebookPen,
-                onTap: () => _pick(const .all()),
-                trailing: paths.isNotEmpty
-                    ? expandButton(
-                        key: const ValueKey('all-diaries-expand'),
-                        expanded: _tagTreeExpanded,
-                        selected: widget.isDiarySelected && filter.isAll,
-                        onPressed: _toggleTagTree,
-                      )
-                    : null,
-              ),
-            for (var i = 0; i < visible.length; i++) tagTile(i),
-            if (visible.isEmpty && query.isNotEmpty)
-              Padding(
-                padding: .all(spacing.md),
-                child: Text(context.l10n.diary.tagNoMatch),
-              ),
-            if (tagsAsync.hasError)
-              Padding(
-                padding: .all(spacing.md),
-                child: Text(context.l10n.diary.tagUpdateFailed),
-              ),
-            SizedBox(height: spacing.xs),
-            Divider(
-              height: 1,
-              indent: spacing.lg,
-              endIndent: 8,
-              color: colors.outlineVariant,
-            ),
             _TagTile(
-              label: context.l10n.diary.tagNoTag,
-              count: counts?.untagged,
-              selected: widget.isDiarySelected && filter.untagged,
-              icon: LucideIcons.tag,
-              onTap: () => _pick(const .untagged()),
+              key: const ValueKey('all-diaries-row'),
+              label: context.l10n.app.homeNavigatorDiary,
+              count: counts?.total,
+              selected: widget.isDiarySelected && filter.isAll,
+              icon: LucideIcons.notebookPen,
+              onTap: () => _pick(const .all()),
+              showChildGuide: _filtersExpanded,
+              trailing: expandButton(
+                key: const ValueKey('all-diaries-expand'),
+                expanded: _filtersExpanded,
+                selected: widget.isDiarySelected && filter.isAll,
+                onPressed: _toggleFilters,
+              ),
             ),
+            if (_filtersExpanded) ...[
+              filterTile(
+                key: 'filter-untagged',
+                label: context.l10n.diary.tagNoTag,
+                count: counts?.untagged,
+                icon: LucideIcons.tag,
+                value: const .untagged(),
+              ),
+              filterTile(
+                key: 'filter-images',
+                label: context.l10n.diary.filterImages,
+                icon: LucideIcons.image,
+                value: const .images(),
+              ),
+              filterTile(
+                key: 'filter-links',
+                label: context.l10n.diary.filterLinks,
+                icon: LucideIcons.link,
+                value: const .links(),
+              ),
+              filterTile(
+                key: 'filter-audio',
+                label: context.l10n.diary.filterAudio,
+                icon: LucideIcons.audioLines,
+                value: const .audio(),
+                last: true,
+              ),
+            ],
+            Padding(
+              padding: .symmetric(vertical: spacing.xs),
+              child: Divider(
+                height: 1,
+                indent: spacing.lg,
+                endIndent: 8,
+                color: colors.outlineVariant,
+              ),
+            ),
+            Semantics(
+              expanded: _tagsExpanded,
+              child: _TagTile(
+                key: const ValueKey('tags-row'),
+                label: context.l10n.common.tag,
+                count: null,
+                selected: widget.isDiarySelected && filter.tagPath != null,
+                icon: LucideIcons.tags,
+                onTap: _toggleTags,
+                trailing: expandButton(
+                  key: const ValueKey('tags-expand'),
+                  expanded: _tagsExpanded,
+                  selected: widget.isDiarySelected && filter.tagPath != null,
+                  onPressed: _toggleTags,
+                ),
+              ),
+            ),
+            if (_tagsExpanded) ...[
+              Padding(
+                padding: .only(left: spacing.lg, right: 8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 32),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.l10n.common.tagCount(count: tags.length),
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                          style: context
+                              .theme
+                              .typography
+                              .labelMedium
+                              .onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        key: const ValueKey('tag-sort-button'),
+                        tooltip: context.l10n.diary.tagSortTitle,
+                        style: compactButtonStyle,
+                        icon: const Icon(
+                          LucideIcons.slidersHorizontal,
+                          size: _tagIconSize,
+                        ),
+                        onPressed: tags.isEmpty || tagsAsync.hasError
+                            ? null
+                            : () => _sortTags(tags),
+                      ),
+                      SizedBox(
+                        width: _tagRowHeight,
+                        child: paths.length >= 8 || _searchVisible
+                            ? Semantics(
+                                expanded: _searchVisible,
+                                child: IconButton(
+                                  key: const ValueKey('tag-search-toggle'),
+                                  tooltip: _searchVisible
+                                      ? context.l10n.common.cancel
+                                      : context.l10n.diary.tagSearchHint,
+                                  style: compactButtonStyle,
+                                  icon: Icon(
+                                    _searchVisible
+                                        ? LucideIcons.x
+                                        : LucideIcons.search,
+                                    size: _tagIconSize,
+                                  ),
+                                  onPressed: () {
+                                    if (_searchVisible) {
+                                      FocusScope.of(context).unfocus();
+                                    }
+                                    setState(() {
+                                      _searchVisible = !_searchVisible;
+                                      if (!_searchVisible) _query = '';
+                                    });
+                                  },
+                                ),
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_searchVisible)
+                Padding(
+                  padding: .fromLTRB(spacing.sm, 0, 8, spacing.xs),
+                  child: SearchBar(
+                    autoFocus: true,
+                    hintText: context.l10n.diary.tagSearchHint,
+                    leading: const Icon(LucideIcons.search, size: _tagIconSize),
+                    constraints: const BoxConstraints(minHeight: _tagRowHeight),
+                    textStyle: WidgetStatePropertyAll(
+                      context.theme.typography.bodyMedium.onSurface,
+                    ),
+                    elevation: const WidgetStatePropertyAll(0),
+                    backgroundColor: WidgetStatePropertyAll(
+                      colors.surfaceContainerHigh,
+                    ),
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
+                ),
+              for (var i = 0; i < visible.length; i++) tagTile(i),
+              if (visible.isEmpty && query.isNotEmpty)
+                Padding(
+                  padding: .all(spacing.md),
+                  child: Text(context.l10n.diary.tagNoMatch),
+                ),
+              if (tagsAsync.hasError)
+                Padding(
+                  padding: .all(spacing.md),
+                  child: Text(context.l10n.diary.tagUpdateFailed),
+                ),
+            ],
           ],
         ),
       ),

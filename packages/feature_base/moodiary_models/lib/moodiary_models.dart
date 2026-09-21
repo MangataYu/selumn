@@ -7,6 +7,7 @@ export 'src/category_event.dart';
 export 'src/chat_message.dart';
 export 'src/chat_session.dart';
 export 'src/diary.dart';
+export 'src/diary_content_filter.dart';
 export 'src/diary_event.dart';
 export 'src/diary_graph.dart';
 export 'src/diary_meta.dart';

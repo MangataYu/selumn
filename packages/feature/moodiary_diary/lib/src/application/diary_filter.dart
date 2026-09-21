@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:moodiary_models/moodiary_models.dart';
 
 class DiaryFilter {
   final String? categoryId;
@@ -9,11 +10,14 @@ class DiaryFilter {
 
   final bool untagged;
 
+  final DiaryContentFilter? content;
+
   const DiaryFilter._(
     this.categoryId,
     this.uncategorized, [
     this.tagPath,
     this.untagged = false,
+    this.content,
   ]);
 
   const DiaryFilter.all() : this._(null, false);
@@ -26,8 +30,24 @@ class DiaryFilter {
 
   const DiaryFilter.untagged() : this._(null, false, null, true);
 
+  const DiaryFilter.images() : this._(null, false, null, false, .images);
+
+  const DiaryFilter.links() : this._(null, false, null, false, .links);
+
+  const DiaryFilter.audio() : this._(null, false, null, false, .audio);
+
+  bool get hasImages => content == .images;
+
+  bool get hasLinks => content == .links;
+
+  bool get hasAudio => content == .audio;
+
   bool get isAll =>
-      categoryId == null && !uncategorized && tagPath == null && !untagged;
+      categoryId == null &&
+      !uncategorized &&
+      tagPath == null &&
+      !untagged &&
+      content == null;
 
   @override
   bool operator ==(Object other) =>
@@ -35,14 +55,18 @@ class DiaryFilter {
       other.categoryId == categoryId &&
       other.uncategorized == uncategorized &&
       other.tagPath == tagPath &&
-      other.untagged == untagged;
+      other.untagged == untagged &&
+      other.content == content;
 
   @override
-  int get hashCode => Object.hash(categoryId, uncategorized, tagPath, untagged);
+  int get hashCode =>
+      Object.hash(categoryId, uncategorized, tagPath, untagged, content);
 
   @override
   String toString() => isAll
       ? 'DiaryFilter.all()'
+      : content != null
+      ? 'DiaryFilter.${content!.name}()'
       : untagged
       ? 'DiaryFilter.untagged()'
       : tagPath != null

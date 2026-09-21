@@ -23,7 +23,6 @@ void main() {
   );
 
   List<String> labels() => [
-    l10n.app.homeNavigatorDiary,
     l10n.app.homeNavigatorAssistant,
     l10n.app.homeNavigatorMe,
   ];
@@ -43,6 +42,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final rows = find.byType(ListTile);
+      expect(rows, findsNWidgets(2));
+      expect(find.text(l10n.app.homeNavigatorDiary), findsNothing);
       for (var i = 0; i < labels().length; i++) {
         expect(tester.getSize(rows.at(i)).height, 40);
       }
@@ -52,7 +53,7 @@ void main() {
         tester.getRect(rows.last).bottom,
       );
       if (width == 390) {
-        final icon = find.byIcon(LucideIcons.bookText);
+        final icon = find.byIcon(LucideIcons.astroid);
         expect(tester.getRect(icon).left, 16);
         expect(tester.getSize(icon), const Size(16, 16));
         expect(tester.getRect(find.text(labels().first)).left, 40);
@@ -88,19 +89,19 @@ void main() {
                   .flagsCollection
                   .isSelected ==
               .isTrue,
-          i == index,
+          i + 1 == index,
           reason: destinations[i],
         );
       }
     }
 
     expectSelected(0);
-    for (final index in [1, 2, 0]) {
-      await tester.tap(find.widgetWithText(ListTile, labels()[index]));
+    for (final index in [1, 2, 1]) {
+      await tester.tap(find.widgetWithText(ListTile, labels()[index - 1]));
       await tester.pumpAndSettle();
       expectSelected(index);
     }
-    expect(visited, [1, 2, 0]);
+    expect(visited, [1, 2, 1]);
     expect(tester.takeException(), isNull);
   });
 
@@ -120,7 +121,7 @@ void main() {
                 children: [
                   SizedBox(height: headerHeight),
                   RootDrawerNavigation(
-                    selectedIndex: 0,
+                    selectedIndex: 1,
                     onDestinationSelected: (_) {},
                   ),
                 ],
@@ -193,6 +194,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
-    expect(visited, [0, 1, 2]);
+    expect(visited, [1, 2]);
   });
 }

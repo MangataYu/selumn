@@ -2049,6 +2049,21 @@ class Translations$diary$zh {
 	/// zh: '全部标签'
 	String get allTags => '全部标签';
 
+	/// zh: '标签排序'
+	String get tagSortTitle => '标签排序';
+
+	/// zh: '暂无标签'
+	String get tagSortEmpty => '暂无标签';
+
+	/// zh: '有图片'
+	String get filterImages => '有图片';
+
+	/// zh: '有链接'
+	String get filterLinks => '有链接';
+
+	/// zh: '有语音'
+	String get filterAudio => '有语音';
+
 	/// zh: '重命名标签'
 	String get tagRename => '重命名标签';
 

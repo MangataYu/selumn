@@ -29,10 +29,19 @@ void main() {
   late MemoryKVStorage kv;
   late _RecordingDiaryRepository repository;
   const expandedPaths = ['生活', '生活/旅行', '生活/旅行/海边', '生活/旅行记'];
+  const tagOrder = [
+    '生活',
+    '生活/旅行记',
+    '生活/旅行记/夏天',
+    '生活/旅行',
+    '生活/旅行/海边',
+    '生活/旅行/海边/日落',
+  ];
 
   setUp(() {
     kv = MemoryKVStorage();
     kv.data[MoodiaryKVs.expandedTagPaths.name] = expandedPaths;
+    kv.data[MoodiaryKVs.tagOrder.name] = tagOrder;
     repository = _RecordingDiaryRepository();
     getIt.pushNewScope(
       init: (gi) {
@@ -61,6 +70,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], expandedPaths);
+    await tester.ensureVisible(find.text('旅行'));
     await tester.longPress(find.text('旅行'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(action));
@@ -81,6 +91,14 @@ void main() {
       kv.data[MoodiaryKVs.expandedTagPaths.name],
       unorderedEquals(['生活', '生活/出游', '生活/出游/海边', '生活/旅行记']),
     );
+    expect(kv.data[MoodiaryKVs.tagOrder.name], [
+      '生活',
+      '生活/旅行记',
+      '生活/旅行记/夏天',
+      '生活/出游',
+      '生活/出游/海边',
+      '生活/出游/海边/日落',
+    ]);
   });
 
   testWidgets('deleting removes only expansion under the matching prefix', (
@@ -98,5 +116,6 @@ void main() {
       kv.data[MoodiaryKVs.expandedTagPaths.name],
       unorderedEquals(['生活', '生活/旅行记']),
     );
+    expect(kv.data[MoodiaryKVs.tagOrder.name], ['生活', '生活/旅行记', '生活/旅行记/夏天']);
   });
 }

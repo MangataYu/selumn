@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:drift/extensions/fts5.dart';
+import 'package:drift/extensions/json1.dart';
 import 'package:injectable/injectable.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -30,6 +32,72 @@ class DiaryRepository {
       StreamController<DiaryEvent>.broadcast();
 
   Stream<DiaryEvent> get diaryEvents => _events.stream;
+
+  List<String>? _linkedDiaryIds;
+  Future<List<String>>? _loadingLinkedDiaryIds;
+  int _linkRevision = 0;
+
+  void _notifyDiaryEvent(DiaryEvent event) {
+    // Invalidate after the transaction commits, including sync and visibility
+    // changes. A scan started before this event must not publish stale IDs.
+    _linkRevision++;
+    _linkedDiaryIds = null;
+    _events.add(event);
+  }
+
+  Future<List<String>> _getLinkedDiaryIds() async {
+    final cached = _linkedDiaryIds;
+    if (cached != null) return cached;
+    final loading = _loadingLinkedDiaryIds;
+    if (loading != null) return loading;
+    final pending = _scanLinkedDiaryIds();
+    _loadingLinkedDiaryIds = pending;
+    try {
+      return await pending;
+    } finally {
+      _loadingLinkedDiaryIds = null;
+    }
+  }
+
+  Future<List<String>> _scanLinkedDiaryIds() async {
+    while (true) {
+      final revision = _linkRevision;
+      final diaries = _db.diaries;
+      final query = _db.selectOnly(diaries)
+        ..addColumns([diaries.id, diaries.content, diaries.type])
+        ..where(diaries.show.equals(1));
+      final rows = await query.get();
+      final ids = [
+        for (final row in rows)
+          if (DiaryContent.containsLinks(
+            row.read(diaries.content)!,
+            DiaryType.fromValue(row.read(diaries.type)!),
+          ))
+            row.read(diaries.id)!,
+      ];
+      if (revision != _linkRevision) continue;
+      return _linkedDiaryIds = ids;
+    }
+  }
+
+  Future<Expression<bool>> _contentPredicate(DiaryContentFilter filter) async {
+    if (filter == .links) {
+      // One JSON parameter avoids SQLite's variable limit for large libraries.
+      final ids = Variable(jsonEncode(await _getLinkedDiaryIds()))
+          .jsonEach(_db);
+      return _db.diaries.id.isInQuery(
+        _db.selectOnly(ids)..addColumns([ids.value]),
+      );
+    }
+    final media = _db.diaryMedia;
+    return existsQuery(
+      _db.select(media)..where(
+        (m) =>
+            m.diaryId.equalsExp(_db.diaries.id) &
+            m.kind.equals(filter == .images ? 'image' : 'audio'),
+      ),
+    );
+  }
 
   static Diary _withNormalizedTags(Diary diary) => diary.copyWith(
     tags: TagPath.normalizeAll([
@@ -225,7 +293,7 @@ class DiaryRepository {
       }
     });
     for (final diary in diaries) {
-      _events.add(DiaryCreated(diary, fromSync: fromSync));
+      _notifyDiaryEvent(DiaryCreated(diary, fromSync: fromSync));
     }
   }
 
@@ -265,7 +333,7 @@ class DiaryRepository {
         await _enqueueEmbed([newDiary.id]);
       }
     });
-    _events.add(DiaryUpdated(newDiary, fromSync: fromSync));
+    _notifyDiaryEvent(DiaryUpdated(newDiary, fromSync: fromSync));
   }
 
   Future<void> setVisibility(Diary diary, {required bool show}) => updateADiary(
@@ -297,7 +365,7 @@ class DiaryRepository {
           .into(_db.tombstones)
           .insertOnConflictUpdate(_tombstoneCompanion(tombstone));
     });
-    _events.add(DiaryDeleted(diary.id, fromSync: fromSync));
+    _notifyDiaryEvent(DiaryDeleted(diary.id, fromSync: fromSync));
     return tombstone;
   }
 
@@ -334,7 +402,7 @@ class DiaryRepository {
       }
     });
     for (final id in ids) {
-      _events.add(DiaryDeleted(id));
+      _notifyDiaryEvent(DiaryDeleted(id));
     }
   }
 
@@ -431,6 +499,7 @@ class DiaryRepository {
   Future<List<Diary>> getDiaryByTag({
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
     int? offset,
     int? limit,
     DiarySort sort = .timeDesc,
@@ -439,6 +508,10 @@ class DiaryRepository {
     final query = _visible();
     if (tag != null || untagged) {
       query.where((d) => _tagPredicate(d, tag, untagged));
+    }
+    if (content != null) {
+      final predicate = await _contentPredicate(content);
+      query.where((_) => predicate);
     }
     _orderBy(query, sort);
     if (limit != null) query.limit(limit, offset: offset);
@@ -539,7 +612,7 @@ class DiaryRepository {
       }
     });
     for (final diary in changed) {
-      _events.add(DiaryUpdated(diary, fromSync: true));
+      _notifyDiaryEvent(DiaryUpdated(diary, fromSync: true));
     }
     return changed.length;
   }
@@ -611,7 +684,7 @@ class DiaryRepository {
       await _enqueueEmbed(contentChanged);
     });
     for (final diary in changed) {
-      _events.add(DiaryUpdated(diary));
+      _notifyDiaryEvent(DiaryUpdated(diary));
     }
     return changed.length;
   }
@@ -651,6 +724,7 @@ class DiaryRepository {
     bool uncategorized = false,
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
     DiarySort sort = .timeDesc,
   }) async {
     assert(!(uncategorized && categoryId != null));
@@ -668,6 +742,7 @@ class DiaryRepository {
     if (tag != null || untagged) {
       q.where(_tagPredicate(_db.diaries, tag, untagged));
     }
+    if (content != null) q.where(await _contentPredicate(content));
     final counts = <DateTime, int>{};
     for (final row in await q.get()) {
       final local = dbToTime(row.read(col)!).toLocal();
@@ -1228,7 +1303,7 @@ class DiaryRepository {
         }
       });
       for (final diary in updates) {
-        _events.add(DiaryUpdated(diary));
+        _notifyDiaryEvent(DiaryUpdated(diary));
       }
     }
 

@@ -42,9 +42,6 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
 
   void _selectDestination(int index) {
     _scaffoldKey.currentState?.closeDrawer();
-    if (index == _ShellTab.diary.index) {
-      ref.read(homeDiaryFilterProvider.notifier).reset();
-    }
     _selectTab(_ShellTab.values[index]);
   }
 

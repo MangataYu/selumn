@@ -21,6 +21,7 @@ final class DiaryControllerProvider
       bool uncategorized,
       String? tag,
       bool untagged,
+      DiaryContentFilter? content,
     })
     super.argument,
   }) : super(
@@ -56,7 +57,7 @@ final class DiaryControllerProvider
   }
 }
 
-String _$diaryControllerHash() => r'72cbbccfd392286ce7ccd5842c45cd7ca42d623d';
+String _$diaryControllerHash() => r'df56374f522945456a1cac53c48f1979bcf55c48';
 
 final class DiaryControllerFamily extends $Family
     with
@@ -65,7 +66,13 @@ final class DiaryControllerFamily extends $Family
           AsyncValue<List<Diary>>,
           List<Diary>,
           FutureOr<List<Diary>>,
-          ({String? categoryId, bool uncategorized, String? tag, bool untagged})
+          ({
+            String? categoryId,
+            bool uncategorized,
+            String? tag,
+            bool untagged,
+            DiaryContentFilter? content,
+          })
         > {
   DiaryControllerFamily._()
     : super(
@@ -81,12 +88,14 @@ final class DiaryControllerFamily extends $Family
     bool uncategorized = false,
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
   }) => DiaryControllerProvider._(
     argument: (
       categoryId: categoryId,
       uncategorized: uncategorized,
       tag: tag,
       untagged: untagged,
+      content: content,
     ),
     from: this,
   );
@@ -103,17 +112,20 @@ abstract class _$DiaryController extends $AsyncNotifier<List<Diary>> {
             bool uncategorized,
             String? tag,
             bool untagged,
+            DiaryContentFilter? content,
           });
   String? get categoryId => _$args.categoryId;
   bool get uncategorized => _$args.uncategorized;
   String? get tag => _$args.tag;
   bool get untagged => _$args.untagged;
+  DiaryContentFilter? get content => _$args.content;
 
   FutureOr<List<Diary>> build({
     String? categoryId,
     bool uncategorized = false,
     String? tag,
     bool untagged = false,
+    DiaryContentFilter? content,
   });
   @$mustCallSuper
   @override
@@ -134,6 +146,7 @@ abstract class _$DiaryController extends $AsyncNotifier<List<Diary>> {
         uncategorized: _$args.uncategorized,
         tag: _$args.tag,
         untagged: _$args.untagged,
+        content: _$args.content,
       ),
     );
   }

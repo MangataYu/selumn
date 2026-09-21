@@ -11,6 +11,13 @@ import 'package:mui/mui.dart';
 
 import '../support/pump.dart';
 
+Future<void> _pumpWidget(WidgetTester tester, Widget child) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(800, 1200);
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(child);
+}
+
 Widget wrap(Widget child, {List<String> tags = const ['生活/旅行', '阅读']}) =>
     muiTestApp(
       child,
@@ -53,7 +60,7 @@ void main() {
   testWidgets('shows only root tags until a parent is expanded', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     expect(find.text('生活'), findsOneWidget);
     expect(find.text('旅行'), findsNothing);
@@ -74,7 +81,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isNull);
+    expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isNull);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], isNull);
     expect(find.text('管理分类'), findsNothing);
     expect(find.text('分类'), findsNothing);
@@ -99,7 +106,8 @@ void main() {
   testWidgets('collapsing a parent preserves expanded descendants', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
       wrap(const TagDrawer(), tags: ['生活/旅行/海边', '生活/摄影', '阅读/小说']),
     );
     await tester.pumpAndSettle();
@@ -136,7 +144,8 @@ void main() {
     tester,
   ) async {
     final key = GlobalKey<ScaffoldState>();
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
       wrap(Scaffold(key: key, drawer: const TagDrawer())),
     );
     key.currentState!.openDrawer();
@@ -150,14 +159,14 @@ void main() {
     expect(find.text('旅行'), findsOneWidget);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, const SizedBox.shrink());
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     expect(find.text('旅行'), findsOneWidget);
 
     await toggleTag(tester, '生活');
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, const SizedBox.shrink());
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     expect(find.text('旅行'), findsNothing);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], isEmpty);
@@ -166,95 +175,99 @@ void main() {
   testWidgets('untagged count is independent of overlapping tag totals', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     expect(find.text('无标签'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
   });
 
-  testWidgets('all diaries toggles only the tag tree and preserves its state', (
-    tester,
-  ) async {
-    kv.data[MoodiaryKVs.expandedTagPaths.name] = ['生活', '生活/旅行'];
-    final key = GlobalKey<ScaffoldState>();
-    var filterPicks = 0;
-    await tester.pumpWidget(
-      wrap(
-        Scaffold(
-          key: key,
-          drawer: TagDrawer(onFilterSelected: () => filterPicks++),
+  testWidgets(
+    'all diaries toggles filters without changing tags or selection',
+    (tester) async {
+      kv.data[MoodiaryKVs.expandedTagPaths.name] = ['生活', '生活/旅行'];
+      final key = GlobalKey<ScaffoldState>();
+      var filterPicks = 0;
+      await _pumpWidget(
+        tester,
+        wrap(
+          Scaffold(
+            key: key,
+            drawer: TagDrawer(onFilterSelected: () => filterPicks++),
+          ),
+          tags: ['生活/旅行/海边', '工作/项目', '阅读/小说', '运动/跑步'],
         ),
-        tags: ['生活/旅行/海边', '工作/项目', '阅读/小说', '运动/跑步'],
-      ),
-    );
-    key.currentState!.openDrawer();
-    await tester.pumpAndSettle();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(TagDrawer)),
-    );
-    container
-        .read(homeDiaryFilterProvider.notifier)
-        .select(const DiaryFilter.tag('生活/旅行'));
-    container.read(diarySelectionProvider.notifier).enter('selected-diary');
-    await tester.pumpAndSettle();
-    final rootLeft = tester.getTopLeft(find.text('生活')).dx;
-    expect(find.text('旅行'), findsOneWidget);
-    expect(find.text('海边'), findsOneWidget);
+      );
+      key.currentState!.openDrawer();
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(TagDrawer)),
+      );
+      container
+          .read(homeDiaryFilterProvider.notifier)
+          .select(const DiaryFilter.tag('生活/旅行'));
+      container.read(diarySelectionProvider.notifier).enter('selected-diary');
+      await tester.pumpAndSettle();
+      final rootLeft = tester.getTopLeft(find.text('生活')).dx;
+      expect(find.text('旅行'), findsOneWidget);
+      expect(find.text('海边'), findsOneWidget);
 
-    await toggleAllDiaries(tester);
-    for (final path in [
-      '生活',
-      '生活/旅行',
-      '生活/旅行/海边',
-      '工作',
-      '工作/项目',
-      '阅读',
-      '阅读/小说',
-      '运动',
-      '运动/跑步',
-    ]) {
-      expect(find.byKey(ValueKey('tag-row:$path')), findsNothing);
-    }
-    expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
-    expect(find.text('6'), findsOneWidget);
-    expect(find.text('无标签'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-    expect(find.byKey(const ValueKey('tag-search-toggle')), findsOneWidget);
-    expect(find.byIcon(LucideIcons.chevronRight), findsOneWidget);
-    expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
-    expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活', '生活/旅行']);
-    expect(key.currentState!.isDrawerOpen, isTrue);
-    expect(filterPicks, 0);
-    expect(
-      container.read(homeDiaryFilterProvider),
-      const DiaryFilter.tag('生活/旅行'),
-    );
-    expect(container.read(diarySelectionProvider), {'selected-diary'});
+      await toggleAllDiaries(tester);
+      for (final path in ['生活', '生活/旅行', '生活/旅行/海边', '工作', '阅读', '运动']) {
+        expect(find.byKey(ValueKey('tag-row:$path')), findsOneWidget);
+      }
+      expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
+      expect(find.text('6'), findsOneWidget);
+      for (final filter in ['untagged', 'images', 'links', 'audio']) {
+        expect(find.byKey(ValueKey('filter-$filter')), findsNothing);
+      }
+      expect(find.byKey(const ValueKey('tag-search-toggle')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-sort-button')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('all-diaries-expand')),
+          matching: find.byIcon(LucideIcons.chevronRight),
+        ),
+        findsOneWidget,
+      );
+      expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isFalse);
+      expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活', '生活/旅行']);
+      expect(key.currentState!.isDrawerOpen, isTrue);
+      expect(filterPicks, 0);
+      expect(
+        container.read(homeDiaryFilterProvider),
+        const DiaryFilter.tag('生活/旅行'),
+      );
+      expect(container.read(diarySelectionProvider), {'selected-diary'});
 
-    await toggleAllDiaries(tester);
-    expect(find.text('生活'), findsOneWidget);
-    expect(find.text('旅行'), findsOneWidget);
-    expect(find.text('海边'), findsOneWidget);
-    expect(find.text('工作'), findsOneWidget);
-    expect(find.text('项目'), findsNothing);
-    expect(tester.getTopLeft(find.text('生活')).dx, closeTo(rootLeft, 0.01));
-    expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isTrue);
-    expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活', '生活/旅行']);
-    expect(key.currentState!.isDrawerOpen, isTrue);
-    expect(filterPicks, 0);
-    expect(
-      container.read(homeDiaryFilterProvider),
-      const DiaryFilter.tag('生活/旅行'),
-    );
-    expect(container.read(diarySelectionProvider), {'selected-diary'});
-  });
+      await toggleAllDiaries(tester);
+      expect(find.text('生活'), findsOneWidget);
+      expect(find.text('旅行'), findsOneWidget);
+      expect(find.text('海边'), findsOneWidget);
+      expect(find.text('工作'), findsOneWidget);
+      expect(find.text('项目'), findsNothing);
+      for (final filter in ['untagged', 'images', 'links', 'audio']) {
+        expect(find.byKey(ValueKey('filter-$filter')), findsOneWidget);
+      }
+      expect(tester.getTopLeft(find.text('生活')).dx, closeTo(rootLeft, 0.01));
+      expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isTrue);
+      expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活', '生活/旅行']);
+      expect(key.currentState!.isDrawerOpen, isTrue);
+      expect(filterPicks, 0);
+      expect(
+        container.read(homeDiaryFilterProvider),
+        const DiaryFilter.tag('生活/旅行'),
+      );
+      expect(container.read(diarySelectionProvider), {'selected-diary'});
+    },
+  );
 
-  testWidgets('restores whole-tree expansion when reopening or recreating', (
+  testWidgets('restores filter expansion when reopening or recreating', (
     tester,
   ) async {
     kv.data[MoodiaryKVs.expandedTagPaths.name] = ['生活'];
     final key = GlobalKey<ScaffoldState>();
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
       wrap(Scaffold(key: key, drawer: const TagDrawer())),
     );
     key.currentState!.openDrawer();
@@ -265,101 +278,118 @@ void main() {
     await tester.pumpAndSettle();
     key.currentState!.openDrawer();
     await tester.pumpAndSettle();
-    expect(find.text('生活'), findsNothing);
-    expect(find.text('旅行'), findsNothing);
-    expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
+    expect(find.text('生活'), findsOneWidget);
+    expect(find.text('旅行'), findsOneWidget);
+    expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
+    expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isFalse);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(wrap(const TagDrawer()));
-    await tester.pumpAndSettle();
-    expect(find.text('生活'), findsNothing);
-    expect(find.text('旅行'), findsNothing);
-    expect(find.byKey(const ValueKey('all-diaries-expand')), findsOneWidget);
-
-    await toggleAllDiaries(tester);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, const SizedBox.shrink());
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     expect(find.text('生活'), findsOneWidget);
     expect(find.text('旅行'), findsOneWidget);
-    expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isTrue);
+    expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
+    expect(find.byKey(const ValueKey('all-diaries-expand')), findsOneWidget);
+
+    await toggleAllDiaries(tester);
+    await _pumpWidget(tester, const SizedBox.shrink());
+    await _pumpWidget(tester, wrap(const TagDrawer()));
+    await tester.pumpAndSettle();
+    expect(find.text('生活'), findsOneWidget);
+    expect(find.text('旅行'), findsOneWidget);
+    for (final filter in ['untagged', 'images', 'links', 'audio']) {
+      expect(find.byKey(ValueKey('filter-$filter')), findsOneWidget);
+    }
+    expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isTrue);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
   });
 
-  testWidgets('all diaries has no expansion button when there are no tags', (
+  testWidgets('all diaries still expands filters when there are no tags', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(const TagDrawer(), tags: []));
+    await _pumpWidget(tester, wrap(const TagDrawer(), tags: []));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
-    expect(find.byKey(const ValueKey('all-diaries-expand')), findsNothing);
-    expect(find.text('全部日记'), findsOneWidget);
+    expect(find.byKey(const ValueKey('all-diaries-expand')), findsOneWidget);
+    expect(find.text('日记'), findsOneWidget);
     expect(find.text('无标签'), findsOneWidget);
+    await toggleAllDiaries(tester);
+    expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
+    expect(find.byKey(const ValueKey('all-diaries-expand')), findsOneWidget);
+    await toggleAllDiaries(tester);
+    expect(find.byKey(const ValueKey('filter-untagged')), findsOneWidget);
   });
 
-  testWidgets('picking a tag clears selection and closes the drawer', (
-    tester,
-  ) async {
-    final key = GlobalKey<ScaffoldState>();
-    final picked = <DiaryFilter>[];
-    late ProviderContainer container;
-    await tester.pumpWidget(
-      wrap(
-        Builder(
-          builder: (context) {
-            container = ProviderScope.containerOf(context);
-            return Scaffold(
-              key: key,
-              drawer: TagDrawer(
-                onFilterSelected: () {
-                  picked.add(container.read(homeDiaryFilterProvider));
-                  expect(container.read(diarySelectionProvider), isEmpty);
-                },
-              ),
-            );
-          },
+  testWidgets(
+    'picking tags and filters clears selection and closes the drawer',
+    (tester) async {
+      final key = GlobalKey<ScaffoldState>();
+      final picked = <DiaryFilter>[];
+      late ProviderContainer container;
+      await _pumpWidget(
+        tester,
+        wrap(
+          Builder(
+            builder: (context) {
+              container = ProviderScope.containerOf(context);
+              return Scaffold(
+                key: key,
+                drawer: TagDrawer(
+                  onFilterSelected: () {
+                    picked.add(container.read(homeDiaryFilterProvider));
+                    expect(container.read(diarySelectionProvider), isEmpty);
+                  },
+                ),
+              );
+            },
+          ),
         ),
-      ),
-    );
-    for (final (label, expected) in const [
-      ('旅行', DiaryFilter.tag('生活/旅行')),
-      ('生活', DiaryFilter.tag('生活')),
-      ('无标签', DiaryFilter.untagged()),
-      ('全部日记', DiaryFilter.all()),
-    ]) {
-      container.read(diarySelectionProvider.notifier).enter('some-diary');
-      key.currentState!.openDrawer();
-      await tester.pumpAndSettle();
-      if (label == '旅行') {
-        await toggleTag(tester, '生活');
-        expect(key.currentState!.isDrawerOpen, isTrue);
-        expect(picked, isEmpty);
-        expect(
-          container.read(homeDiaryFilterProvider),
-          const DiaryFilter.all(),
-        );
-        expect(container.read(diarySelectionProvider), {'some-diary'});
+      );
+      for (final (label, expected) in const [
+        ('旅行', DiaryFilter.tag('生活/旅行')),
+        ('生活', DiaryFilter.tag('生活')),
+        ('无标签', DiaryFilter.untagged()),
+        ('有图片', DiaryFilter.images()),
+        ('有链接', DiaryFilter.links()),
+        ('有语音', DiaryFilter.audio()),
+        ('日记', DiaryFilter.all()),
+      ]) {
+        container.read(diarySelectionProvider.notifier).enter('some-diary');
+        key.currentState!.openDrawer();
+        await tester.pumpAndSettle();
+        if (label == '旅行') {
+          await toggleTag(tester, '生活');
+          expect(key.currentState!.isDrawerOpen, isTrue);
+          expect(picked, isEmpty);
+          expect(
+            container.read(homeDiaryFilterProvider),
+            const DiaryFilter.all(),
+          );
+          expect(container.read(diarySelectionProvider), {'some-diary'});
+        }
+        if (label == '日记') {
+          await toggleAllDiaries(tester);
+          expect(find.text('生活'), findsOneWidget);
+          expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
+          expect(key.currentState!.isDrawerOpen, isTrue);
+          expect(container.read(diarySelectionProvider), {'some-diary'});
+        }
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(picked.last, expected);
+        expect(key.currentState!.isDrawerOpen, isFalse);
+        if (label == '日记') {
+          expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isFalse);
+        }
       }
-      if (label == '全部日记') {
-        await toggleAllDiaries(tester);
-        expect(find.text('生活'), findsNothing);
-        expect(key.currentState!.isDrawerOpen, isTrue);
-        expect(container.read(diarySelectionProvider), {'some-diary'});
-      }
-      await tester.tap(find.text(label));
-      await tester.pumpAndSettle();
-      expect(picked.last, expected);
-      expect(key.currentState!.isDrawerOpen, isFalse);
-      if (label == '全部日记') {
-        expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
-      }
-    }
-  });
+    },
+  );
 
   testWidgets('search finds collapsed paths and preserves expansion state', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpWidget(
+      tester,
       wrap(const TagDrawer(), tags: ['生活/旅行', '工作/项目', '阅读/小说', '运动/跑步']),
     );
     await tester.pumpAndSettle();
@@ -404,34 +434,44 @@ void main() {
   });
 
   testWidgets(
-    'search temporarily reveals a collapsed tree without changing it',
+    'tag search after reopening tags preserves independent filter expansion',
     (tester) async {
       kv.data[MoodiaryKVs.tagTreeExpanded.name] = false;
+      kv.data[MoodiaryKVs.diaryFiltersExpanded.name] = false;
       kv.data[MoodiaryKVs.expandedTagPaths.name] = ['生活'];
-      await tester.pumpWidget(
+      await _pumpWidget(
+        tester,
         wrap(const TagDrawer(), tags: ['生活/旅行', '工作/项目', '阅读/小说', '运动/跑步']),
       );
       await tester.pumpAndSettle();
       expect(find.text('生活'), findsNothing);
+      expect(find.byKey(const ValueKey('tag-search-toggle')), findsNothing);
+      await tester.tap(find.text('标签'));
+      await tester.pumpAndSettle();
+      expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isTrue);
+      expect(find.text('生活'), findsOneWidget);
+      expect(find.text('旅行'), findsOneWidget);
+      expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
       expect(find.byKey(const ValueKey('tag-search-toggle')), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
       await tester.pumpAndSettle();
-      expect(find.text('生活'), findsNothing);
+      expect(find.text('生活'), findsOneWidget);
       await tester.enterText(find.byType(SearchBar), '工作/项');
       await tester.pumpAndSettle();
       expect(find.text('工作/项目'), findsOneWidget);
-      expect(find.byKey(const ValueKey('all-diaries-row')), findsNothing);
-      expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
+      expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
+      expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
+      expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isFalse);
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
 
       await tester.enterText(find.byType(SearchBar), '');
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
-      expect(find.text('生活'), findsNothing);
-      expect(find.text('旅行'), findsNothing);
+      expect(find.text('生活'), findsOneWidget);
+      expect(find.text('旅行'), findsOneWidget);
       expect(find.text('工作/项目'), findsNothing);
-      expect(find.text('无标签'), findsOneWidget);
+      expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
 
       await tester.enterText(find.byType(SearchBar), '生活');
       await tester.pumpAndSettle();
@@ -440,9 +480,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
       await tester.pumpAndSettle();
       expect(find.byType(SearchBar), findsNothing);
-      expect(find.text('生活'), findsNothing);
+      expect(find.text('生活'), findsOneWidget);
+      expect(find.text('旅行'), findsOneWidget);
       expect(find.text('生活/旅行'), findsNothing);
-      expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
+      expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isFalse);
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
 
       await toggleAllDiaries(tester);
@@ -450,12 +491,24 @@ void main() {
       expect(find.text('旅行'), findsOneWidget);
       expect(find.text('工作'), findsOneWidget);
       expect(find.text('项目'), findsNothing);
+      for (final filter in ['untagged', 'images', 'links', 'audio']) {
+        expect(find.byKey(ValueKey('filter-$filter')), findsOneWidget);
+      }
+      await tester.tap(find.byKey(const ValueKey('tag-search-toggle')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(SearchBar), 'no-matching-tag');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
+      for (final filter in ['untagged', 'images', 'links', 'audio']) {
+        expect(find.byKey(ValueKey('filter-$filter')), findsOneWidget);
+      }
+      expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isTrue);
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['生活']);
     },
   );
 
   testWidgets('tag management is available from a long press', (tester) async {
-    await tester.pumpWidget(wrap(const TagDrawer()));
+    await _pumpWidget(tester, wrap(const TagDrawer()));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('生活'));
     await tester.pumpAndSettle();

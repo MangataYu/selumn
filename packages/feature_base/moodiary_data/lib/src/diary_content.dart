@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 
@@ -9,6 +11,80 @@ class DiaryContent {
 
   factory DiaryContent.of(Diary diary) =>
       DiaryContent._(diary, .fromValue(diary.type));
+
+  bool matches(DiaryContentFilter filter) => switch (filter) {
+    .images => _diary.imageName.isNotEmpty,
+    .audio => _diary.audioName.isNotEmpty,
+    .links => containsLinks(_diary.content, _type),
+  };
+
+  static final _webUrl = RegExp(
+    r'(?:https?://|www\.)[^\s<>]+',
+    caseSensitive: false,
+  );
+
+  /// Links include web hyperlinks and internal diary references, but not
+  /// media source URLs, tag marks or examples inside code blocks.
+  static bool containsLinks(String content, DiaryType type) {
+    dynamic document;
+    try {
+      document = jsonDecode(
+        type == .markdown
+            ? MarkdownToTiptap.convert(content) ?? content
+            : content,
+      );
+    } on FormatException {
+      return _webUrl.hasMatch(content);
+    }
+    bool nonEmpty(dynamic value) => value is String && value.trim().isNotEmpty;
+    if (type == .richText) {
+      final ops = document is List
+          ? document
+          : document is Map
+          ? document['ops']
+          : null;
+      if (ops is! List) return false;
+      final converted = QuillDeltaToTiptap.convert(jsonEncode(ops));
+      if (converted == null) return false;
+      document = jsonDecode(converted);
+    }
+    bool walk(dynamic node) {
+      if (node is! Map || node['type'] == 'codeBlock') return false;
+      final attributes = node['attrs'];
+      if (node['type'] == 'diaryLink' &&
+          attributes is Map &&
+          nonEmpty(attributes['id'])) {
+        return true;
+      }
+      if (node['type'] == 'text') {
+        final marks = node['marks'];
+        if (marks is List) {
+          if (marks.any(
+            (mark) =>
+                mark is Map &&
+                (mark['type'] == 'code' || mark['type'] == 'tag'),
+          )) {
+            return false;
+          }
+          if (marks.any(
+            (mark) =>
+                mark is Map &&
+                mark['type'] == 'link' &&
+                mark['attrs'] is Map &&
+                nonEmpty(mark['attrs']['href']),
+          )) {
+            return true;
+          }
+        }
+        final text = node['text'];
+        return text is String && _webUrl.hasMatch(text);
+      }
+      final children = node['content'];
+      return children is List && children.any(walk);
+    }
+
+    return walk(document);
+  }
 
   static final RegExp _markdownMedia = RegExp(
     r'!\[[^\]]*\]\((image-[^\s)]+|audio-[^\s)]+|video-[^\s)]+)\)',

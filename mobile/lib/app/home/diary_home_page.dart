@@ -144,6 +144,7 @@ class _DiaryListViewState extends ConsumerState<_DiaryListView> {
           diaryControllerProvider(
             tag: filter.tagPath,
             untagged: filter.untagged,
+            content: filter.content,
           ).notifier,
         )
         .softDeleteByIds(ids);
@@ -164,20 +165,39 @@ class _FilterTitle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final counts = ref.watch(tagDiaryCountsProvider).value;
-    final label = filter.untagged
-        ? context.l10n.diary.tagNoTag
-        : '#${filter.tagPath}';
-    final count = counts == null
-        ? null
-        : filter.untagged
-        ? counts.untagged
-        : counts.byTag[filter.tagPath] ?? 0;
+    final content = filter.content;
+    final label = switch (content) {
+      .images => context.l10n.diary.filterImages,
+      .links => context.l10n.diary.filterLinks,
+      .audio => context.l10n.diary.filterAudio,
+      null =>
+        filter.untagged ? context.l10n.diary.tagNoTag : '#${filter.tagPath}',
+    };
+    final int? count;
+    if (content != null) {
+      final months = ref
+          .watch(timelineMonthCountsProvider(content: content, sort: .timeDesc))
+          .value;
+      count = months?.values.fold<int>(0, (sum, value) => sum + value);
+    } else {
+      final counts = ref.watch(tagDiaryCountsProvider).value;
+      count = counts == null
+          ? null
+          : filter.untagged
+          ? counts.untagged
+          : counts.byTag[filter.tagPath] ?? 0;
+    }
+    final icon = switch (content) {
+      .images => LucideIcons.image,
+      .links => LucideIcons.link,
+      .audio => LucideIcons.audioLines,
+      null => filter.untagged ? LucideIcons.tag : LucideIcons.hash,
+    };
 
     return Row(
       mainAxisSize: .min,
       children: [
-        Icon(filter.untagged ? LucideIcons.tag : LucideIcons.hash, size: 16),
+        Icon(icon, size: 16),
         const SizedBox(width: 8),
         Flexible(child: Text(label, maxLines: 1, overflow: .ellipsis)),
         if (count != null) ...[
