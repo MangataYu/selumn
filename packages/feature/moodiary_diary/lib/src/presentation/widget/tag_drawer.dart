@@ -44,7 +44,14 @@ class TagDrawer extends ConsumerStatefulWidget {
 class _TagDrawerState extends ConsumerState<TagDrawer> {
   String _query = '';
   bool _searchVisible = false;
+  late bool _tagTreeExpanded = MoodiaryKVs.tagTreeExpanded.get()!;
   late Set<String> _expandedPaths = MoodiaryKVs.expandedTagPaths.get()!.toSet();
+
+  void _toggleTagTree() {
+    final expanded = !_tagTreeExpanded;
+    MoodiaryKVs.tagTreeExpanded.set(expanded);
+    setState(() => _tagTreeExpanded = expanded);
+  }
 
   void _saveExpandedPaths(Set<String> paths) {
     MoodiaryKVs.expandedTagPaths.set(paths.toList()..sort());
@@ -165,7 +172,8 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
     final visible = paths
         .where(
           (path) => query.isEmpty
-              ? ancestorsByPath[path]!.every(_expandedPaths.contains)
+              ? _tagTreeExpanded &&
+                    ancestorsByPath[path]!.every(_expandedPaths.contains)
               : path.toLowerCase().contains(query),
         )
         .toList();
@@ -175,6 +183,31 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
       fixedSize: const Size.square(_tagRowHeight),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.standard,
+    );
+
+    Widget expandButton({
+      required Key key,
+      required bool expanded,
+      required bool selected,
+      required VoidCallback onPressed,
+    }) => Semantics(
+      expanded: expanded,
+      child: IconButton(
+        key: key,
+        tooltip: expanded
+            ? localizations.expandedIconTapHint
+            : localizations.collapsedIconTapHint,
+        padding: EdgeInsets.zero,
+        style: compactButtonStyle,
+        icon: Icon(
+          expanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+          size: _tagIconSize,
+          color: selected
+              ? colors.onSecondaryContainer
+              : colors.onSurfaceVariant,
+        ),
+        onPressed: onPressed,
+      ),
     );
 
     Widget tagTile(int index) {
@@ -201,26 +234,11 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
         onTap: () => _pick(.tag(path)),
         onLongPress: () => _manage(path),
         trailing: expandable
-            ? Semantics(
+            ? expandButton(
+                key: ValueKey('tag-expand:$path'),
                 expanded: expanded,
-                child: IconButton(
-                  key: ValueKey('tag-expand:$path'),
-                  tooltip: expanded
-                      ? localizations.expandedIconTapHint
-                      : localizations.collapsedIconTapHint,
-                  padding: EdgeInsets.zero,
-                  style: compactButtonStyle,
-                  icon: Icon(
-                    expanded
-                        ? LucideIcons.chevronDown
-                        : LucideIcons.chevronRight,
-                    size: _tagIconSize,
-                    color: selected
-                        ? colors.onSecondaryContainer
-                        : colors.onSurfaceVariant,
-                  ),
-                  onPressed: () => _toggleExpanded(path),
-                ),
+                selected: selected,
+                onPressed: () => _toggleExpanded(path),
               )
             : null,
       );
@@ -351,11 +369,20 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
               ),
             if (query.isEmpty)
               _TagTile(
+                key: const ValueKey('all-diaries-row'),
                 label: context.l10n.diary.categoryAllDiary,
                 count: counts?.total,
                 selected: widget.isDiarySelected && filter.isAll,
                 icon: LucideIcons.notebookPen,
                 onTap: () => _pick(const .all()),
+                trailing: paths.isNotEmpty
+                    ? expandButton(
+                        key: const ValueKey('all-diaries-expand'),
+                        expanded: _tagTreeExpanded,
+                        selected: widget.isDiarySelected && filter.isAll,
+                        onPressed: _toggleTagTree,
+                      )
+                    : null,
               ),
             for (var i = 0; i < visible.length; i++) tagTile(i),
             if (visible.isEmpty && query.isNotEmpty)

@@ -137,8 +137,12 @@ void main() {
 
       final drawerRight = tester.getRect(find.byType(Drawer)).right;
       final searchCenter = tester.getCenter(find.byIcon(LucideIcons.search)).dx;
-      for (final path in ['a', 'a/b']) {
-        final button = find.byKey(ValueKey('tag-expand:$path'));
+      for (final key in [
+        'all-diaries-expand',
+        'tag-expand:a',
+        'tag-expand:a/b',
+      ]) {
+        final button = find.byKey(ValueKey(key));
         final icon = find.descendant(of: button, matching: find.byType(Icon));
         expect(tester.getSize(button), const Size(40, 40));
         expect(tester.getRect(button).right, closeTo(drawerRight - 8, 0.01));
@@ -155,6 +159,33 @@ void main() {
         tester.getCenter(find.byIcon(LucideIcons.chevronRight)).dx,
         closeTo(searchCenter, 0.01),
       );
+      expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['a/b']);
+      expect(filterPicks, 0);
+      expect(
+        container.read(homeDiaryFilterProvider),
+        const DiaryFilter.tag('reading'),
+      );
+      expect(container.read(diarySelectionProvider), {'selected-diary'});
+      expect(find.byType(Drawer), findsOneWidget);
+
+      final allButton = find.byKey(const ValueKey('all-diaries-expand'));
+      await tester.tapAt(tester.getTopLeft(allButton) + const Offset(1, 1));
+      await tester.pumpAndSettle();
+      expect(_row('a'), findsNothing);
+      expect(_row('reading'), findsNothing);
+      expect(tester.getSize(allButton), const Size(40, 40));
+      expect(
+        tester
+            .getCenter(
+              find.descendant(
+                of: allButton,
+                matching: find.byIcon(LucideIcons.chevronRight),
+              ),
+            )
+            .dx,
+        closeTo(searchCenter, 0.01),
+      );
+      expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['a/b']);
       expect(filterPicks, 0);
       expect(
@@ -203,6 +234,10 @@ void main() {
       for (final path in ['a', 'a/b', 'a/b/c', 'a/z', 'reading']) {
         expect(tester.getSize(_row(path)).height, 40);
       }
+      expect(
+        tester.getSize(find.byKey(const ValueKey('all-diaries-row'))).height,
+        40,
+      );
       await tester.pumpWidget(
         _drawer(tags: _searchableTags, textScaler: const TextScaler.linear(2)),
       );
@@ -224,18 +259,24 @@ void main() {
         for (final count in ['123', '24', '3', '7', '5', '10']) {
           expect(tester.getRect(find.text(count)).right, closeTo(right, 0.01));
         }
-        final button = find.byKey(const ValueKey('tag-expand:a'));
-        expect(tester.getSize(button), const Size(40, 40));
         expect(tester.getRect(_row('a')).height, greaterThan(40));
         expect(tester.getRect(_row('reading')).height, greaterThan(40));
         expect(
-          tester
-              .getCenter(
-                find.descendant(of: button, matching: find.byType(Icon)),
-              )
-              .dx,
-          closeTo(tester.getCenter(find.byIcon(LucideIcons.search)).dx, 0.01),
+          tester.getRect(find.byKey(const ValueKey('all-diaries-row'))).height,
+          greaterThan(40),
         );
+        for (final key in ['all-diaries-expand', 'tag-expand:a']) {
+          final button = find.byKey(ValueKey(key));
+          expect(tester.getSize(button), const Size(40, 40));
+          expect(
+            tester
+                .getCenter(
+                  find.descendant(of: button, matching: find.byType(Icon)),
+                )
+                .dx,
+            closeTo(tester.getCenter(find.byIcon(LucideIcons.search)).dx, 0.01),
+          );
+        }
       }
       await tester.tap(find.byKey(const ValueKey('tag-expand:a')));
       await tester.pumpAndSettle();

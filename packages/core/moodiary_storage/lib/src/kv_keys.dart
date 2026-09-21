@@ -49,6 +49,7 @@ enum MoodiaryKVs<T extends Object> {
   homeSortMode<int>(defaultValue: 0 /* DiarySort.timeDesc.number */),
 
   expandedTagPaths<List<String>>(defaultValue: []),
+  tagTreeExpanded<bool>(defaultValue: true),
 
   categoryOrder<List<String>>(),
 
