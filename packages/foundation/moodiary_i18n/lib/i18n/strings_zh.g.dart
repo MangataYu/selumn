@@ -91,6 +91,9 @@ class Translations$app$zh {
 	/// zh: '助手'
 	String get homeNavigatorAssistant => '助手';
 
+	/// zh: '图谱'
+	String get homeNavigatorGraph => '图谱';
+
 	/// zh: '新建日记'
 	String get homePageAddDiaryButton => '新建日记';
 
@@ -2048,6 +2051,9 @@ class Translations$diary$zh {
 
 	/// zh: '全部标签'
 	String get allTags => '全部标签';
+
+	/// zh: '标签管理'
+	String get tagManagerTitle => '标签管理';
 
 	/// zh: '标签排序'
 	String get tagSortTitle => '标签排序';

@@ -40,6 +40,7 @@ class _TagSortPageState extends State<_TagSortPage> {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final spacing = context.spacing;
+    final tagTextStyle = context.theme.typography.bodyLarge.onSurface;
     final children = _draft.childrenOf(_parent);
     return PopScope<List<String>>(
       canPop: _parent == null,
@@ -127,20 +128,17 @@ class _TagSortPageState extends State<_TagSortPage> {
                               children: [
                                 Icon(
                                   LucideIcons.hash,
-                                  size: 20,
+                                  size: tagTextStyle.fontSize,
+                                  applyTextScaling: true,
                                   color: colors.onSurfaceVariant,
                                 ),
-                                SizedBox(width: spacing.md),
+                                SizedBox(width: spacing.sm),
                                 Expanded(
                                   child: Text(
                                     path.split('/').last,
                                     maxLines: 1,
                                     overflow: .ellipsis,
-                                    style: context
-                                        .theme
-                                        .typography
-                                        .bodyLarge
-                                        .onSurface,
+                                    style: tagTextStyle,
                                   ),
                                 ),
                               ],

@@ -11,6 +11,7 @@ import 'src/presentation/map/map_page.dart';
 import 'src/presentation/place/place_manager_page.dart';
 import 'src/presentation/recycle/recycle_page.dart';
 import 'src/presentation/search/search_page.dart';
+import 'src/presentation/tag/tag_manager_page.dart';
 
 export 'src/application/diary_filter.dart';
 export 'src/application/diary_selection.dart';
@@ -35,6 +36,10 @@ List<RouteBase> diaryRoutes() => [
     builder: (_, _) => const DiarySearchPage(),
   ),
   GoRoute(path: RecycleRoute.path, builder: (_, _) => const RecyclePage()),
+  GoRoute(
+    path: TagManagerRoute.path,
+    builder: (_, _) => const TagManagerPage(),
+  ),
   GoRoute(
     path: PlaceManagerRoute.path,
     builder: (_, _) => const PlaceManagerPage(),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:moodiary_components/moodiary_components.dart';
+import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_lock/moodiary_lock.dart';
 import 'package:moodiary_mobile/app/settings/presentation/widget/accent_sheet.dart';
@@ -43,6 +44,7 @@ class SettingPage extends StatelessWidget {
         child: CustomScrollView(
           slivers: [
             const _FeatureSection(),
+            const _ManageSection(),
             const _DisplaySection(),
             const _PrivacySection(),
             const _DataSection(),
@@ -73,6 +75,58 @@ class _FeatureSection extends StatelessWidget {
           leading: _lead(context, LucideIcons.bot),
           trailing: _chevron(context),
           onTap: () => _openSetting(context, const AssistantSettingRoute()),
+        ),
+      ],
+    );
+  }
+}
+
+class _ManageSection extends ConsumerWidget {
+  const _ManageSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final placeCount = ref.watch(placeControllerProvider).value?.length;
+    return MSliverSettingGroup(
+      children: [
+        SettingListTile(
+          title: context.l10n.diary.tagManagerTitle,
+          leading: _lead(context, LucideIcons.tags),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const TagManagerRoute()),
+        ),
+        SettingListTile(
+          title: context.l10n.app.placeManager,
+          leading: _lead(context, LucideIcons.mapPinned),
+          trailing: placeCount == null
+              ? _chevron(context)
+              : Row(
+                  mainAxisSize: .min,
+                  children: [
+                    _value(context, '$placeCount'),
+                    const SizedBox(width: 4),
+                    _chevron(context),
+                  ],
+                ),
+          onTap: () => _openSetting(context, const PlaceManagerRoute()),
+        ),
+        SettingListTile(
+          title: context.l10n.app.recycle,
+          leading: _lead(context, LucideIcons.trash),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const RecycleRoute()),
+        ),
+        SettingListTile(
+          title: context.l10n.export.pageTitle,
+          leading: _lead(context, LucideIcons.fileOutput),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const ExportRoute()),
+        ),
+        SettingListTile(
+          title: context.l10n.app.syncBackup,
+          leading: _lead(context, LucideIcons.refreshCw),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const BackupSyncRoute()),
         ),
       ],
     );

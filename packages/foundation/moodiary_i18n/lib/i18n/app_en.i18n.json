@@ -10,6 +10,7 @@
   "language": "Language",
   "homeNavigatorDiary": "Diary",
   "homeNavigatorAssistant": "Assistant",
+  "homeNavigatorGraph": "Graph",
   "homePageAddDiaryButton": "Create a diary",
   "categoryDeletedReset": "Category deleted, showing all diaries",
   "homeNavigatorSetting": "Setting",

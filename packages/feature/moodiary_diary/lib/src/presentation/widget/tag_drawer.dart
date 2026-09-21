@@ -1,13 +1,10 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_data/moodiary_data.dart';
-import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/application/diary_filter.dart';
 import 'package:moodiary_diary/src/application/diary_selection.dart';
 import 'package:moodiary_diary/src/application/tag_order.dart';
-import 'package:moodiary_diary/src/presentation/widget/tag_rename_sheet.dart';
-import 'package:moodiary_diary/src/presentation/widget/tag_sort_page.dart';
+import 'package:moodiary_diary/src/presentation/widget/tag_actions.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -19,13 +16,17 @@ const _tagRowHeight = 40.0;
 const _tagIconSize = 16.0;
 
 class TagDrawer extends ConsumerStatefulWidget {
+  final Widget? overview;
   final Widget? navigation;
+  final Widget? afterDiary;
   final VoidCallback? onFilterSelected;
   final bool isDiarySelected;
 
   const TagDrawer({
     super.key,
+    this.overview,
     this.navigation,
+    this.afterDiary,
     this.onFilterSelected,
     this.isDiarySelected = true,
   });
@@ -39,8 +40,28 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
   bool _searchVisible = false;
   late bool _filtersExpanded = MoodiaryKVs.diaryFiltersExpanded.get()!;
   late bool _tagsExpanded = MoodiaryKVs.tagTreeExpanded.get()!;
-  late List<String> _tagOrder = MoodiaryKVs.tagOrder.get()!;
-  late Set<String> _expandedPaths = MoodiaryKVs.expandedTagPaths.get()!.toSet();
+  late final _tagOrderListenable = MoodiaryKVs.tagOrder.getNotifier();
+  late final _expandedPathsListenable = MoodiaryKVs.expandedTagPaths
+      .getNotifier();
+
+  List<String> get _tagOrder => _tagOrderListenable.value;
+  Set<String> get _expandedPaths => _expandedPathsListenable.value.toSet();
+
+  @override
+  void initState() {
+    super.initState();
+    _tagOrderListenable.addListener(_onTagPreferencesChanged);
+    _expandedPathsListenable.addListener(_onTagPreferencesChanged);
+  }
+
+  @override
+  void dispose() {
+    _tagOrderListenable.removeListener(_onTagPreferencesChanged);
+    _expandedPathsListenable.removeListener(_onTagPreferencesChanged);
+    super.dispose();
+  }
+
+  void _onTagPreferencesChanged() => setState(() {});
 
   void _toggleFilters() {
     final expanded = !_filtersExpanded;
@@ -61,29 +82,8 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
     });
   }
 
-  void _saveTagOrder(List<String> order) {
-    try {
-      MoodiaryKVs.tagOrder.set(order);
-      setState(() => _tagOrder = order);
-    } catch (_) {
-      toast.error(message: l10n.diary.saveFailed);
-    }
-  }
-
-  Future<void> _sortTags(List<String> tags) async {
-    final order = await showTagSortPage(
-      context,
-      tags: tags,
-      initialOrder: _tagOrder,
-    );
-    if (!mounted || order == null) return;
-    final currentTags = ref.read(diaryTagsProvider).value;
-    _saveTagOrder(orderedTagPaths(currentTags ?? tags, order));
-  }
-
   void _saveExpandedPaths(Set<String> paths) {
     MoodiaryKVs.expandedTagPaths.set(paths.toList()..sort());
-    setState(() => _expandedPaths = paths);
   }
 
   void _toggleExpanded(String path) {
@@ -98,113 +98,6 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
     ref.read(homeDiaryFilterProvider.notifier).select(filter);
     Navigator.of(context).pop();
     widget.onFilterSelected?.call();
-  }
-
-  Future<void> _manage(String tag) async {
-    final action = await MSheet.show<String>(
-      context,
-      builder: (sheetContext) => MSheetScaffold<String>(
-        title: '#$tag',
-        icon: LucideIcons.tag,
-        actions: [MAction(label: sheetContext.l10n.common.cancel)],
-        child: Column(
-          mainAxisSize: .min,
-          crossAxisAlignment: .stretch,
-          children: [
-            MSheetOptionTile<String>(
-              option: MSheetOption(
-                value: 'rename',
-                label: sheetContext.l10n.diary.tagRename,
-                icon: LucideIcons.pencil,
-              ),
-              selected: false,
-              onTap: () => Navigator.of(sheetContext).pop('rename'),
-            ),
-            MDangerRow(
-              label: sheetContext.l10n.diary.tagDelete,
-              onPressed: () => Navigator.of(sheetContext).pop('delete'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || action == null) return;
-    final repository = getIt<DiaryRepository>();
-    if (action == 'rename') {
-      await MSheet.show<void>(
-        context,
-        builder: (sheetContext) => TagRenameSheet(
-          tag: tag,
-          onSubmit: (value) async {
-            try {
-              await repository.renameTag(tag, value);
-              if (!mounted) return null;
-              // Complete related state updates even if the sheet was dismissed
-              // while the repository write was in progress.
-              _saveTagOrder(renameTagOrder(_tagOrder, tag, value));
-              _saveExpandedPaths({
-                for (final path in _expandedPaths)
-                  TagPath.replacePrefix(path, tag, value),
-              });
-              final selected = ref.read(homeDiaryFilterProvider).tagPath;
-              if (selected != null && TagPath.matches(selected, tag)) {
-                ref
-                    .read(homeDiaryFilterProvider.notifier)
-                    .select(.tag('$value${selected.substring(tag.length)}'));
-                ref.read(diarySelectionProvider.notifier).clear();
-              }
-              return null;
-            } catch (_) {
-              final message = l10n.diary.tagUpdateFailed;
-              if (mounted &&
-                  (!sheetContext.mounted ||
-                      ModalRoute.of(sheetContext)?.isCurrent != true)) {
-                toast.error(message: message);
-              }
-              return message;
-            }
-          },
-        ),
-      );
-    } else {
-      final confirmed = await MSheet.show<bool>(
-        context,
-        builder: (sheetContext) => MSheetScaffold<bool>(
-          title: sheetContext.l10n.diary.tagDelete,
-          icon: LucideIcons.trash2,
-          isDestructive: true,
-          actions: [
-            MAction(label: sheetContext.l10n.common.cancel, value: false),
-            MAction(
-              label: sheetContext.l10n.common.delete,
-              value: true,
-              isDestructive: true,
-            ),
-          ],
-          child: Text(
-            sheetContext.l10n.diary.tagDeleteMessage(tag: tag),
-            style: sheetContext.theme.typography.bodyMedium.onSurfaceVariant,
-          ),
-        ),
-      );
-      if (confirmed != true || !mounted) return;
-      try {
-        await repository.deleteTag(tag);
-        if (!mounted) return;
-        _saveTagOrder(deleteTagOrder(_tagOrder, tag));
-        _saveExpandedPaths({
-          for (final path in _expandedPaths)
-            if (!TagPath.matches(path, tag)) path,
-        });
-        final selected = ref.read(homeDiaryFilterProvider).tagPath;
-        if (selected != null && TagPath.matches(selected, tag)) {
-          ref.read(homeDiaryFilterProvider.notifier).reset();
-          ref.read(diarySelectionProvider.notifier).clear();
-        }
-      } catch (_) {
-        if (mounted) toast.error(message: l10n.diary.tagUpdateFailed);
-      }
-    }
   }
 
   @override
@@ -283,7 +176,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
         selected: selected,
         icon: LucideIcons.hash,
         onTap: () => _pick(.tag(path)),
-        onLongPress: () => _manage(path),
+        onLongPress: () => showTagActions(context, path),
         trailing: expandable
             ? expandButton(
                 key: ValueKey('tag-expand:$path'),
@@ -340,7 +233,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                               .emphasized
                               .onSurface,
                         ),
-                        if (counts != null)
+                        if (counts != null && widget.overview == null)
                           Text(
                             context.l10n.diary.searchResult(
                               count: counts.total,
@@ -367,6 +260,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                 ],
               ),
             ),
+            if (widget.overview != null) widget.overview!,
             if (widget.navigation != null) widget.navigation!,
             _TagTile(
               key: const ValueKey('all-diaries-row'),
@@ -411,6 +305,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                 last: true,
               ),
             ],
+            if (widget.afterDiary != null) widget.afterDiary!,
             Padding(
               padding: .symmetric(vertical: spacing.xs),
               child: Divider(
@@ -466,7 +361,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                         ),
                         onPressed: tags.isEmpty || tagsAsync.hasError
                             ? null
-                            : () => _sortTags(tags),
+                            : () => showTagSorting(context, tags),
                       ),
                       SizedBox(
                         width: _tagRowHeight,

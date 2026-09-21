@@ -88,4 +88,32 @@ void main() {
     expect(kv.data[MoodiaryKVs.tagOrder.name], ['c', 'a', 'a/child', 'b']);
     expect(visibleRoots(tester), ['c', 'a', 'b']);
   });
+
+  testWidgets(
+    'external preferences update the existing drawer and detach on disposal',
+    (tester) async {
+      await pumpDrawer(tester);
+      final drawerState = tester.state(find.byType(TagDrawer));
+      expect(visibleRoots(tester), ['a', 'b', 'c']);
+      expect(find.byKey(const ValueKey('tag-row:a/child')), findsNothing);
+
+      MoodiaryKVs.tagOrder.set(['c', 'a', 'a/child', 'b']);
+      MoodiaryKVs.expandedTagPaths.set(['a']);
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(TagDrawer)), same(drawerState));
+      expect(visibleRoots(tester), ['c', 'a', 'b']);
+      expect(find.byKey(const ValueKey('tag-row:a/child')), findsOneWidget);
+
+      MoodiaryKVs.expandedTagPaths.set([]);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('tag-row:a/child')), findsNothing);
+      expect(visibleRoots(tester), ['c', 'a', 'b']);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      MoodiaryKVs.tagOrder.set(['b', 'a', 'a/child', 'c']);
+      MoodiaryKVs.expandedTagPaths.set(['a']);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

@@ -1,17 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_assistant/moodiary_assistant.dart'
     show AssistantSessionListPage;
+import 'package:moodiary_data/moodiary_data.dart'
+    show dashboardControllerProvider;
 import 'package:moodiary_diary/moodiary_diary.dart'
     show TagDrawer, diarySelectionProvider, homeDiaryFilterProvider;
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/home/diary_home_page.dart'
     show DiaryHomePage;
-import 'package:moodiary_mobile/app/me/me_page.dart' show MePage;
+import 'package:moodiary_mobile/app/shell/drawer_dashboard.dart';
 import 'package:moodiary_mobile/app/shell/root_drawer_navigation.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:mui/mui.dart';
 
-enum _ShellTab { diary, assistant, me }
+enum _ShellTab { diary, assistant }
 
 class MobileRootShell extends ConsumerStatefulWidget {
   const MobileRootShell({super.key});
@@ -28,7 +30,6 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
   late final List<Widget> _pages = [
     DiaryHomePage(onOpenDrawer: _openDrawer),
     AssistantSessionListPage(onOpenDrawer: _openDrawer),
-    MePage(onOpenDrawer: _openDrawer),
   ];
 
   void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
@@ -40,9 +41,9 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
     await NewDiaryRoute(tag: tag).push(context);
   }
 
-  void _selectDestination(int index) {
+  void _selectAssistant() {
     _scaffoldKey.currentState?.closeDrawer();
-    _selectTab(_ShellTab.values[index]);
+    _selectTab(.assistant);
   }
 
   void _selectTab(_ShellTab tab) {
@@ -61,15 +62,20 @@ class _MobileRootShellState extends ConsumerState<MobileRootShell> {
       key: _scaffoldKey,
       drawer: drawerUsable
           ? TagDrawer(
-              navigation: RootDrawerNavigation(
-                selectedIndex: _tab.index,
-                onDestinationSelected: _selectDestination,
+              overview: const DrawerDashboard(),
+              navigation: const RootDrawerNavigation(),
+              afterDiary: RootDrawerAssistant(
+                selected: _tab == .assistant,
+                onTap: _selectAssistant,
               ),
               isDiarySelected: _tab == .diary,
               onFilterSelected: () => _selectTab(.diary),
             )
           : null,
       drawerEnableOpenDragGesture: drawerUsable,
+      onDrawerChanged: (opened) {
+        if (opened) ref.invalidate(dashboardControllerProvider);
+      },
       body: SafeArea(
         bottom: false,
         child: MLazyIndexedStack(index: _tab.index, children: _pages),

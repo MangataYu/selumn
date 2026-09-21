@@ -66,6 +66,7 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get language => 'Language';
 	@override String get homeNavigatorDiary => 'Diary';
 	@override String get homeNavigatorAssistant => 'Assistant';
+	@override String get homeNavigatorGraph => 'Graph';
 	@override String get homePageAddDiaryButton => 'Create a diary';
 	@override String get categoryDeletedReset => 'Category deleted, showing all diaries';
 	@override String get homeNavigatorSetting => 'Setting';
@@ -739,6 +740,7 @@ class _Translations$diary$en extends Translations$diary$zh {
 	@override String get tagNoMatch => 'No matching tags';
 	@override String get tagNoTag => 'Untagged';
 	@override String get allTags => 'All tags';
+	@override String get tagManagerTitle => 'Manage tags';
 	@override String get tagSortTitle => 'Sort tags';
 	@override String get tagSortEmpty => 'No tags yet';
 	@override String get filterImages => 'With images';

@@ -8,7 +8,6 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/moodiary_diary.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/home/diary_home_page.dart';
-import 'package:moodiary_mobile/app/me/me_page.dart';
 import 'package:moodiary_mobile/app/shell/root_drawer_navigation.dart';
 import 'package:moodiary_mobile/app/shell/root_shell.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -50,19 +49,24 @@ class _EmptyPlaces extends PlaceController {
   List<Place> build() => [];
 }
 
-class _EmptyDashboard extends DashboardController {
+int _dashboardBuilds = 0;
+
+class _Dashboard extends DashboardController {
   @override
-  Future<DashboardStats> build() async => const DashboardStats(
-    useDays: 1,
-    diaryCount: 0,
-    wordCount: 0,
-    categoryCount: 1,
-    streakDays: 0,
-    thisMonthCount: 0,
-    tagCount: 0,
-    byDay: {},
-    lastYearCount: 0,
-  );
+  Future<DashboardStats> build() async {
+    _dashboardBuilds++;
+    return const DashboardStats(
+      useDays: 1,
+      diaryCount: 1,
+      wordCount: 100,
+      categoryCount: 1,
+      streakDays: 0,
+      thisMonthCount: 1,
+      tagCount: 1,
+      byDay: {},
+      lastYearCount: 1,
+    );
+  }
 }
 
 class _IdleSyncRunner extends Fake implements SyncRunner {
@@ -87,6 +91,10 @@ class _NoLlmProvider extends Fake implements LlmProviderRepository {
 }
 
 Future<ProviderContainer> _pumpShell(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -106,7 +114,7 @@ Future<ProviderContainer> _pumpShell(WidgetTester tester) async {
               DateTime(2026, 7): 1,
             },
           ),
-        dashboardControllerProvider.overrideWith(_EmptyDashboard.new),
+        dashboardControllerProvider.overrideWith(_Dashboard.new),
         placeControllerProvider.overrideWith(_EmptyPlaces.new),
       ],
       child: TranslationProvider(
@@ -178,6 +186,7 @@ Future<void> _pickAllDiaries(WidgetTester tester) async {
 
 void main() {
   setUp(() {
+    _dashboardBuilds = 0;
     final runner = _IdleSyncRunner();
     getIt.pushNewScope(
       init: (gi) {
@@ -195,14 +204,98 @@ void main() {
   });
   tearDown(getIt.popScope);
 
-  testWidgets('正文再次选择同一标签时从我的返回日记', (tester) async {
+  testWidgets('抽屉顶部显示热力统计，回顾入口、日记、助手、标签顺序正确且没有我的', (tester) async {
+    await _pumpShell(tester);
+    await _openDrawer(tester);
+
+    final entries = [
+      find.byType(MHeatmap),
+      find.widgetWithText(ListTile, l10n.common.media),
+      find.widgetWithText(ListTile, l10n.diary.mapTitle),
+      find.widgetWithText(ListTile, l10n.app.homeNavigatorGraph),
+      find.widgetWithText(ListTile, l10n.app.meCalendar),
+      find.byKey(const ValueKey('all-diaries-row')),
+      find.byType(RootDrawerAssistant),
+      find.byKey(const ValueKey('tags-row')),
+    ];
+    final drawerList = find.descendant(
+      of: find.byType(TagDrawer),
+      matching: find.byType(ListView),
+    );
+    expect(drawerList, findsOneWidget);
+    for (var i = 0; i < entries.length; i++) {
+      expect(entries[i], findsOneWidget);
+      expect(
+        find.ancestor(of: entries[i], matching: drawerList),
+        findsOneWidget,
+      );
+      if (i > 0) {
+        expect(
+          tester.getRect(entries[i]).top,
+          greaterThanOrEqualTo(tester.getRect(entries[i - 1]).bottom),
+        );
+      }
+    }
+    expect(find.text(l10n.app.homeNavigatorMe), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('tag-drawer-header')),
+        matching: find.text(l10n.diary.searchResult(count: 0)),
+      ),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('重新打开抽屉会刷新热力统计', (tester) async {
+    await _pumpShell(tester);
+    await _openDrawer(tester);
+    final firstOpenBuilds = _dashboardBuilds;
+    expect(firstOpenBuilds, greaterThan(0));
+
+    _shellScaffold(tester).closeDrawer();
+    await tester.pumpAndSettle();
+    await _openDrawer(tester);
+
+    expect(_dashboardBuilds, greaterThan(firstOpenBuilds));
+    expect(find.byType(MHeatmap), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('窄屏上热力统计与菜单共同滚动，仍可到达标签', (tester) async {
+    await _pumpShell(tester);
+    tester.view.physicalSize = const Size(320, 640);
+    await tester.pumpAndSettle();
+    await _openDrawer(tester);
+    expect(find.byType(MHeatmap).hitTestable(), findsOneWidget);
+    final initialHeatmapTop = tester.getTopLeft(find.byType(MHeatmap)).dy;
+
+    final tags = find.byKey(const ValueKey('tags-row'));
+    final scrollable = find
+        .descendant(
+          of: find.byType(TagDrawer),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(tags, 200, scrollable: scrollable);
+    await tester.pumpAndSettle();
+
+    expect(tags.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(MHeatmap)).dy,
+      lessThan(initialHeatmapTop),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('正文再次选择同一标签时从助手返回日记', (tester) async {
     final container = await _pumpShell(tester);
     container
         .read(homeDiaryFilterProvider.notifier)
         .select(const DiaryFilter.tag('旅行'));
     await tester.pumpAndSettle();
-    await _pickDestination(tester, l10n.app.homeNavigatorMe);
-    expect(find.byType(MePage), findsOneWidget);
+    await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
+    expect(find.byType(AssistantSessionListPage), findsOneWidget);
     container
         .read(homeDiaryFilterProvider.notifier)
         .select(const DiaryFilter.tag('旅行'));
@@ -211,7 +304,7 @@ void main() {
     expect(container.read(homeDiaryFilterProvider).tagPath, '旅行');
   });
 
-  testWidgets('三个页面均可打开抽屉切换，点击当前页面也会收起抽屉', (tester) async {
+  testWidgets('日记与助手均可打开抽屉切换，点击当前页面也会收起抽屉', (tester) async {
     await _pumpShell(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
 
@@ -223,18 +316,12 @@ void main() {
     expect(find.byType(AssistantSessionListPage), findsOneWidget);
 
     await _pickAllDiaries(tester);
-    await _pickDestination(tester, l10n.app.homeNavigatorMe);
-    expect(find.byType(MePage), findsOneWidget);
-    await _pickDestination(tester, l10n.app.homeNavigatorMe);
-    expect(find.byType(MePage), findsOneWidget);
-
-    await _pickAllDiaries(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
     await _pickAllDiaries(tester);
     expect(find.byType(DiaryHomePage), findsOneWidget);
   });
 
-  testWidgets('从助手或我的选择同一标签仍返回日记，全部日记恢复所有内容', (tester) async {
+  testWidgets('从助手选择同一标签仍返回日记，日记入口恢复所有内容', (tester) async {
     final container = await _pumpShell(tester);
     await _openDrawer(tester);
     await tester.ensureVisible(find.text(_category.categoryName));
@@ -245,74 +332,64 @@ void main() {
       const DiaryFilter.tag('旅行'),
     );
 
-    for (final label in [
-      l10n.app.homeNavigatorAssistant,
-      l10n.app.homeNavigatorMe,
-    ]) {
-      await _pickDestination(tester, label);
-      expect(
-        container.read(homeDiaryFilterProvider),
-        const DiaryFilter.tag('旅行'),
-      );
-      await _openDrawer(tester);
-      final tag = find.descendant(
-        of: find.byType(TagDrawer),
-        matching: find.text(_category.categoryName),
-      );
-      await tester.ensureVisible(tag);
-      await tester.tap(tag);
-      await tester.pumpAndSettle();
-      expect(find.byType(DiaryHomePage), findsOneWidget);
-      expect(_shellScaffold(tester).isDrawerOpen, isFalse);
-      expect(
-        container.read(homeDiaryFilterProvider),
-        const DiaryFilter.tag('旅行'),
-      );
-      expect(tester.takeException(), isNull);
-    }
+    await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
+    expect(
+      container.read(homeDiaryFilterProvider),
+      const DiaryFilter.tag('旅行'),
+    );
+    await _openDrawer(tester);
+    final tag = find.descendant(
+      of: find.byType(TagDrawer),
+      matching: find.text(_category.categoryName),
+    );
+    await tester.ensureVisible(tag);
+    await tester.tap(tag);
+    await tester.pumpAndSettle();
+    expect(find.byType(DiaryHomePage), findsOneWidget);
+    expect(_shellScaffold(tester).isDrawerOpen, isFalse);
+    expect(
+      container.read(homeDiaryFilterProvider),
+      const DiaryFilter.tag('旅行'),
+    );
+    expect(tester.takeException(), isNull);
 
     await _pickAllDiaries(tester);
     expect(container.read(homeDiaryFilterProvider).isAll, isTrue);
   });
 
-  testWidgets('从助手或我的选择内容筛选返回日记并显示相应标题和总数', (tester) async {
+  testWidgets('从助手选择内容筛选返回日记并显示相应标题和总数', (tester) async {
     final container = await _pumpShell(tester);
     for (final (key, label, filter) in [
       ('filter-images', l10n.diary.filterImages, const DiaryFilter.images()),
       ('filter-links', l10n.diary.filterLinks, const DiaryFilter.links()),
       ('filter-audio', l10n.diary.filterAudio, const DiaryFilter.audio()),
     ]) {
-      for (final destination in [
-        l10n.app.homeNavigatorAssistant,
-        l10n.app.homeNavigatorMe,
-      ]) {
-        await _pickDestination(tester, destination);
-        await _openDrawer(tester);
-        final row = find.byKey(ValueKey(key));
-        await tester.ensureVisible(row);
-        await tester.tap(row);
-        await tester.pumpAndSettle();
+      await _pickDestination(tester, l10n.app.homeNavigatorAssistant);
+      await _openDrawer(tester);
+      final row = find.byKey(ValueKey(key));
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
 
-        expect(find.byType(DiaryHomePage), findsOneWidget);
-        expect(_shellScaffold(tester).isDrawerOpen, isFalse);
-        expect(container.read(homeDiaryFilterProvider), filter);
-        expect(container.read(diarySelectionProvider), isEmpty);
-        final appBar = find.byType(AppBar);
-        expect(
-          find.descendant(of: appBar, matching: find.text(label)),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: appBar,
-            matching: find.text(
-              l10n.diary.searchResult(count: _contentCounts[filter.content]!),
-            ),
+      expect(find.byType(DiaryHomePage), findsOneWidget);
+      expect(_shellScaffold(tester).isDrawerOpen, isFalse);
+      expect(container.read(homeDiaryFilterProvider), filter);
+      expect(container.read(diarySelectionProvider), isEmpty);
+      final appBar = find.byType(AppBar);
+      expect(
+        find.descendant(of: appBar, matching: find.text(label)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: appBar,
+          matching: find.text(
+            l10n.diary.searchResult(count: _contentCounts[filter.content]!),
           ),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-      }
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     }
 
     await _pickAllDiaries(tester);

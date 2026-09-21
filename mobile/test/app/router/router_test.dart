@@ -9,6 +9,15 @@ import 'package:mui/mui.dart';
 
 void main() {
   group('route tree config', () {
+    test('tag manager is registered in the mobile route tree', () {
+      expect(
+        buildMobileRoutes().whereType<GoRoute>().where(
+          (route) => route.path == TagManagerRoute.path,
+        ),
+        hasLength(1),
+      );
+    });
+
     testWidgets('mobile tree builds a valid GoRouter', (tester) async {
       expect(
         () => GoRouter(routes: buildMobileRoutes(), initialLocation: '/'),
@@ -94,10 +103,12 @@ void main() {
     test('no-param routes carry no extra', () {
       expect(const DiaryHomeRoute().location, '/');
       expect(const RecycleRoute().location, '/recycle');
+      expect(const TagManagerRoute().location, '/tag_manager');
       expect(const DiarySearchRoute().location, '/search');
       expect(const FontRoute().location, '/setting/font');
       expect(const AccentRoute().location, '/setting/accent');
       expect(const RecycleRoute().params, isNull);
+      expect(const TagManagerRoute().params, isNull);
     });
 
     test('AssistantConversationRoute', () {
