@@ -6,6 +6,7 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/application/diary_filter.dart';
 import 'package:moodiary_diary/src/application/diary_selection.dart';
 import 'package:moodiary_diary/src/application/tag_order.dart';
+import 'package:moodiary_diary/src/presentation/widget/tag_rename_sheet.dart';
 import 'package:moodiary_diary/src/presentation/widget/tag_sort_page.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_router/moodiary_router.dart';
@@ -100,68 +101,93 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
   }
 
   Future<void> _manage(String tag) async {
-    final action = await MAlert.show<String>(
+    final action = await MSheet.show<String>(
       context,
-      title: '#$tag',
-      actions: [
-        MAction(label: l10n.common.cancel),
-        MAction(label: l10n.diary.tagRename, value: 'rename'),
-        MAction(
-          label: l10n.diary.tagDelete,
-          value: 'delete',
-          isDestructive: true,
+      builder: (sheetContext) => MSheetScaffold<String>(
+        title: '#$tag',
+        icon: LucideIcons.tag,
+        actions: [MAction(label: sheetContext.l10n.common.cancel)],
+        child: Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .stretch,
+          children: [
+            MSheetOptionTile<String>(
+              option: MSheetOption(
+                value: 'rename',
+                label: sheetContext.l10n.diary.tagRename,
+                icon: LucideIcons.pencil,
+              ),
+              selected: false,
+              onTap: () => Navigator.of(sheetContext).pop('rename'),
+            ),
+            MDangerRow(
+              label: sheetContext.l10n.diary.tagDelete,
+              onPressed: () => Navigator.of(sheetContext).pop('delete'),
+            ),
+          ],
         ),
-      ],
+      ),
     );
     if (!mounted || action == null) return;
     final repository = getIt<DiaryRepository>();
     if (action == 'rename') {
-      final value = await MAlert.prompt(
+      await MSheet.show<void>(
         context,
-        title: l10n.diary.tagRename,
-        initialValue: tag,
-        hintText: l10n.diary.tagRenameHint,
-        validator: (value) {
-          final path = TagPath.normalize(value);
-          return path == null || !TagPath.isInline(path)
-              ? l10n.diary.tagInvalid
-              : null;
-        },
-        onSubmit: (value) async {
-          try {
-            await repository.renameTag(tag, TagPath.normalize(value)!);
-            return null;
-          } catch (_) {
-            return l10n.diary.tagUpdateFailed;
-          }
-        },
+        builder: (sheetContext) => TagRenameSheet(
+          tag: tag,
+          onSubmit: (value) async {
+            try {
+              await repository.renameTag(tag, value);
+              if (!mounted) return null;
+              // Complete related state updates even if the sheet was dismissed
+              // while the repository write was in progress.
+              _saveTagOrder(renameTagOrder(_tagOrder, tag, value));
+              _saveExpandedPaths({
+                for (final path in _expandedPaths)
+                  TagPath.replacePrefix(path, tag, value),
+              });
+              final selected = ref.read(homeDiaryFilterProvider).tagPath;
+              if (selected != null && TagPath.matches(selected, tag)) {
+                ref
+                    .read(homeDiaryFilterProvider.notifier)
+                    .select(.tag('$value${selected.substring(tag.length)}'));
+                ref.read(diarySelectionProvider.notifier).clear();
+              }
+              return null;
+            } catch (_) {
+              final message = l10n.diary.tagUpdateFailed;
+              if (mounted &&
+                  (!sheetContext.mounted ||
+                      ModalRoute.of(sheetContext)?.isCurrent != true)) {
+                toast.error(message: message);
+              }
+              return message;
+            }
+          },
+        ),
       );
-      if (!mounted || value == null) return;
-      _saveTagOrder(renameTagOrder(_tagOrder, tag, TagPath.normalize(value)!));
-      _saveExpandedPaths({
-        for (final path in _expandedPaths)
-          TagPath.replacePrefix(path, tag, TagPath.normalize(value)!),
-      });
-      final selected = ref.read(homeDiaryFilterProvider).tagPath;
-      if (selected != null && TagPath.matches(selected, tag)) {
-        ref
-            .read(homeDiaryFilterProvider.notifier)
-            .select(
-              .tag(
-                '${TagPath.normalize(value)!}${selected.substring(tag.length)}',
-              ),
-            );
-        ref.read(diarySelectionProvider.notifier).clear();
-      }
     } else {
-      final confirmed = await MAlert.confirm(
+      final confirmed = await MSheet.show<bool>(
         context,
-        title: l10n.diary.tagDelete,
-        message: l10n.diary.tagDeleteMessage(tag: tag),
-        confirmLabel: l10n.common.delete,
-        isDestructive: true,
+        builder: (sheetContext) => MSheetScaffold<bool>(
+          title: sheetContext.l10n.diary.tagDelete,
+          icon: LucideIcons.trash2,
+          isDestructive: true,
+          actions: [
+            MAction(label: sheetContext.l10n.common.cancel, value: false),
+            MAction(
+              label: sheetContext.l10n.common.delete,
+              value: true,
+              isDestructive: true,
+            ),
+          ],
+          child: Text(
+            sheetContext.l10n.diary.tagDeleteMessage(tag: tag),
+            style: sheetContext.theme.typography.bodyMedium.onSurfaceVariant,
+          ),
+        ),
       );
-      if (!confirmed || !mounted) return;
+      if (confirmed != true || !mounted) return;
       try {
         await repository.deleteTag(tag);
         if (!mounted) return;

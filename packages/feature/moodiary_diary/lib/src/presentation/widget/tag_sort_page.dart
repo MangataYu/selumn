@@ -73,9 +73,9 @@ class _TagSortPageState extends State<_TagSortPage> {
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     spacing.lg,
-                    spacing.sm,
+                    spacing.xs,
                     spacing.lg,
-                    spacing.sm,
+                    spacing.xs,
                   ),
                   child: Text(
                     '#$_parent',
@@ -88,7 +88,7 @@ class _TagSortPageState extends State<_TagSortPage> {
                     ? Center(child: Text(context.l10n.diary.tagSortEmpty))
                     : ReorderableListView.builder(
                         key: ValueKey('tag-sort-list:$_parent'),
-                        padding: EdgeInsets.symmetric(vertical: spacing.sm),
+                        padding: EdgeInsets.symmetric(vertical: spacing.xs),
                         buildDefaultDragHandles: false,
                         itemCount: children.length,
                         onReorderItem: (oldIndex, newIndex) {
@@ -102,6 +102,8 @@ class _TagSortPageState extends State<_TagSortPage> {
                           final hasChildren = _draft.hasChildren(path);
                           return ListTile(
                             key: ValueKey('tag-sort-row:$path'),
+                            minTileHeight: 48,
+                            minVerticalPadding: 0,
                             contentPadding: EdgeInsets.only(
                               left: spacing.sm,
                               right: spacing.md,
