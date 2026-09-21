@@ -72,6 +72,8 @@ Future<List<String>?> _affectedPackages(String ref) async {
 
   final direct = <String>{};
   for (final f in changed) {
+    if (f.startsWith('i18n/flutter/')) direct.add('moodiary_i18n');
+    if (f.startsWith('i18n/web/')) direct.add('moodiary_editor');
     for (final e in dirs.entries) {
       if (f.startsWith('${e.value}/')) direct.add(e.key);
     }

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_lint/testing.dart';
 
 void main() {
-  final dir = Directory('$repoRoot/packages/foundation/moodiary_i18n/lib/i18n');
+  final dir = Directory('$repoRoot/i18n/flutter');
 
   bool isPlural(String key) =>
       key.contains('(plural') ||
