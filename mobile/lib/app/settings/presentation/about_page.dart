@@ -147,7 +147,7 @@ class _AboutPageState extends State<AboutPage> {
                       LucideIcons.chevronRight,
                       color: scheme.onSurfaceVariant,
                     ),
-                    onTap: () => _open('https://github.com/ZhuJHua/moodiary'),
+                    onTap: () => _open('https://github.com/MangataYu/selumn'),
                   ),
                   SettingListTile(
                     leading: Icon(
@@ -177,12 +177,12 @@ class _AboutPageState extends State<AboutPage> {
                       LucideIcons.chevronRight,
                       color: scheme.onSurfaceVariant,
                     ),
-                    onTap: () => _open('https://answer.moodiary.net'),
+                    onTap: () =>
+                        _open('https://github.com/MangataYu/selumn/issues'),
                   ),
                 ],
               ),
             ),
-            const _IcpFiling(),
           ],
         ),
       ),
@@ -239,18 +239,6 @@ class _LogoTitle extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _IcpFiling extends StatelessWidget {
-  const _IcpFiling();
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      '赣ICP备2022010939号-4A',
-      style: context.theme.typography.labelMedium.onSurfaceVariant,
     );
   }
 }

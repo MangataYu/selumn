@@ -3,7 +3,7 @@ name: "\U0001F4A1 新功能请求"
 about: 为项目提出一个想法
 title: "[Feature]"
 labels: enhancement
-assignees: ZhuJHua
+assignees: MangataYu
 
 ---
 
@@ -26,4 +26,3 @@ assignees: ZhuJHua
 ## 🗒️其他信息
 
 关于此功能的其他信息。
-

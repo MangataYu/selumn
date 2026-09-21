@@ -3,7 +3,7 @@ name: "\U0001F41B 异常报告"
 about: 创建报告以帮助我们改善
 title: "[BUG]"
 labels: bug
-assignees: ZhuJHua
+assignees: MangataYu
 
 ---
 
@@ -35,4 +35,3 @@ assignees: ZhuJHua
 ## 🗒️其他信息
 
 关于问题的其他信息。
-
