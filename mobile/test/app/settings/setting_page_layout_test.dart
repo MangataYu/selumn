@@ -6,6 +6,7 @@ import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/settings/presentation/diary_setting_page.dart';
 import 'package:moodiary_mobile/app/settings/presentation/setting_page.dart';
 import 'package:moodiary_mobile/app/settings/presentation/widget/theme_mode_dialog.dart';
+import 'package:moodiary_mobile/app/settings/setting_routes.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_preferences/moodiary_preferences.dart';
 import 'package:moodiary_router/moodiary_router.dart';
@@ -113,18 +114,17 @@ void main() {
   });
   tearDown(getIt.popScope);
 
-  testWidgets('设置保留六组独立背景和紧凑组间距，管理入口位于功能设置之后', (tester) async {
+  testWidgets('设置保留五组独立背景，导入导出和同步位于数据组', (tester) async {
     await _pumpPage(tester, const SettingPage(), height: 1200);
 
     expect(find.byType(SettingTitleTile), findsNothing);
-    expect(find.byType(MSliverSettingGroup), findsNWidgets(6));
-    expect(find.byType(DecoratedSliver), findsNWidgets(6));
+    expect(find.byType(MSliverSettingGroup), findsNWidgets(5));
+    expect(find.byType(DecoratedSliver), findsNWidgets(5));
     final groups = [
       (first: l10n.app.diarySettings, last: l10n.app.assistantEntry),
-      (first: l10n.diary.tagManagerTitle, last: l10n.app.syncBackup),
       (first: l10n.app.themeMode, last: l10n.app.fontStyle),
       (first: l10n.lock.title, last: l10n.app.backgroundPrivacy),
-      (first: l10n.app.repairTitle, last: l10n.app.cacheClear),
+      (first: l10n.export.pageTitle, last: l10n.app.cacheClear),
       (first: l10n.app.about, last: l10n.app.services),
     ];
     for (var i = 0; i < groups.length; i++) {
@@ -139,20 +139,29 @@ void main() {
     final diaryText = tester.widget<Text>(find.text(l10n.app.diarySettings));
     expect(diaryText.style?.fontSize, 16);
     expect(tester.getSize(_row(l10n.app.diarySettings)).height, 48);
-    final managementRows = [
+    for (final title in [
       l10n.diary.tagManagerTitle,
       l10n.app.placeManager,
       l10n.app.recycle,
+    ]) {
+      expect(_row(title), findsNothing);
+    }
+    final dataRows = [
       l10n.export.pageTitle,
       l10n.app.syncBackup,
+      l10n.app.repairTitle,
+      l10n.app.imageOptimizeTitle,
+      l10n.app.cacheClear,
     ];
-    for (var i = 0; i < managementRows.length; i++) {
-      expect(_row(managementRows[i]), findsOneWidget);
-      expect(tester.getSize(_row(managementRows[i])).height, 48);
+    for (var i = 0; i < dataRows.length; i++) {
+      expect(_row(dataRows[i]), findsOneWidget);
+      if (i < 2) {
+        expect(tester.getSize(_row(dataRows[i])).height, 48);
+      }
       if (i > 0) {
         expect(
-          tester.getTopLeft(_row(managementRows[i])).dy,
-          greaterThan(tester.getTopLeft(_row(managementRows[i - 1])).dy),
+          tester.getTopLeft(_row(dataRows[i])).dy,
+          greaterThan(tester.getTopLeft(_row(dataRows[i - 1])).dy),
         );
       }
     }
@@ -160,14 +169,14 @@ void main() {
   });
 
   testWidgets('常用地点数量随地点数据更新', (tester) async {
-    await _pumpPage(tester, const SettingPage());
+    await _pumpPage(tester, const DiarySettingPage());
     final places = _row(l10n.app.placeManager);
     expect(
       find.descendant(of: places, matching: find.text('2')),
       findsOneWidget,
     );
     final container = ProviderScope.containerOf(
-      tester.element(find.byType(SettingPage)),
+      tester.element(find.byType(DiarySettingPage)),
     );
     (container.read(placeControllerProvider.notifier) as _Places).clear();
     await tester.pumpAndSettle();
@@ -179,18 +188,38 @@ void main() {
   });
 
   for (final entry in [
-    (label: () => l10n.diary.tagManagerTitle, path: TagManagerRoute.path),
-    (label: () => l10n.app.placeManager, path: PlaceManagerRoute.path),
-    (label: () => l10n.app.recycle, path: RecycleRoute.path),
-    (label: () => l10n.export.pageTitle, path: ExportRoute.path),
-    (label: () => l10n.app.syncBackup, path: BackupSyncRoute.path),
+    (
+      label: () => l10n.diary.tagManagerTitle,
+      path: TagManagerRoute.path,
+      inDiary: true,
+    ),
+    (
+      label: () => l10n.app.placeManager,
+      path: PlaceManagerRoute.path,
+      inDiary: true,
+    ),
+    (label: () => l10n.app.recycle, path: RecycleRoute.path, inDiary: true),
+    (
+      label: () => l10n.export.pageTitle,
+      path: ExportRoute.path,
+      inDiary: false,
+    ),
+    (
+      label: () => l10n.app.syncBackup,
+      path: BackupSyncRoute.path,
+      inDiary: false,
+    ),
   ]) {
-    testWidgets('管理入口 ${entry.path} 导航到原路由且可返回设置', (tester) async {
+    testWidgets('入口 ${entry.path} 导航到原路由并逐层返回设置', (tester) async {
       final destinationKey = ValueKey(entry.path);
       await _pumpPage(
         tester,
         const SettingPage(),
         routes: [
+          GoRoute(
+            path: DiarySettingRoute.path,
+            builder: (_, _) => const DiarySettingPage(),
+          ),
           GoRoute(
             path: entry.path,
             builder: (_, _) => Scaffold(
@@ -200,6 +229,17 @@ void main() {
             ),
           ),
         ],
+      );
+      if (entry.inDiary) {
+        await tester.tap(_row(l10n.app.diarySettings));
+        await tester.pumpAndSettle();
+        expect(find.byType(DiarySettingPage), findsOneWidget);
+        expect(find.byType(SettingPage), findsNothing);
+      }
+      await tester.scrollUntilVisible(
+        _row(entry.label()),
+        160,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(_row(entry.label()));
       await tester.pumpAndSettle();
@@ -212,8 +252,15 @@ void main() {
       expect(backButton, findsOneWidget);
       await tester.tap(backButton);
       await tester.pumpAndSettle();
-      expect(find.byType(SettingPage), findsOneWidget);
       expect(_row(entry.label()), findsOneWidget);
+      if (entry.inDiary) {
+        expect(find.byType(DiarySettingPage), findsOneWidget);
+        expect(find.byType(SettingPage), findsNothing);
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(DiarySettingPage), findsNothing);
+      }
+      expect(find.byType(SettingPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -250,13 +297,7 @@ void main() {
     );
     expect(tester.takeException(), isNull);
 
-    for (final title in [
-      l10n.diary.tagManagerTitle,
-      l10n.app.placeManager,
-      l10n.app.recycle,
-      l10n.export.pageTitle,
-      l10n.app.syncBackup,
-    ]) {
+    for (final title in [l10n.export.pageTitle, l10n.app.syncBackup]) {
       await tester.scrollUntilVisible(
         _row(title),
         160,
@@ -277,15 +318,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('日记设置用两组块组织，编辑开关仍可直接点击', (tester) async {
+  testWidgets('日记设置追加管理组，编辑开关仍可直接点击', (tester) async {
     await _pumpPage(tester, const DiarySettingPage());
     expect(find.byType(SettingTitleTile), findsNothing);
-    expect(find.byType(MSliverSettingGroup), findsNWidgets(2));
-    expect(find.byType(DecoratedSliver), findsNWidgets(2));
+    expect(find.byType(MSliverSettingGroup), findsNWidgets(3));
+    expect(find.byType(DecoratedSliver), findsNWidgets(3));
+    final managementRows = [
+      l10n.diary.tagManagerTitle,
+      l10n.app.placeManager,
+      l10n.app.recycle,
+    ];
+    var previous = tester.getRect(_row(l10n.app.autoNearestPlace));
+    for (final title in managementRows) {
+      expect(_row(title), findsOneWidget);
+      final row = tester.getRect(_row(title));
+      expect(row.top, greaterThanOrEqualTo(previous.bottom));
+      expect(row.height, 48);
+      previous = row;
+    }
+    expect(_row(l10n.export.pageTitle), findsNothing);
+    expect(_row(l10n.app.syncBackup), findsNothing);
     final before = MoodiaryKVs.showWritingTime.get();
     await tester.tap(find.text(l10n.app.showWritingTime));
     await tester.pumpAndSettle();
     expect(MoodiaryKVs.showWritingTime.get(), !before!);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('320 宽两倍字号时日记管理入口可滚动到并命中点击区域', (tester) async {
+    await _pumpPage(
+      tester,
+      const DiarySettingPage(),
+      width: 320,
+      height: 560,
+      textScale: 2,
+    );
+    for (final title in [
+      l10n.diary.tagManagerTitle,
+      l10n.app.placeManager,
+      l10n.app.recycle,
+    ]) {
+      await tester.scrollUntilVisible(
+        _row(title),
+        160,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(_row(title).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
   });
 }
