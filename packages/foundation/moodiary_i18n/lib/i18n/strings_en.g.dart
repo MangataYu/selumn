@@ -230,6 +230,7 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get fontExists => 'That font is already installed';
 	@override String get routeErrorTitle => 'Page not found';
 	@override String get routeErrorBackHome => 'Back to home';
+	@override late final _Translations$app$welcomeDiary$en welcomeDiary = _Translations$app$welcomeDiary$en._(_root);
 }
 
 // Path: assistant
@@ -1427,4 +1428,43 @@ class _Translations$ui$en extends Translations$ui$zh {
 	@override String get videoPlayerBrightness => 'Brightness';
 	@override String get videoPlayerVolume => 'Volume';
 	@override String videoPlayerSpeedBoost({required Object speed}) => 'Playing at ${speed}×';
+}
+
+// Path: app.welcomeDiary
+class _Translations$app$welcomeDiary$en extends Translations$app$welcomeDiary$zh {
+	_Translations$app$welcomeDiary$en._(TranslationsEn root) : this._root = root, super.internal(root);
+
+	final TranslationsEn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Welcome to Selume · Your first entry';
+	@override String get intro => 'Hello! This entry is a short guide and a space you can freely edit. You do not need to write a lot every day: a small moment, a feeling, or a photo is worth keeping. The text and image below are real examples of what the editor can do.';
+	@override String get writingHeading => '1. Give your words some rhythm';
+	@override String get writingInstructions => 'Tap the edit button at the top right to change this entry. Select text and use the toolbar to make it bold or italic. The heading button offers normal text and three heading levels. Scroll the toolbar sideways to find lists, block quotes, and tables.';
+	@override String get boldExample => 'Make a moment worth remembering stand out.';
+	@override String get italicExample => 'Leave a little room for quieter feelings, too.';
+	@override String get quoteExample => 'Every day does not have to be remarkable. An honest record is enough.';
+	@override String get syntaxInstructions => 'Prefer typing? At the start of a line, type ##, -, or > followed by a space to create a heading, a list, or a block quote. Here are some examples:';
+	@override String get syntaxExample => '## An afternoon moment\n- Have a cup of tea\n> It is all right to take your time';
+	@override String get tagsHeading => '2. Connect your days with tags';
+	@override String get tagsInstructions => 'Type #Getting-started/Example in the body, then press Space or Enter to create a tag. You can also tap + in the tag row below the title. A slash creates a hierarchy: Example sits inside Getting-started. Try tapping this tag:';
+	@override String get exampleTag => 'Getting-started/Example';
+	@override String get tagsNavigation => 'Tap a tag in the body to return to the home page with matching entries, or choose a tag from the home sidebar. Hashes in headings and code stay as text and do not create tags automatically.';
+	@override String get imagesHeading => '3. Keep photos beside your words';
+	@override String get imagesInstructions => 'While editing, tap the image button in the toolbar to choose a photo from your device. Images can sit between paragraphs. Tap an image to view it larger, or use its size button to adjust the display width.';
+	@override String get imageAlt => 'A peaceful afternoon with a cup of tea and a blank notebook beside a window';
+	@override String get imageCaption => 'A peaceful afternoon with a cup of tea and a blank notebook beside a window. This is an artificially generated example image; you can replace it with your own photo.';
+	@override String get linksHeading => '4. Refer to another entry';
+	@override String get linksCreate => 'First, create another entry about a moment from today. Then return here and start editing.';
+	@override String get linksInsert => 'Tap the diary link button in the toolbar, or type [[, then enter a keyword from that entry\'s title or body and choose a result.';
+	@override String get linksExplore => 'Tap the inserted link to open the entry. Outgoing links and backlinks appear below the body, making it easy to revisit connected memories.';
+	@override String get detailsHeading => '5. Add the day\'s details';
+	@override String get detailsMood => 'While editing, adjust the date, time, and mood below the title to capture how the day felt.';
+	@override String get detailsTools => 'The toolbar also supports task lists, audio, and video. For longer entries, use the outline button to jump between headings.';
+	@override String get tryHeading => '6. Now it is your turn';
+	@override String get taskRead => 'Read this introductory example';
+	@override String get taskWrite => 'Write down one thing you want to remember about today';
+	@override String get taskPhoto => 'Add a photo of your own and a tag';
+	@override String get saving => 'Changes save automatically while you edit, and the save status appears at the top. Tap the checkmark at the top right to save and return to reading. You can rewrite this example or delete it like any other entry.';
+	@override String get closing => 'There is no need to learn every feature at once. Start with one sentence and leave the rest for the days ahead.';
 }

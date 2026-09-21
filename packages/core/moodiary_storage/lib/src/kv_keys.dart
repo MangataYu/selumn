@@ -5,6 +5,8 @@ enum MoodiaryKVs<T extends Object> {
   appVersion<String>(),
   firstStart<bool>(defaultValue: true),
 
+  welcomeDiaryState<String>(),
+
   searchIndexBackfilled<bool>(defaultValue: false),
 
   dbEngineMigrated<bool>(defaultValue: false),

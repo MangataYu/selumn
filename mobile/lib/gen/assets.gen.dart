@@ -16,6 +16,9 @@ class $ResGen {
 
   /// Directory path: res/sponsor
   $ResSponsorGen get sponsor => const $ResSponsorGen();
+
+  /// Directory path: res/welcome
+  $ResWelcomeGen get welcome => const $ResWelcomeGen();
 }
 
 class $ResSponsorGen {
@@ -26,6 +29,17 @@ class $ResSponsorGen {
 
   /// List of all assets
   List<AssetGenImage> get values => [wechat];
+}
+
+class $ResWelcomeGen {
+  const $ResWelcomeGen();
+
+  /// File path: res/welcome/first-page.jpg
+  AssetGenImage get firstPage =>
+      const AssetGenImage('res/welcome/first-page.jpg');
+
+  /// List of all assets
+  List<AssetGenImage> get values => [firstPage];
 }
 
 abstract final class Assets {

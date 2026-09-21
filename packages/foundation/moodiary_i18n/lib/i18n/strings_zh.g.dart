@@ -582,6 +582,8 @@ class Translations$app$zh {
 
 	/// zh: '返回首页'
 	String get routeErrorBackHome => '返回首页';
+
+	late final Translations$app$welcomeDiary$zh welcomeDiary = Translations$app$welcomeDiary$zh.internal(_root);
 }
 
 // Path: assistant
@@ -3947,4 +3949,103 @@ class Translations$ui$zh {
 
 	/// zh: '{speed: String}× 倍速播放中'
 	String videoPlayerSpeedBoost({required String speed}) => '${speed}× 倍速播放中';
+}
+
+// Path: app.welcomeDiary
+class Translations$app$welcomeDiary$zh {
+	Translations$app$welcomeDiary$zh.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// zh: '欢迎来到 Selume · 你的第一篇日记'
+	String get title => '欢迎来到 Selume · 你的第一篇日记';
+
+	/// zh: '你好，这是为你准备的一篇说明日记，也是一块可以随意修改的练习地。不必每天写很多：一件小事、一种心情、一张照片，都值得留下。下面的文字和图片，就是编辑器里真实可用的样例。'
+	String get intro => '你好，这是为你准备的一篇说明日记，也是一块可以随意修改的练习地。不必每天写很多：一件小事、一种心情、一张照片，都值得留下。下面的文字和图片，就是编辑器里真实可用的样例。';
+
+	/// zh: '一、让文字有自己的节奏'
+	String get writingHeading => '一、让文字有自己的节奏';
+
+	/// zh: '点击右上角的编辑按钮，便能修改这篇日记。选中文字后，用工具栏设置加粗或斜体；点击标题按钮，可选择正文或一至三级标题。横向滑动工具栏，还能找到列表、引用和表格。'
+	String get writingInstructions => '点击右上角的编辑按钮，便能修改这篇日记。选中文字后，用工具栏设置加粗或斜体；点击标题按钮，可选择正文或一至三级标题。横向滑动工具栏，还能找到列表、引用和表格。';
+
+	/// zh: '把值得记住的瞬间加粗。'
+	String get boldExample => '把值得记住的瞬间加粗。';
+
+	/// zh: '也给细小的感受留一点位置。'
+	String get italicExample => '也给细小的感受留一点位置。';
+
+	/// zh: '不必把每一天写得精彩，只要诚实地记下它。'
+	String get quoteExample => '不必把每一天写得精彩，只要诚实地记下它。';
+
+	/// zh: '喜欢键盘输入的话，也可以在行首输入 ##、- 或 > 后按空格，快速变成标题、列表或引用。下面是语法示例：'
+	String get syntaxInstructions => '喜欢键盘输入的话，也可以在行首输入 ##、- 或 > 后按空格，快速变成标题、列表或引用。下面是语法示例：';
+
+	/// zh: '## 午后的小事 - 喝一杯热茶 > 慢慢来，也很好'
+	String get syntaxExample => '## 午后的小事\n- 喝一杯热茶\n> 慢慢来，也很好';
+
+	/// zh: '二、用标签把日子串起来'
+	String get tagsHeading => '二、用标签把日子串起来';
+
+	/// zh: '在正文输入 #入门/样例，再按空格或回车，就会生成标签；也可以点击标题下标签行的 + 添加。斜杠表示层级，例如“入门”下面的“样例”。这枚标签可以直接试着点击：'
+	String get tagsInstructions => '在正文输入 #入门/样例，再按空格或回车，就会生成标签；也可以点击标题下标签行的 + 添加。斜杠表示层级，例如“入门”下面的“样例”。这枚标签可以直接试着点击：';
+
+	/// zh: '入门/样例'
+	String get exampleTag => '入门/样例';
+
+	/// zh: '点击正文标签会回到首页，筛选相关日记；也可以从首页侧栏选择标签。标题和代码里的 # 只是文字，不会自动添加标签。'
+	String get tagsNavigation => '点击正文标签会回到首页，筛选相关日记；也可以从首页侧栏选择标签。标题和代码里的 # 只是文字，不会自动添加标签。';
+
+	/// zh: '三、让照片留在文字旁边'
+	String get imagesHeading => '三、让照片留在文字旁边';
+
+	/// zh: '编辑时，点击工具栏的图片按钮，从设备选取照片。图片可以穿插在段落之间；点击图片可放大查看，图片尺寸按钮能调整显示宽度。'
+	String get imagesInstructions => '编辑时，点击工具栏的图片按钮，从设备选取照片。图片可以穿插在段落之间；点击图片可放大查看，图片尺寸按钮能调整显示宽度。';
+
+	/// zh: '宁静午后，窗边的茶杯与一本无字笔记本'
+	String get imageAlt => '宁静午后，窗边的茶杯与一本无字笔记本';
+
+	/// zh: '窗边茶杯与无字笔记本的宁静午后。这是一张人工生成的示例图，你可以把它替换成自己的照片。'
+	String get imageCaption => '窗边茶杯与无字笔记本的宁静午后。这是一张人工生成的示例图，你可以把它替换成自己的照片。';
+
+	/// zh: '四、引用另一篇日记'
+	String get linksHeading => '四、引用另一篇日记';
+
+	/// zh: '先新建一篇日记，写下今天的小事，再回到这里编辑。'
+	String get linksCreate => '先新建一篇日记，写下今天的小事，再回到这里编辑。';
+
+	/// zh: '点击工具栏的日记链接按钮，或输入 [[，接着输入那篇日记的标题或正文关键词，从候选中选择。'
+	String get linksInsert => '点击工具栏的日记链接按钮，或输入 [[，接着输入那篇日记的标题或正文关键词，从候选中选择。';
+
+	/// zh: '插入后，点击链接即可打开目标日记；正文下方还会显示引用与被引用，方便来回回顾。'
+	String get linksExplore => '插入后，点击链接即可打开目标日记；正文下方还会显示引用与被引用，方便来回回顾。';
+
+	/// zh: '五、补上当天的细节'
+	String get detailsHeading => '五、补上当天的细节';
+
+	/// zh: '编辑时可在标题下调整日期、时间与心情，让回忆带上当天的感受。'
+	String get detailsMood => '编辑时可在标题下调整日期、时间与心情，让回忆带上当天的感受。';
+
+	/// zh: '工具栏还支持任务列表、音频与视频；长日记可以用目录按钮按标题跳转。'
+	String get detailsTools => '工具栏还支持任务列表、音频与视频；长日记可以用目录按钮按标题跳转。';
+
+	/// zh: '六、现在轮到你了'
+	String get tryHeading => '六、现在轮到你了';
+
+	/// zh: '读完这篇入门样例'
+	String get taskRead => '读完这篇入门样例';
+
+	/// zh: '写下今天最想记住的一件事'
+	String get taskWrite => '写下今天最想记住的一件事';
+
+	/// zh: '放入一张自己的照片，添加一个标签'
+	String get taskPhoto => '放入一张自己的照片，添加一个标签';
+
+	/// zh: '编辑时会自动保存，顶部会显示保存状态；点击右上角的对勾可保存并回到阅读状态。可以直接改写这篇样例，也可以像普通日记一样删除它。'
+	String get saving => '编辑时会自动保存，顶部会显示保存状态；点击右上角的对勾可保存并回到阅读状态。可以直接改写这篇样例，也可以像普通日记一样删除它。';
+
+	/// zh: '不用一次学会所有功能。先写下第一句话，剩下的，留给以后的日子。'
+	String get closing => '不用一次学会所有功能。先写下第一句话，剩下的，留给以后的日子。';
 }

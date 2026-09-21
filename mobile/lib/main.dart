@@ -12,6 +12,7 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/moodiary_editor.dart'
     show EditorMigrationService;
 import 'package:moodiary_export/moodiary_export.dart' show showDiaryShareSheet;
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_migration/moodiary_migration.dart';
@@ -22,6 +23,7 @@ import 'package:moodiary_mobile/app/licenses.dart';
 import 'package:moodiary_mobile/app/lifecycle/app_lock_observer.dart';
 import 'package:moodiary_mobile/app/locale.dart';
 import 'package:moodiary_mobile/app/router/router.dart';
+import 'package:moodiary_mobile/app/welcome/welcome_diary_seeder.dart';
 import 'package:moodiary_preferences/moodiary_preferences.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_sync/moodiary_sync.dart';
@@ -32,10 +34,26 @@ Future<void> _initSystem() async {
   await FastImageRuntime.init();
 
   await bootstrapPlatform();
+  final hadDatabase = await File(
+    AppFiles.getRealPath('database', 'moodiary.db'),
+  ).exists();
   await configureDependencies();
   await AppLockPin.load();
 
   await getIt<DiaryRepository>().migrateLegacyCategoriesToTags();
+
+  final welcomeDiary = WelcomeDiarySeeder(
+    repository: getIt<DiaryRepository>(),
+    storage: getIt<IKVStorage>(),
+    imageDirectory: Directory(AppFiles.imageDir),
+  );
+  welcomeDiary.prepare(
+    hadDatabase: hadDatabase,
+    hasLegacyDatabase: await File(
+      AppFiles.getRealPath('database', EngineMigrationService.legacyFileName),
+    ).exists(),
+    legacyMigrationPending: MmkvKVStorage.legacyMigrationPending,
+  );
 
   try {
     await VersionMigrator.run();
@@ -67,16 +85,22 @@ Future<void> _initSystem() async {
     try {
       await setupPluralResolvers();
       await applyStoredLanguage();
+      return true;
     } catch (e, s) {
       logger.e('locale init failed, staying on base', error: e, stackTrace: s);
+      return false;
     }
   }();
   final migrationGateFuture = () async {
     try {
       await EngineMigrationService.refresh();
       await EditorMigrationService.refreshRequiresMigration();
+      return !MmkvKVStorage.legacyMigrationPending &&
+          !EngineMigrationService.requiresMigration &&
+          !EditorMigrationService.requiresMigration;
     } catch (e, s) {
       logger.e('migration gate probe failed', error: e, stackTrace: s);
+      return false;
     }
   }();
   final syncBackendFuture = () async {
@@ -91,10 +115,17 @@ Future<void> _initSystem() async {
   if (getIt<MoodiaryDatabase>().upgradedFrom != null) {
     MoodiaryKVs.syncPendingLocal.set(true);
   }
+  await Future.wait([themeFuture, localeFuture, migrationGateFuture]);
+  try {
+    if (await localeFuture) {
+      await welcomeDiary.seed(migrationReady: await migrationGateFuture);
+    }
+  } catch (e, s) {
+    logger.e('welcome diary creation failed', error: e, stackTrace: s);
+  }
   getIt<AutoSyncWatcher>().start();
   DiaryShare.register(showDiaryShareSheet);
   runStartupMaintenance();
-  await Future.wait([themeFuture, localeFuture, migrationGateFuture]);
 
   SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(

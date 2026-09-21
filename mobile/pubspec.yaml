@@ -73,6 +73,7 @@ dev_dependencies:
 flutter:
   assets:
     - res/sponsor/
+    - res/welcome/first-page.jpg
     # ignore: asset_directory_does_not_exist
     - assets/licenses/
 
