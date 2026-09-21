@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_lint/testing.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:sqlite3_simple/sqlite3_simple.dart';
 
@@ -211,8 +212,8 @@ void main() {
       final snapshot = jsonDecode(
         await File(
           personal
-              ? 'test/fixtures/personal_v3/drift_schema_v3.json'
-              : 'drift_schemas/moodiary/drift_schema_v3.json',
+              ? '$repoRoot/packages/feature_base/moodiary_data/test/fixtures/personal_v3/drift_schema_v3.json'
+              : '$repoRoot/packages/feature_base/moodiary_data/drift_schemas/moodiary/drift_schema_v3.json',
         ).readAsString(),
       ) as Map<String, dynamic>;
       final existingTriggers = raw
@@ -347,6 +348,19 @@ void main() {
     expect(await PlaceRepository(db).getAllPlaces(), hasLength(1));
     expect(await columns(db, 'diaries'), isNot(contains('latitude')));
     await db.close();
+  });
+
+  group('逐档迁移', () {
+    const versions = GeneratedHelper.versions;
+    for (var i = 0; i + 1 < versions.length; i++) {
+      final (from, to) = (versions[i], versions[i + 1]);
+      test('v$from → v$to 落在下一档快照上', () async {
+        final schema = await verifier.schemaAt(from);
+        final db = MoodiaryDatabase.forTesting(schema.newConnection());
+        await verifier.migrateAndValidate(db, to);
+        await db.close();
+      });
+    }
   });
 
   test('v4 升级保留旧日记并为空的标签迁移排除列表赋默认值', () async {

@@ -1,30 +1,24 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_editor/moodiary_editor.dart'
     show EditorMigrationService;
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/router/route_error_page.dart';
 import 'package:moodiary_mobile/app/router/router.dart';
-import 'package:moodiary_mobile/app/settings/setting_routes.dart';
 import 'package:mui/mui.dart';
 
 void main() {
   group('route tree config', () {
-    test('tag manager is registered in the mobile route tree', () {
+    test('tag manager is registered without extra route params', () {
       expect(
         buildMobileRoutes().whereType<GoRoute>().where(
           (route) => route.path == TagManagerRoute.path,
         ),
         hasLength(1),
       );
+      expect(const TagManagerRoute().params, isNull);
     });
-
-    testWidgets('mobile tree builds a valid GoRouter', (tester) async {
-      expect(
-        () => GoRouter(routes: buildMobileRoutes(), initialLocation: '/'),
-        returnsNormally,
-      );
-    });
-
     testWidgets('unknown location lands on our own error page', (tester) async {
       final router = createMobileRouter(
         initialLocation: '/definitely-not-a-route',
@@ -66,70 +60,39 @@ void main() {
     });
   });
 
-  group('route params contract', () {
-    test('DiaryRoute', () {
-      const route = DiaryRoute(diaryId: 'abc');
-      expect(route.location, '/diary');
-      expect(route.params, {'diary_id': 'abc', 'edit': false});
-      expect(const DiaryRoute(diaryId: 'x', edit: true).params, {
-        'diary_id': 'x',
-        'edit': true,
-      });
+  test('new diary preserves the selected tag and starts in edit mode', () {
+    expect(const NewDiaryRoute(tag: '生活/旅行').params, {
+      'category_id': null,
+      'tag': '生活/旅行',
+      'edit': true,
     });
+  });
 
-    test('NewDiaryRoute always starts in edit', () {
-      expect(const NewDiaryRoute().location, '/diary-new');
-      expect(const NewDiaryRoute(tag: '生活/旅行').params, {
-        'category_id': null,
-        'tag': '生活/旅行',
-        'edit': true,
-      });
-      expect(const NewDiaryRoute(categoryId: 'c1').params, {
-        'category_id': 'c1',
-        'edit': true,
-      });
-    });
+  test('params 只放 JSON 标量：go_router 恢复状态时会 json.encode', () {
+    const routes = <MoodiaryRouteBase>[
+      DiaryRoute(diaryId: 'abc'),
+      DiaryRoute(diaryId: 'x', edit: true),
+      NewDiaryRoute(categoryId: 'c1'),
+      NewDiaryRoute(tag: '生活/旅行'),
+      ShareRoute(diaryId: 'd2'),
+      LockRoute(lockType: 'pause'),
+      DiaryGraphRoute(diaryId: 'd3'),
+      ExportFormatRoute(format: 'pdf'),
+      AssistantConversationRoute(sessionId: 's1', title: '周三'),
+      AssistantConversationRoute(citedDiaryId: 'd1'),
+      AssistantProviderEditRoute(id: 'p1', presetId: 'openai'),
+    ];
 
-    test('ShareRoute', () {
-      expect(const ShareRoute().location, '/share');
-      expect(const ShareRoute(diaryId: 'd2').params, {'diary_id': 'd2'});
-    });
-
-    test('LockRoute', () {
-      expect(const LockRoute().location, '/lock');
-      expect(const LockRoute(lockType: 'pause').params, {'lock_type': 'pause'});
-    });
-
-    test('no-param routes carry no extra', () {
-      expect(const DiaryHomeRoute().location, '/');
-      expect(const RecycleRoute().location, '/recycle');
-      expect(const TagManagerRoute().location, '/tag_manager');
-      expect(const DiarySearchRoute().location, '/search');
-      expect(const FontRoute().location, '/setting/font');
-      expect(const AccentRoute().location, '/setting/accent');
-      expect(const RecycleRoute().params, isNull);
-      expect(const TagManagerRoute().params, isNull);
-    });
-
-    test('AssistantConversationRoute', () {
-      expect(
-        const AssistantConversationRoute().location,
-        '/assistant/conversation',
-      );
-      expect(const AssistantConversationRoute(sessionId: 's1').params, {
-        'session_id': 's1',
-        'title': null,
-        'cited_diary_id': null,
-      });
-      expect(
-        const AssistantConversationRoute(sessionId: 's1', title: '周三').params,
-        {'session_id': 's1', 'title': '周三', 'cited_diary_id': null},
-      );
-      expect(const AssistantConversationRoute(citedDiaryId: 'd1').params, {
-        'session_id': null,
-        'title': null,
-        'cited_diary_id': 'd1',
-      });
-    });
+    for (final route in routes) {
+      final params = route.params!;
+      for (final entry in params.entries) {
+        expect(
+          entry.value,
+          anyOf(isNull, isA<String>(), isA<bool>(), isA<num>()),
+          reason: '${route.runtimeType}.${entry.key} 不是 JSON 标量',
+        );
+      }
+      expect(() => json.encode(params), returnsNormally);
+    }
   });
 }

@@ -35,6 +35,8 @@ final class FakeRemoteBackend implements IRemoteSyncBackend {
 
   bool conditionalPutHonored = true;
 
+  bool conditionalPutSupported = true;
+
   static const String _mtime = '2026-01-01T00:00:00.000Z';
 
   @override
@@ -101,12 +103,13 @@ final class FakeRemoteBackend implements IRemoteSyncBackend {
   }
 
   @override
-  Future<bool> tryCreateExclusive(String key, Uint8List bytes) async {
+  Future<ExclusiveCreate> tryCreateExclusive(String key, Uint8List bytes) async {
     ops.add('create $key');
     beforeOp?.call('create', key);
-    if (objects.containsKey(key) && conditionalPutHonored) return false;
+    if (!conditionalPutSupported) return .unsupported;
+    if (objects.containsKey(key) && conditionalPutHonored) return .exists;
     objects[key] = bytes;
-    return true;
+    return .created;
   }
 
   @override
@@ -441,7 +444,7 @@ setUpSyncEnv() async {
   final secure = MemorySecureKVStorage();
   getIt.registerSingleton<IKVStorage>(kv);
   getIt.registerSingleton<ISecureKVStorage>(secure);
-  final logger = await SyncLogger.create();
+  final logger = SyncLogger.memory();
   getIt.registerSingleton<SyncLogger>(logger);
   getIt.registerLazySingleton<SecureOptions>(
     () => SecureOptions(.webDavOption),
@@ -467,12 +470,14 @@ setUpSyncEnv() async {
   getIt.registerSingleton<SyncCancellation>(SyncCancellation());
   MoodiaryKVs.syncDeviceId.set('test-device');
   RemoteLease.resetCasProbeCache();
+  RemoteLease.readbackSettleDelay = Duration.zero;
   SyncKeyManager.resetForTest();
   return (kv: kv, secure: secure, logger: logger);
 }
 
 Future<void> tearDownSyncEnv() async {
   RemoteLease.resetCasProbeCache();
+  RemoteLease.readbackSettleDelay = null;
   SyncKeyManager.resetForTest();
   await getIt.reset();
 }

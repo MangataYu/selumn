@@ -310,10 +310,11 @@ void main() {
     addTearDown(t.view.reset);
 
     const long = '夏天的第一杯冰美式与午后的碎碎念';
-    for (final images in [
-      const <String>[],
-      const ['1.jpg'],
-      const ['1.jpg', '2.jpg', '3.jpg'],
+    for (final (images, scale) in [
+      (const <String>[], 1.0),
+      (const ['1.jpg'], 1.0),
+      (const ['1.jpg', '2.jpg', '3.jpg'], 1.0),
+      (const ['1.jpg'], 1.3),
     ]) {
       await t.pumpWidget(
         wrap(
@@ -325,9 +326,14 @@ void main() {
             ),
             place: place(),
           ),
+          textScaler: TextScaler.linear(scale),
         ),
       );
-      expect(t.takeException(), isNull, reason: '图片数=${images.length}');
+      expect(
+        t.takeException(),
+        isNull,
+        reason: '图片数=${images.length} 字号=$scale',
+      );
     }
   });
 

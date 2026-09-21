@@ -8,8 +8,6 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
-import 'package:moodiary_logging/moodiary_logging.dart';
-import 'package:moodiary_ml/moodiary_ml.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -17,7 +15,6 @@ import 'package:moodiary_utils/moodiary_utils.dart';
 
 import '../../application/diary_filter.dart';
 import '../../application/diary_selection.dart';
-import '../../application/mood_suggester.dart';
 import '../place/place_editor.dart';
 import 'hop_history.dart';
 
@@ -60,16 +57,12 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
 
   bool _dirty = false;
 
-  bool _moodTouched = false;
-
   bool _autoFillTried = false;
 
   bool _weatherTouched = false;
   bool _placeTouched = false;
 
   LatLng? _fix;
-
-  String? _suggestedForContent;
 
   Timer? _autoSaveTimer;
 
@@ -314,26 +307,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     if (!mounted) return;
     setState(() => _saveStatus = ok ? 'saved' : 'failed');
     if (ok) {
-      unawaited(_maybeSuggestMood());
       unawaited(_maybeAutoFill());
-    }
-  }
-
-  Future<void> _maybeSuggestMood() async {
-    if (_moodTouched || widget.diaryId != null) return;
-    final engine = getIt<MoodLlmEngine>();
-    if (!engine.ready) return;
-    final text = ref.read(_provider).value?.contentText.trim() ?? '';
-    if (text.isEmpty || text == _suggestedForContent) return;
-    _suggestedForContent = text;
-    try {
-      final mood = await suggestMood(engine, text);
-      if (!mounted || _moodTouched) return;
-      ref.read(_provider.notifier).changeMood(mood);
-      _dirty = true;
-      _scheduleAutoSave();
-    } catch (e, s) {
-      logger.e('suggest mood failed', error: e, stackTrace: s);
     }
   }
 
@@ -410,7 +384,6 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
   }
 
   void _onChangeMood(DiaryMood mood) {
-    _moodTouched = true;
     ref.read(_provider.notifier).changeMood(mood);
     _dirty = true;
     _scheduleAutoSave();

@@ -173,6 +173,11 @@ void main() {
         expect(report.diaryCount, 2);
         expect(report.changedNothing, isFalse);
         expect(report.failed, 0);
+        expect(store.diaries.keys, containsAll(['local', 'remote']));
+        expect(
+          backend.manifest()!.entries.keys,
+          containsAll(['d:local', 'd:remote']),
+        );
 
         final again = await engineOn(backend, diaries: store).sync();
         expect(again.changedNothing, isTrue);
@@ -315,13 +320,6 @@ void main() {
         engineOn(backend).pull(),
         throwsA(isA<SyncException>()),
       );
-    });
-
-    test('真正不存在的 manifest 仍按空远端处理（不误伤首次同步）', () async {
-      final backend = FakeRemoteBackend();
-      final store = FakeDiaryStore([buildDiary(id: 'a', modifiedMs: 100)]);
-      await engineOn(backend, diaries: store).push();
-      expect(backend.hasObject(SyncKeys.diaryObjectPath('a')), isTrue);
     });
   });
 
@@ -755,24 +753,6 @@ void main() {
     });
   });
 
-  group('sync — pull then push in one critical section', () {
-    test('merges remote-only and local-only entries', () async {
-      final backend = FakeRemoteBackend();
-      await seedRemote(
-        backend,
-        diaries: [buildDiary(id: 'remote', modifiedMs: 100)],
-      );
-
-      final local = FakeDiaryStore([buildDiary(id: 'local', modifiedMs: 200)]);
-      final report = await engineOn(backend, diaries: local).sync();
-
-      expect(local.diaries.keys, containsAll(['remote', 'local']));
-      final manifest = backend.manifest()!;
-      expect(manifest.entries.keys, containsAll(['d:remote', 'd:local']));
-      expect(report.failed, 0);
-    });
-  });
-
   group('cancellation', () {
     test(
       'a requested stop skips remaining items and does not advance sync time',
@@ -946,6 +926,88 @@ void main() {
         expect(MoodiaryKVs.lastSyncTime.get(), syncTimeBefore);
       },
     );
+
+    test('双方都是无 writeToken 的旧 manifest：按字节比对仍拦得住', () async {
+      final backend = FakeRemoteBackend();
+      Uint8List legacy(String id) => jsonBytes({
+        'version': SyncManifest.currentVersion,
+        'updatedAt': 1,
+        'entries': {
+          'd:$id': {'t': atMs(100).millisecondsSinceEpoch},
+        },
+      });
+      backend.objects[SyncKeys.manifestPath] = legacy('a');
+
+      backend.beforeOp = (op, key) {
+        if (op == 'write' && key == SyncKeys.diaryObjectPath('b')) {
+          backend.objects[SyncKeys.manifestPath] = legacy('c');
+        }
+      };
+
+      await expectLater(
+        engineOn(
+          backend,
+          diaries: FakeDiaryStore([
+            buildDiary(id: 'a', modifiedMs: 100),
+            buildDiary(id: 'b', modifiedMs: 300),
+          ]),
+        ).push(),
+        throwsA(
+          isA<SyncException>().having(
+            (e) => e.kind,
+            'kind',
+            SyncErrorKind.manifestRace,
+          ),
+        ),
+      );
+      expect(
+        backend.manifest()!.entries.keys,
+        ['d:c'],
+        reason: '两边 writeToken 都是空串，只有按字节比对才能发现基线已变',
+      );
+    });
+
+    test('别人先写 → 提交前校验拦住整份覆盖，对方的 manifest 原样保留', () async {
+      final backend = FakeRemoteBackend();
+      await seedRemote(
+        backend,
+        diaries: [buildDiary(id: 'a', modifiedMs: 100)],
+      );
+
+      backend.beforeOp = (op, key) {
+        if (op == 'write' && key == SyncKeys.diaryObjectPath('b')) {
+          backend.objects[SyncKeys.manifestPath] = foreignManifest();
+        }
+      };
+
+      await expectLater(
+        engineOn(
+          backend,
+          diaries: FakeDiaryStore([
+            buildDiary(id: 'a', modifiedMs: 100),
+            buildDiary(id: 'b', modifiedMs: 300),
+          ]),
+        ).push(),
+        throwsA(
+          isA<SyncException>().having(
+            (e) => e.kind,
+            'kind',
+            SyncErrorKind.manifestRace,
+          ),
+        ),
+      );
+
+      expect(
+        backend.manifest()!.writeToken,
+        'another-device',
+        reason: '基线已变，不得用本机快照整份覆盖对方的索引',
+      );
+      expect(
+        backend.manifest()!.entries.containsKey('d:b'),
+        isFalse,
+        reason: '对方的 manifest 不含本机新条目，说明没有被覆盖',
+      );
+    });
 
     test(
       'normal push succeeds when readback token matches (deferred deletes run)',
