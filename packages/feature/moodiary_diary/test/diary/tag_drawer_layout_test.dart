@@ -12,6 +12,8 @@ import 'package:mui/mui.dart';
 
 import '../support/pump.dart';
 
+const _searchableTags = ['a/b/c', 'a/z', 'reading', 'work', 'exercise', 'life'];
+
 Widget _drawer({
   TextScaler textScaler = TextScaler.noScaling,
   Widget? navigation,
@@ -107,12 +109,15 @@ void main() {
   }
 
   testWidgets(
-    'counts align across every row and arrows reach the drawer edge',
+    'counts align across every row and arrows align with the search icon',
     (tester) async {
       var filterPicks = 0;
       await pumpDrawer(
         tester,
-        child: _drawer(onFilterSelected: () => filterPicks++),
+        child: _drawer(
+          tags: _searchableTags,
+          onFilterSelected: () => filterPicks++,
+        ),
       );
       final container = ProviderScope.containerOf(
         tester.element(find.byType(TagDrawer)),
@@ -131,12 +136,13 @@ void main() {
       }
 
       final drawerRight = tester.getRect(find.byType(Drawer)).right;
+      final searchCenter = tester.getCenter(find.byIcon(LucideIcons.search)).dx;
       for (final path in ['a', 'a/b']) {
         final button = find.byKey(ValueKey('tag-expand:$path'));
         final icon = find.descendant(of: button, matching: find.byType(Icon));
         expect(tester.getSize(button), const Size(40, 40));
         expect(tester.getRect(button).right, closeTo(drawerRight - 8, 0.01));
-        expect(tester.getRect(icon).right, closeTo(drawerRight - 8, 0.01));
+        expect(tester.getCenter(icon).dx, closeTo(searchCenter, 0.01));
       }
 
       // The part of the button outside the icon must toggle without selecting.
@@ -145,6 +151,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(_row('a/b'), findsNothing);
       expect(_row('a'), findsOneWidget);
+      expect(
+        tester.getCenter(find.byIcon(LucideIcons.chevronRight)).dx,
+        closeTo(searchCenter, 0.01),
+      );
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], ['a/b']);
       expect(filterPicks, 0);
       expect(
@@ -189,11 +199,13 @@ void main() {
   testWidgets(
     'resize preserves guides, aligned counts and large-text targets',
     (tester) async {
-      await pumpDrawer(tester);
+      await pumpDrawer(tester, child: _drawer(tags: _searchableTags));
       for (final path in ['a', 'a/b', 'a/b/c', 'a/z', 'reading']) {
         expect(tester.getSize(_row(path)).height, 40);
       }
-      await tester.pumpWidget(_drawer(textScaler: const TextScaler.linear(2)));
+      await tester.pumpWidget(
+        _drawer(tags: _searchableTags, textScaler: const TextScaler.linear(2)),
+      );
       await tester.pumpAndSettle();
       double previousInset = 0;
       for (final width in <double>[320, 390, 768]) {
@@ -218,9 +230,11 @@ void main() {
         expect(tester.getRect(_row('reading')).height, greaterThan(40));
         expect(
           tester
-              .getRect(find.descendant(of: button, matching: find.byType(Icon)))
-              .right,
-          closeTo(tester.getRect(find.byType(Drawer)).right - 8, 0.01),
+              .getCenter(
+                find.descendant(of: button, matching: find.byType(Icon)),
+              )
+              .dx,
+          closeTo(tester.getCenter(find.byIcon(LucideIcons.search)).dx, 0.01),
         );
       }
       await tester.tap(find.byKey(const ValueKey('tag-expand:a')));

@@ -208,7 +208,6 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                   tooltip: expanded
                       ? localizations.expandedIconTapHint
                       : localizations.collapsedIconTapHint,
-                  alignment: .centerRight,
                   padding: EdgeInsets.zero,
                   style: compactButtonStyle,
                   icon: Icon(
