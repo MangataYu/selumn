@@ -3,6 +3,7 @@ import 'package:moodiary_storage/moodiary_storage.dart';
 
 enum MoodiaryKVs<T extends Object> {
   appVersion<String>(),
+  legacyMigrationVersion<String>(),
   firstStart<bool>(defaultValue: true),
 
   welcomeDiaryState<String>(),

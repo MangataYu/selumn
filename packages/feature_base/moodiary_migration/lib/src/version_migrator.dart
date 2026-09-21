@@ -17,16 +17,32 @@ import 'package:pub_semver/pub_semver.dart';
 final _schemas = legacy.legacyMigrationSchemas;
 
 class VersionMigrator {
+  // Legacy Moodiary migrations keep their own version sequence when Selume's
+  // displayed app version starts over. Advance this with new legacy steps.
+  static const _legacyMigrationTarget = '2.8.2';
+
   static Future<void> run() async {
     if (MmkvKVStorage.legacyMigrationPending) return;
     final packageInfo = await AppInfo.getPackageInfo();
     final currentVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
     final appVersion = MoodiaryKVs.appVersion.get();
-    if (appVersion != null) {
-      await merge(lastAppVersion: appVersion);
+    final migrationVersion = MoodiaryKVs.legacyMigrationVersion.get();
+    final lastMigrationVersion = migrationVersion ?? appVersion;
+    if (lastMigrationVersion != null) {
+      await merge(lastAppVersion: lastMigrationVersion);
     }
     if (appVersion == null) {
       MoodiaryKVs.searchIndexBackfilled.set(true);
+    }
+    final completedVersion =
+        lastMigrationVersion == null ||
+            versionBelow(lastMigrationVersion, _legacyMigrationTarget)
+        ? _legacyMigrationTarget
+        : lastMigrationVersion;
+    // Persist the migration watermark before replacing the legacy app version,
+    // so a failed write leaves the original migration starting point retryable.
+    if (migrationVersion != completedVersion) {
+      MoodiaryKVs.legacyMigrationVersion.set(completedVersion);
     }
     if (kDebugMode || appVersion == null || appVersion != currentVersion) {
       MoodiaryKVs.appVersion.set(currentVersion);

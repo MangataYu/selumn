@@ -8,9 +8,37 @@ import 'package:moodiary_migration/moodiary_migration.dart';
 import 'package:moodiary_migration/src/legacy/legacy_models.dart';
 import 'package:moodiary_models/moodiary_models.dart'
     hide Category, Diary, Font;
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
+
+class _FailingKVStorage extends IKVStorage {
+  final MemoryKVStorage memory = MemoryKVStorage();
+  String? failingKey;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  T? get<T extends Object>(String key) => memory.get<T>(key);
+
+  @override
+  void set<T extends Object>(String key, T value) {
+    if (key == failingKey) throw StateError('KV write unavailable');
+    memory.set<T>(key, value);
+    super.set(key, value);
+  }
+
+  @override
+  void remove(String key) {
+    memory.remove(key);
+    super.remove(key);
+  }
+
+  @override
+  void clear() => memory.clear();
+}
 
 Diary _legacyDiary(
   String id, {
@@ -35,6 +63,158 @@ Diary _legacyDiary(
 );
 
 void main() {
+  group('run 将旧迁移水位与 Selume 版本分开', () {
+    late _FailingKVStorage kv;
+
+    setUp(() {
+      kv = _FailingKVStorage();
+      getIt.registerSingleton<IKVStorage>(kv);
+      MmkvKVStorage.legacyMigrationPending = false;
+      PackageInfo.setMockInitialValues(
+        appName: 'Selume',
+        packageName: 'com.aerieyarrowy.selume',
+        version: '1.0.0',
+        buildNumber: '96',
+        buildSignature: '',
+      );
+    });
+
+    tearDown(() async {
+      MmkvKVStorage.legacyMigrationPending = false;
+      await getIt.reset();
+    });
+
+    test('首次安装记录迁移水位，之后启动不重跑旧迁移', () async {
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.8.2');
+      expect(MoodiaryKVs.searchIndexBackfilled.get(), isTrue);
+      MoodiaryKVs.customFont.set('my-font.ttf');
+      MoodiaryKVs.autoSync.set(true);
+      MoodiaryKVs.assistantReasoningEffort.set('');
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.customFont.get(), 'my-font.ttf');
+      expect(MoodiaryKVs.autoSync.get(), isTrue);
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), '');
+    });
+
+    test('旧版本升级先完成待执行迁移，重启保留用户设置', () async {
+      MoodiaryKVs.appVersion.set('2.8.1+95');
+      MoodiaryKVs.assistantReasoningEffort.set('');
+      MoodiaryKVs.customFont.set('my-font.ttf');
+      MoodiaryKVs.autoSync.set(true);
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), 'none');
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.8.2');
+      expect(MoodiaryKVs.searchIndexBackfilled.get(), isFalse);
+      MoodiaryKVs.assistantReasoningEffort.set('');
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.customFont.get(), 'my-font.ttf');
+      expect(MoodiaryKVs.autoSync.get(), isTrue);
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), '');
+    });
+
+    test('已有更高迁移水位不会被降低', () async {
+      MoodiaryKVs.appVersion.set('1.0.0+96');
+      MoodiaryKVs.legacyMigrationVersion.set('2.9.0');
+      MoodiaryKVs.assistantReasoningEffort.set('');
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.9.0');
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), '');
+    });
+
+    test('没有独立水位时保留高于已知迁移的旧应用版本', () async {
+      MoodiaryKVs.appVersion.set('2.9.0+120');
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.9.0+120');
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+    });
+
+    test('迁移水位写入失败保留旧版本，下次仍能完成待执行迁移', () async {
+      MoodiaryKVs.appVersion.set('2.8.1+95');
+      MoodiaryKVs.assistantReasoningEffort.set('');
+      kv.failingKey = MoodiaryKVs.legacyMigrationVersion.name;
+
+      await expectLater(VersionMigrator.run(), throwsStateError);
+
+      expect(MoodiaryKVs.appVersion.get(), '2.8.1+95');
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), isNull);
+      MoodiaryKVs.assistantReasoningEffort.set('');
+      kv.failingKey = null;
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), 'none');
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.8.2');
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+    });
+
+    test('首次安装水位写入失败不会先记录新的应用版本', () async {
+      kv.failingKey = MoodiaryKVs.legacyMigrationVersion.name;
+
+      await expectLater(VersionMigrator.run(), throwsStateError);
+
+      expect(MoodiaryKVs.appVersion.get(), isNull);
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), isNull);
+      kv.failingKey = null;
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.8.2');
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+      expect(MoodiaryKVs.searchIndexBackfilled.get(), isTrue);
+    });
+
+    test('应用版本写入失败后沿用已完成水位，不重复迁移', () async {
+      MoodiaryKVs.appVersion.set('2.8.1+95');
+      MoodiaryKVs.assistantReasoningEffort.set('');
+      kv.failingKey = MoodiaryKVs.appVersion.name;
+
+      await expectLater(VersionMigrator.run(), throwsStateError);
+
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), '2.8.2');
+      expect(MoodiaryKVs.appVersion.get(), '2.8.1+95');
+      MoodiaryKVs.assistantReasoningEffort.set('');
+      kv.failingKey = null;
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.assistantReasoningEffort.get(), '');
+      expect(MoodiaryKVs.appVersion.get(), '1.0.0+96');
+    });
+
+    test('迁移失败不推进水位或覆盖旧版本', () async {
+      MoodiaryKVs.appVersion.set('invalid-version');
+
+      await expectLater(VersionMigrator.run(), throwsFormatException);
+
+      expect(MoodiaryKVs.appVersion.get(), 'invalid-version');
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), isNull);
+    });
+
+    test('旧配置尚未完成搬迁时不记录水位或应用版本', () async {
+      MmkvKVStorage.legacyMigrationPending = true;
+
+      await VersionMigrator.run();
+
+      expect(MoodiaryKVs.legacyMigrationVersion.get(), isNull);
+      expect(MoodiaryKVs.appVersion.get(), isNull);
+      expect(MoodiaryKVs.searchIndexBackfilled.get(), isFalse);
+    });
+  });
+
   group('versionBelow 闸门语义', () {
     test('低版本在闸门之下', () {
       expect(VersionMigrator.versionBelow('2.7.3+73', '2.8.0'), isTrue);
