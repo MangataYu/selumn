@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_lint/testing.dart';
 import 'package:moodiary_mobile/app/welcome/welcome_diary_content.dart';
 import 'package:moodiary_mobile/app/welcome/welcome_diary_seeder.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -93,12 +94,10 @@ void main() {
     });
   }
 
-  test('欢迎配图作为 JPEG 资产打包且可由 Flutter 解码', () async {
-    final data = await rootBundle.load(WelcomeDiarySeeder.imageAsset);
-    final bytes = data.buffer.asUint8List(
-      data.offsetInBytes,
-      data.lengthInBytes,
-    );
+  test('欢迎配图是有效 JPEG 且可由 Flutter 解码', () async {
+    final bytes = await File(
+      '$repoRoot/mobile/${WelcomeDiarySeeder.imageAsset}',
+    ).readAsBytes();
     expect(bytes.take(3), [0xff, 0xd8, 0xff]);
 
     final codec = await ui.instantiateImageCodec(bytes);

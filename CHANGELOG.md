@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.8.2] - 2026-09-21
+
+Selume 首个朋友试用基线版本，基于 Moodiary 开源项目。
+
+### 新增与改进
+
+- 首次安装自动创建一篇可编辑的欢迎日记，展示文本格式、标签、离线图片和待办，并说明如何引用自己新建的日记。
+- 已有日记的用户不会被插入样例，删除欢迎日记后也不会再次创建。
+- 将日记管理入口集中到日记设置，方便查找相关功能。
+- 补充 Android 浏览器查询声明，修复部分设备点击更新下载入口可能无响应的问题。
+
+### 安装与更新
+
+- 适用于 Android 9 及以上的 ARM64 手机；下载本页的 `selume-2.8.2-android-arm64.apk` 后打开安装，按系统提示允许浏览器安装应用。
+- 后续可在「设置 → 关于 → 检查更新」查看新版本，再通过浏览器下载 APK 并安装。
+- 覆盖升级使用相同包名和签名，保留应用数据；无需先卸载旧版。
+- Debug / Profile 测试包是独立应用，数据不会自动转移到本版本。
+
 ## [2.8.1] - 2026-09-07
 
 2.8.1 rebuilds Moodiary on new foundations: a new database, a new editor, a new
