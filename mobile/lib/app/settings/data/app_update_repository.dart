@@ -22,10 +22,10 @@ class AppUpdateRepository {
   final IHttpClient _http;
 
   static const String _releasesPage =
-      'https://github.com/ZhuJHua/moodiary/releases/latest';
+      'https://github.com/MangataYu/selumn/releases/latest';
 
   static const String _latestReleaseApi =
-      'https://api.github.com/repos/ZhuJHua/moodiary/releases/latest';
+      'https://api.github.com/repos/MangataYu/selumn/releases/latest';
 
   static const Duration _timeout = Duration(seconds: 15);
 

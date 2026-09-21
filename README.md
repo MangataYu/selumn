@@ -1,54 +1,77 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="res/social_dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="res/social_light.svg">
-  <img alt="moodiary" src="res/social_light.svg">
-</picture>
+# selumn
 
-<p align="center"><a href="README.zh.md">简体中文</a> | English</p>
+[简体中文](README.zh.md) | English
 
-<p align="center"><a href="https://docs.moodiary.net" target="_blank">Docs</a>丨<a href="https://answer.moodiary.net" target="_blank">Forum</a>丨QQ group: <a target="_blank" href="https://qm.qq.com/cgi-bin/qm/qr?k=xGr0TNp_X1z3XEn09_iE_iGSLolQwl6Y&jump_from=webapi&authKey=ZmSb2oEd94FSXxBXRBq53hgTjjvcfmgkQrduB3uL12XtRylPmRlO2OdFz6R25tIo">760014526</a>丨Telegram: <a target="_blank" href="https://t.me/openmoodiary">openmoodiary</a></p>
+A personal diary app built with Flutter and Rust, with a Vue / TipTap editor. This fork is maintained by [MangataYu](https://github.com/MangataYu) and focuses on organizing writing with tags and making everyday navigation simpler.
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.47.2-blue?style=for-the-badge">
-  <img src="https://img.shields.io/github/repo-size/ZhuJHua/moodiary?style=for-the-badge&color=ff7070">
-  <img src="https://img.shields.io/github/stars/ZhuJHua/moodiary?style=for-the-badge&color=965f8a">
-  <img src="https://img.shields.io/github/v/release/ZhuJHua/moodiary?style=for-the-badge&color=4f5e7f">
-  <img src="https://img.shields.io/github/license/ZhuJHua/moodiary?style=for-the-badge&color=4ac6b7">
-</div>
+Based on [Moodiary by ZhuJHua](https://github.com/ZhuJHua/moodiary). This is an independently maintained fork, not an official Moodiary release.
 
-## ✨ Features
+[Downloads](https://github.com/MangataYu/selumn/releases) · [Source code](https://github.com/MangataYu/selumn) · [Roadmap (Chinese)](TODO.md)
 
-- **Rich text**: insert images, audio and video.
-- **Search and categories**: full-text search and per-category filtering.
-- **Themes and fonts**: light and dark modes, several color schemes, and imported fonts including variable fonts.
-- **App lock**: a password with biometric unlock.
-- **Export, import and share**: export to Markdown, Word, PDF or a long image, and import from a Markdown zip or a local backup.
-- **Backup and sync**: WebDAV, S3 / MinIO and LAN sync, with optional end-to-end encryption.
-- **Weather and places**: pick or fetch the weather, save places and reference them from entries, and view your footprints on a map.
-- **Assistant**: connect any OpenAI- or Anthropic-compatible provider for chat and diary tools.
+![Flutter](https://img.shields.io/badge/Flutter-3.47.2-blue)
+[![License](https://img.shields.io/github/license/MangataYu/selumn)](LICENSE)
 
-## 🚀 Getting started
+The repository is named **selumn**. The app and existing APK filenames currently use **Selume**.
 
-Download an installer from [Releases](https://github.com/ZhuJHua/moodiary/releases). The app works offline out of the box.
+## What this fork changes
 
-Everything else is in the docs at [docs.moodiary.net](https://docs.moodiary.net).
+- **Tags in your writing**: type `#work/project` followed by a space to create a tag. Suggestions help you reuse existing tags, and `/` expresses a hierarchy.
+- **Tag management**: search, rename, or delete tags and their descendants, and adjust their order within each level.
+- **Sidebar filters**: browse a collapsible tag tree or filter for untagged entries and entries containing images, links, or audio. Parent tags include entries under their descendants.
+- **Sidebar navigation**: access media, maps, the entry graph, calendar, and assistant from one sidebar.
+- **Writing overview**: see entry and tag counts, days of use, and a writing heatmap in the sidebar. Select a date to view its entry and character counts.
+- **Updates from this repository**: Android's “Check for updates” uses this fork's GitHub Releases.
 
-## 🤝 Contributors
+See [TODO.md](TODO.md) for planned work and validation still to do. Quick capture from other apps, a redesigned feelings system, and AI organization after import are future work.
 
-<a href="https://github.com/ZhuJHua/moodiary/graphs/contributors">
-  <img alt="Contributors" src="https://contrib.rocks/image?repo=ZhuJHua/moodiary">
-</a>
+## Diary features
 
-## 🥪 Sponsor
+- **Rich text and media**: write entries with images, audio, and video.
+- **Search and tags**: full-text search and tag-based filtering.
+- **Themes and fonts**: light and dark modes, multiple color schemes, and imported fonts, including variable fonts.
+- **App lock**: password protection with biometric unlock.
+- **Import, export, and sharing**: export Markdown, Word, PDF, or long images; import Markdown archives and local backups.
+- **Backup and sync**: WebDAV, S3 / MinIO, and LAN sync, with optional end-to-end encryption.
+- **Weather and places**: attach weather and saved places to entries and view your footprints on a map.
+- **Mood tracking**: manually select or change the mood for each diary entry.
+- **Assistant**: connect an OpenAI- or Anthropic-compatible provider for chat and diary tools.
 
-If Moodiary is useful to you, you can buy me a sandwich.
+## Download and use
 
-<img src="mobile/res/sponsor/wechat.jpg" style="width:300px" alt="Sponsor"/>
+Look for this fork's published packages on [selumn Releases](https://github.com/MangataYu/selumn/releases). The current CI workflow builds **Android ARM64 APKs**; release notes identify test pre-releases. If no suitable package is available, use the source build instructions below.
 
-### Sponsors
+The core diary works offline. Optional online services require their own configuration. Android's in-app update check looks for a newer stable release in this repository; download test pre-releases directly from the release page.
 
-To be listed, leave your GitHub username or a nickname in the note of your donation. A nickname must comply with applicable laws, or it will not be shown.
+## Development
+
+The Flutter app is in `mobile/`; shared packages are in `packages/`. Use the Flutter version pinned in [.fvmrc](.fvmrc), the Rust toolchains declared in each native package, and the Node / pnpm requirements in the [editor package](packages/feature_base/moodiary_editor/editor/package.json). Install Git LFS, FVM, and the platform build tools before building.
+
+With those prerequisites installed, run from the repository root:
+
+```sh
+git lfs pull
+fvm use
+fvm dart tool/task.dart setup
+fvm dart tool/task.dart run
+```
+
+Connect a device or start an emulator before running the app. See [AGENTS.md](AGENTS.md) for repository structure and validation commands, and the [editor README](packages/feature_base/moodiary_editor/README.md) for editor development.
+
+## Credits and license
+
+Thanks to [ZhuJHua](https://github.com/ZhuJHua), [Moodiary](https://github.com/ZhuJHua/moodiary), and all [upstream contributors](https://github.com/ZhuJHua/moodiary/graphs/contributors) for the original project. Changes in this fork are maintained by [MangataYu](https://github.com/MangataYu).
+
+This project continues to use the [GNU Affero General Public License v3.0](LICENSE). Existing copyright and license notices are retained. This README was adapted for selumn on **2026-09-21**.
+
+The [upstream documentation](https://docs.moodiary.net) describes Moodiary; this fork's interface and workflows may differ. To support the original author, visit the [upstream project](https://github.com/ZhuJHua/moodiary#-sponsor).
+
+<details>
+<summary>Original project's sponsors</summary>
+
+The following acknowledgements are retained from Moodiary and refer to support for the original project.
 
 <!-- sponsors:start -->
 朱东杰, [dsxksss](https://github.com/dsxksss), 不对味的雪碧, [xiaoxianzi-99](https://github.com/xiaoxianzi-99), Lucci, [Higanoneko](https://github.com/Higanoneko), h, 大作文
 <!-- sponsors:end -->
+
+</details>

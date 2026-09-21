@@ -14,6 +14,14 @@
 - 不自动提交、推送、发布或改写 Git 历史；不删除测试来让检查通过。
 - `TODO.md` 是未来计划，不是已实现能力，也不是自动执行全部任务的指令。只推进本次请求涉及的条目，完成并验证后再更新状态。
 
+## 仓库与分支
+
+- `origin` 指向个人 fork：`MangataYu/selumn`；`upstream` 指向原项目：`ZhuJHua/moodiary`。
+- `codex/personal` 是个人主开发分支。个人功能、界面、品牌与文档改动默认在此分支开展；需要独立任务分支时，以它为基线。
+- fork 的 `develop` 用于同步原项目 `upstream/develop` 的更新，不作为个人定制的开发分支；用户明确要求时除外。
+- 开始修改前确认当前分支。用户要求同步上游时，先核实远程状态，通常先将上游更新同步到 fork 的 `develop`，再合入 `codex/personal`，保留个人改动；不自动提交、推送或改写历史。
+- 旧文档、脚本或本地缓存的默认分支可能仍指向 `develop`，使用前核实，不据此把个人改动放到 `develop`。
+
 ## 项目地图
 
 Selume / Moodiary 是 Flutter + Rust 的日记应用，正文编辑器使用 Vue + TipTap。根目录是 Dart workspace / Melos 协调层，移动应用位于 `mobile/`。
