@@ -99,6 +99,7 @@ void main() {
     expect(repository.deletedTags, isEmpty);
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], expandedPaths);
     expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
+    expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
   }
 
   testWidgets(
@@ -109,7 +110,9 @@ void main() {
       expect(find.byType(MSheetScaffold<String>), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('#生活/旅行'), findsOneWidget);
-      expect(find.byType(MSheetOptionTile<String>), findsOneWidget);
+      expect(find.byType(MSheetOptionTile<String>), findsNWidgets(2));
+      expect(find.text('设为默认标签'), findsOneWidget);
+      expect(find.text('重命名标签'), findsOneWidget);
       expect(find.byType(MDangerRow), findsOneWidget);
       expect(tester.getRect(find.byType(MSheetScaffold<String>)).bottom, 844);
 

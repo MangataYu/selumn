@@ -3,9 +3,25 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_storage/moodiary_storage.dart';
+import 'package:moodiary_storage/testing.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
+
+class _DiaryRepository extends Fake implements DiaryRepository {
+  _DiaryRepository(this.diary);
+
+  final Diary diary;
+
+  @override
+  Future<Diary?> getDiaryByBusinessId(String id) async =>
+      diary.id == id ? diary : null;
+
+  @override
+  Stream<DiaryEvent> get diaryEvents => const Stream.empty();
+}
 
 String body(List<String> tags) => jsonEncode({
   'type': 'doc',
@@ -32,7 +48,44 @@ String body(List<String> tags) => jsonEncode({
 });
 
 void main() {
+  setUp(() {
+    getIt.registerSingleton<IKVStorage>(MemoryKVStorage());
+  });
+  tearDown(() => getIt.reset());
+
+  test('未配置默认标签时新建记录没有标签', () async {
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider(null, defaultType: .tiptap);
+    container.listen(provider, (_, _) {});
+    final diary = await container.read(provider.future);
+    expect(diary.tags, isEmpty);
+  });
+
+  test('新建记录预填默认标签且允许删除', () async {
+    MoodiaryKVs.defaultTag.set(' #生活 / 随记 ');
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider(null, defaultType: .tiptap);
+    container.listen(provider, (_, _) {});
+    final diary = await container.read(provider.future);
+    expect(diary.tags, ['生活/随记']);
+    expect(diary.categoryId, isNull);
+
+    container.read(provider.notifier).changeTags([]);
+    expect(container.read(provider).value!.tags, isEmpty);
+  });
+
+  test('取消默认标签后新建记录没有标签', () async {
+    MoodiaryKVs.defaultTag.set('生活');
+    MoodiaryKVs.defaultTag.set('');
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider('', defaultType: .tiptap);
+    container.listen(provider, (_, _) {});
+    final diary = await container.read(provider.future);
+    expect(diary.tags, isEmpty);
+  });
+
   test('在标签筛选下新建记录会预填该标签', () async {
+    MoodiaryKVs.defaultTag.set('生活');
     final container = ProviderContainer.test();
     final provider = editControllerProvider(
       null,
@@ -44,6 +97,68 @@ void main() {
     expect(diary.tags, ['工作/项目']);
     expect(diary.categoryId, isNull);
     expect(diary.legacyCategoryExcludedTags, isEmpty);
+  });
+
+  test('显式空标签不回退到默认标签', () async {
+    MoodiaryKVs.defaultTag.set('生活');
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider(
+      null,
+      defaultType: .tiptap,
+      defaultTag: '',
+    );
+    container.listen(provider, (_, _) {});
+    final diary = await container.read(provider.future);
+    expect(diary.tags, isEmpty);
+  });
+
+  test('更改默认标签不覆盖已经打开的新建草稿', () async {
+    MoodiaryKVs.defaultTag.set('生活');
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider(null, defaultType: .tiptap);
+    container.listen(provider, (_, _) {});
+    final original = await container.read(provider.future);
+    container.read(provider.notifier).changeTitle('正在编辑');
+
+    MoodiaryKVs.defaultTag.set('工作');
+    await container.pump();
+    final current = container.read(provider).value!;
+    expect(current.id, original.id);
+    expect(current.title, '正在编辑');
+    expect(current.tags, ['生活']);
+  });
+
+  for (final tags in <List<String>>[
+    [],
+    ['已有标签'],
+  ]) {
+    test('打开已有记录保留原标签 $tags', () async {
+      MoodiaryKVs.defaultTag.set('生活');
+      final existing = Diary.empty(type: .tiptap)
+          .copyWith(id: 'existing', tags: tags);
+      getIt.registerSingleton<DiaryRepository>(_DiaryRepository(existing));
+      final container = ProviderContainer.test();
+      final provider = editControllerProvider(
+        'existing',
+        defaultType: .tiptap,
+        defaultTag: '工作',
+      );
+      container.listen(provider, (_, _) {});
+      final diary = await container.read(provider.future);
+      expect(diary, existing);
+    });
+  }
+
+  test('只有默认标签的空白草稿不会保存为日记', () async {
+    MoodiaryKVs.defaultTag.set('生活');
+    final container = ProviderContainer.test();
+    final provider = editControllerProvider(null, defaultType: .tiptap);
+    container.listen(provider, (_, _) {});
+    await container.read(provider.future);
+    expect(
+      await container.read(provider.notifier).autoSave(),
+      DraftSaveResult.saved,
+    );
   });
 
   Future<ProviderContainer> setup(

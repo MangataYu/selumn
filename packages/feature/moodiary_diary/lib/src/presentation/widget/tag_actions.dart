@@ -30,6 +30,7 @@ Future<void> showTagActions(BuildContext context, String tag) async {
     context,
     listen: false,
   ).read(tagManagementProvider);
+  final isDefault = management.savedDefaultTag == tag;
   final action = await MSheet.show<String>(
     context,
     builder: (sheetContext) => MSheetScaffold<String>(
@@ -40,6 +41,17 @@ Future<void> showTagActions(BuildContext context, String tag) async {
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
         children: [
+          MSheetOptionTile<String>(
+            option: MSheetOption(
+              value: 'default',
+              label: isDefault
+                  ? sheetContext.l10n.diary.tagClearDefault
+                  : sheetContext.l10n.diary.tagSetDefault,
+              icon: LucideIcons.star,
+            ),
+            selected: isDefault,
+            onTap: () => Navigator.of(sheetContext).pop('default'),
+          ),
           MSheetOptionTile<String>(
             option: MSheetOption(
               value: 'rename',
@@ -58,7 +70,13 @@ Future<void> showTagActions(BuildContext context, String tag) async {
     ),
   );
   if (!context.mounted || action == null) return;
-  if (action == 'rename') {
+  if (action == 'default') {
+    try {
+      management.setDefaultTag(isDefault ? '' : tag);
+    } catch (_) {
+      toast.error(message: l10n.diary.saveFailed);
+    }
+  } else if (action == 'rename') {
     await MSheet.show<void>(
       context,
       builder: (sheetContext) => TagRenameSheet(

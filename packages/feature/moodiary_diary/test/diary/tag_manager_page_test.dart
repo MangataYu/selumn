@@ -6,6 +6,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/application/diary_filter.dart';
 import 'package:moodiary_diary/src/application/diary_selection.dart';
+import 'package:moodiary_diary/src/application/tag_management.dart';
 import 'package:moodiary_diary/src/presentation/tag/tag_manager_page.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
@@ -17,6 +18,7 @@ class _RecordingDiaryRepository extends Fake implements DiaryRepository {
   final renamedTags = <(String, String)>[];
   final deletedTags = <String>[];
   bool renameFails = false;
+  bool deleteFails = false;
   Completer<int>? pendingRename;
   Completer<int>? pendingDelete;
 
@@ -30,6 +32,7 @@ class _RecordingDiaryRepository extends Fake implements DiaryRepository {
   @override
   Future<int> deleteTag(String tag) async {
     deletedTags.add(tag);
+    if (deleteFails) throw StateError('Cannot delete tag');
     return pendingDelete?.future ?? Future.value(1);
   }
 }
@@ -115,14 +118,19 @@ void main() {
     }
   }
 
-  Future<void> openAction(WidgetTester tester, String action) async {
-    await tester.tap(row('生活/旅行'));
+  Future<void> openAction(
+    WidgetTester tester,
+    String action, {
+    String path = '生活/旅行',
+  }) async {
+    await tester.tap(row(path));
     await tester.pumpAndSettle();
     await tester.tap(find.text(action));
     await tester.pumpAndSettle();
   }
 
   void selectTravelDiary() {
+    container.read(tagManagementProvider).setDefaultTag('生活/旅行/海边');
     container
         .read(homeDiaryFilterProvider.notifier)
         .select(const DiaryFilter.tag('生活/旅行/海边'));
@@ -147,6 +155,7 @@ void main() {
       const DiaryFilter.tag('生活/出游/海边'),
     );
     expect(container.read(diarySelectionProvider), isEmpty);
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '生活/出游/海边');
   }
 
   void expectDeletedState() {
@@ -158,7 +167,132 @@ void main() {
     );
     expect(container.read(homeDiaryFilterProvider), const DiaryFilter.all());
     expect(container.read(diarySelectionProvider), isEmpty);
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '');
   }
+
+  test('an unused default needs no saved configuration', () async {
+    final scope = ProviderContainer();
+    addTearDown(scope.dispose);
+    final management = scope.read(tagManagementProvider);
+
+    expect(management.savedDefaultTag, '');
+    management.setDefaultTag('');
+    await management.rename('生活/旅行', '生活/出游');
+    await management.delete('生活/出游');
+
+    expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
+  });
+
+  test(
+    'rename and delete preserve similar siblings and ancestor defaults',
+    () async {
+      final scope = ProviderContainer();
+      addTearDown(scope.dispose);
+      final management = scope.read(tagManagementProvider);
+
+      for (final defaultTag in ['生活/旅行记', '生活', '工作']) {
+        management.setDefaultTag(defaultTag);
+        await management.rename('生活/旅行', '生活/出游');
+        expect(management.savedDefaultTag, defaultTag);
+        await management.delete('生活/旅行');
+        expect(management.savedDefaultTag, defaultTag);
+      }
+    },
+  );
+
+  test('rename and delete update the exact default tag', () async {
+    final scope = ProviderContainer();
+    addTearDown(scope.dispose);
+    final management = scope.read(tagManagementProvider);
+
+    management.setDefaultTag('生活/旅行');
+    await management.rename('生活/旅行', '生活/出游');
+    expect(management.savedDefaultTag, '生活/出游');
+    await management.delete('生活/出游');
+    expect(management.savedDefaultTag, '');
+  });
+
+  test('failed delete preserves the saved default tag', () async {
+    final scope = ProviderContainer();
+    addTearDown(scope.dispose);
+    final management = scope.read(tagManagementProvider);
+    management.setDefaultTag('生活/旅行/海边');
+    repository.deleteFails = true;
+
+    await expectLater(management.delete('生活/旅行'), throwsStateError);
+
+    expect(management.savedDefaultTag, '生活/旅行/海边');
+    expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
+    expect(kv.data[MoodiaryKVs.expandedTagPaths.name], expandedPaths);
+  });
+
+  testWidgets(
+    'opening tag management leaves the default unset without saving',
+    (tester) async {
+      await pumpPage(tester);
+
+      expect(find.text('默认标签'), findsOneWidget);
+      expect(find.text('未设置'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('tag-manager-clear-default')),
+        findsNothing,
+      );
+      expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
+    },
+  );
+
+  testWidgets('the menu sets, switches, and cancels the default tag', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+
+    await openAction(tester, '设为默认标签');
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '生活/旅行');
+    expect(find.text('#生活/旅行'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('tag-manager-default:生活/旅行')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('默认标签'), findsOneWidget);
+
+    await openAction(tester, '设为默认标签', path: '工作');
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '工作');
+    expect(find.text('#工作'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('tag-manager-default:生活/旅行')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('tag-manager-default:工作')),
+      findsOneWidget,
+    );
+
+    await openAction(tester, '取消默认标签', path: '工作');
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '');
+    expect(find.text('未设置'), findsOneWidget);
+    expect(find.byTooltip('默认标签'), findsNothing);
+    expect(repository.renamedTags, isEmpty);
+    expect(repository.deletedTags, isEmpty);
+  });
+
+  testWidgets('the summary shows and clears an existing default tag', (
+    tester,
+  ) async {
+    kv.data[MoodiaryKVs.defaultTag.name] = '生活/旅行/海边';
+    await pumpPage(tester);
+
+    expect(find.text('#生活/旅行/海边'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('tag-manager-default:生活/旅行/海边')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('tag-manager-clear-default')));
+    await tester.pumpAndSettle();
+
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '');
+    expect(find.text('未设置'), findsOneWidget);
+    expect(find.byTooltip('默认标签'), findsNothing);
+  });
 
   testWidgets('shows ordered hierarchy and searches with full matching paths', (
     tester,
@@ -219,6 +353,7 @@ void main() {
       expect(find.byType(MSheetScaffold<String>), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('#生活/旅行'), findsOneWidget);
+      expect(find.text('设为默认标签'), findsOneWidget);
       expect(find.text('重命名标签'), findsOneWidget);
       expect(find.text('删除标签'), findsOneWidget);
       await tester.tap(find.text('取消'));
@@ -226,6 +361,7 @@ void main() {
     }
     expect(repository.renamedTags, isEmpty);
     expect(repository.deletedTags, isEmpty);
+    expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
   });
 
   Future<void> reorderRoots(WidgetTester tester) async {
@@ -299,6 +435,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
     expect(container.read(diarySelectionProvider), {'selected-diary'});
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '生活/旅行/海边');
 
     await openAction(tester, '删除标签');
     await tester.tap(find.text('删除'));
@@ -322,12 +459,14 @@ void main() {
       expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
       expect(kv.data[MoodiaryKVs.expandedTagPaths.name], expandedPaths);
       expect(container.read(diarySelectionProvider), {'selected-diary'});
+      expect(kv.data[MoodiaryKVs.defaultTag.name], '生活/旅行/海边');
 
       repository.renameFails = false;
       await tester.tap(find.text('确认'));
       await tester.pumpAndSettle();
       expect(repository.renamedTags, [('生活/旅行', '生活/出游'), ('生活/旅行', '生活/出游')]);
       expect(find.byType(BottomSheet), findsNothing);
+      expect(kv.data[MoodiaryKVs.defaultTag.name], '生活/出游/海边');
       expect(
         container.read(homeDiaryFilterProvider),
         const DiaryFilter.tag('生活/出游/海边'),
@@ -394,12 +533,32 @@ void main() {
   ) async {
     await pumpPage(tester, loadTags: () async => []);
     expect(find.text('暂无标签'), findsOneWidget);
+    expect(find.text('默认标签'), findsOneWidget);
+    expect(find.text('未设置'), findsOneWidget);
+    expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
     expect(
       tester
           .widget<IconButton>(find.byKey(const ValueKey('tag-manager-sort')))
           .onPressed,
       isNull,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty tags still allow clearing a saved default tag', (
+    tester,
+  ) async {
+    kv.data[MoodiaryKVs.defaultTag.name] = '生活/旅行/海边';
+    await pumpPage(tester, loadTags: () async => []);
+
+    expect(find.text('暂无标签'), findsOneWidget);
+    expect(find.text('默认标签'), findsOneWidget);
+    expect(find.text('#生活/旅行/海边'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tag-manager-clear-default')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('未设置'), findsOneWidget);
+    expect(kv.data[MoodiaryKVs.defaultTag.name], '');
     expect(tester.takeException(), isNull);
   });
 

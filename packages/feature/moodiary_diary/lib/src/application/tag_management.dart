@@ -20,8 +20,16 @@ class TagManagementController {
   List<String> get savedOrder =>
       _storage.get<List<String>>(MoodiaryKVs.tagOrder.name) ?? const [];
 
+  String get savedDefaultTag =>
+      _storage.get<String>(MoodiaryKVs.defaultTag.name) ?? '';
+
   List<String> get _expandedPaths =>
       _storage.get<List<String>>(MoodiaryKVs.expandedTagPaths.name) ?? const [];
+
+  void setDefaultTag(String tag) {
+    if (!_ref.mounted || savedDefaultTag == tag) return;
+    _storage.set(MoodiaryKVs.defaultTag.name, tag);
+  }
 
   void saveOrder(List<String> order, List<String> fallbackTags) {
     if (!_ref.mounted) return;
@@ -45,6 +53,13 @@ class TagManagementController {
             TagPath.replacePrefix(path, tag, replacement),
         }.toList()..sort(),
       );
+      final defaultTag = savedDefaultTag;
+      if (defaultTag.isNotEmpty && TagPath.matches(defaultTag, tag)) {
+        storage.set(
+          MoodiaryKVs.defaultTag.name,
+          TagPath.replacePrefix(defaultTag, tag, replacement),
+        );
+      }
     } finally {
       _updateSelection(tag, replacement);
     }
@@ -62,6 +77,10 @@ class TagManagementController {
             if (!TagPath.matches(path, tag)) path,
         ]..sort(),
       );
+      final defaultTag = savedDefaultTag;
+      if (defaultTag.isNotEmpty && TagPath.matches(defaultTag, tag)) {
+        storage.set(MoodiaryKVs.defaultTag.name, '');
+      }
     } finally {
       _updateSelection(tag, null);
     }

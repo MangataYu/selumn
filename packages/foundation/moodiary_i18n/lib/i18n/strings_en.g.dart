@@ -732,6 +732,11 @@ class _Translations$diary$en extends Translations$diary$zh {
 	@override String get tagNoTag => 'Untagged';
 	@override String get allTags => 'All tags';
 	@override String get tagManagerTitle => 'Manage tags';
+	@override String get tagDefaultTitle => 'Default tag';
+	@override String get tagDefaultNone => 'Not set';
+	@override String get tagDefaultHint => 'Choose a tag from its menu to add it automatically to new entries.';
+	@override String get tagSetDefault => 'Set as default tag';
+	@override String get tagClearDefault => 'Clear default tag';
 	@override String get tagSortTitle => 'Sort tags';
 	@override String get tagSortEmpty => 'No tags yet';
 	@override String get filterImages => 'With images';

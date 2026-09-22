@@ -213,8 +213,9 @@ Stream<Diary?> getDiary(
     if (defaultType == null) {
       throw ArgumentError('getDiary: 新建空白日记必须显式提供 defaultType（id 为空时）');
     }
+    final initialTag = defaultTag ?? MoodiaryKVs.defaultTag.get();
     final empty = Diary.empty(type: defaultType).copyWith(
-      tags: defaultTag == null ? const [] : TagPath.normalizeAll([defaultTag]),
+      tags: initialTag == null ? const [] : TagPath.normalizeAll([initialTag]),
     );
     yield defaultCategoryId == null
         ? empty

@@ -2027,6 +2027,21 @@ class Translations$diary$zh {
 	/// zh: '标签管理'
 	String get tagManagerTitle => '标签管理';
 
+	/// zh: '默认标签'
+	String get tagDefaultTitle => '默认标签';
+
+	/// zh: '未设置'
+	String get tagDefaultNone => '未设置';
+
+	/// zh: '点击标签可设为默认，新建日记时自动添加。'
+	String get tagDefaultHint => '点击标签可设为默认，新建日记时自动添加。';
+
+	/// zh: '设为默认标签'
+	String get tagSetDefault => '设为默认标签';
+
+	/// zh: '取消默认标签'
+	String get tagClearDefault => '取消默认标签';
+
 	/// zh: '标签排序'
 	String get tagSortTitle => '标签排序';
 
