@@ -176,6 +176,8 @@
   "tagSetDefault": "Set as default tag",
   "tagClearDefault": "Clear default tag",
   "tagSortTitle": "Sort tags",
+  "tagSortHint": "Drag handles to reorder. Changes save automatically.",
+  "tagChildren": "Manage subtags",
   "tagSortEmpty": "No tags yet",
   "filterImages": "With images",
   "filterLinks": "With links",

@@ -76,8 +76,10 @@ void main() {
     WidgetTester tester, {
     Future<List<String>> Function()? loadTags,
     bool settle = true,
+    Size size = const Size(390, 844),
+    double textScale = 1,
   }) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -91,7 +93,13 @@ void main() {
               return TextButton(
                 key: const ValueKey('open-tag-manager'),
                 onPressed: () => navigator.push<void>(
-                  MaterialPageRoute(builder: (_) => const TagManagerPage()),
+                  MaterialPageRoute(
+                    builder: (context) => MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: TextScaler.linear(textScale)),
+                      child: const TagManagerPage(),
+                    ),
+                  ),
                 ),
                 child: const Text('Open'),
               );
@@ -123,6 +131,10 @@ void main() {
     String action, {
     String path = '生活/旅行',
   }) async {
+    if (row(path).evaluate().isEmpty) {
+      await tester.enterText(searchField, path);
+      await tester.pumpAndSettle();
+    }
     await tester.tap(row(path));
     await tester.pumpAndSettle();
     await tester.tap(find.text(action));
@@ -282,6 +294,8 @@ void main() {
     await pumpPage(tester);
 
     expect(find.text('#生活/旅行/海边'), findsOneWidget);
+    await tester.enterText(searchField, '生活/旅行/海边');
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('tag-manager-default:生活/旅行/海边')),
       findsOneWidget,
@@ -294,25 +308,20 @@ void main() {
     expect(find.byTooltip('默认标签'), findsNothing);
   });
 
-  testWidgets('shows ordered hierarchy and searches with full matching paths', (
+  testWidgets('shows ordered siblings and searches with full matching paths', (
     tester,
   ) async {
     await pumpPage(tester);
     expect(find.text('标签管理'), findsOneWidget);
     expect(find.byType(SearchBar), findsOneWidget);
     expect(tester.widget<SearchBar>(find.byType(SearchBar)).hintText, '搜索标签');
-    for (final path in tagOrder) {
-      expect(row(path), findsOneWidget);
-    }
-    for (var i = 1; i < tagOrder.length; i++) {
-      expect(
-        tester.getTopLeft(row(tagOrder[i])).dy,
-        greaterThan(tester.getTopLeft(row(tagOrder[i - 1])).dy),
-      );
-    }
+    expect(row('工作'), findsOneWidget);
+    expect(row('生活'), findsOneWidget);
+    expect(row('生活/旅行'), findsNothing);
+    expect(row('生活/旅行/海边'), findsNothing);
     expect(
-      tester.getTopLeft(find.text('海边')).dx,
-      greaterThan(tester.getTopLeft(find.text('旅行')).dx),
+      tester.getTopLeft(row('工作')).dy,
+      lessThan(tester.getTopLeft(row('生活')).dy),
     );
 
     await tester.enterText(searchField, '旅行');
@@ -322,6 +331,7 @@ void main() {
     expect(find.text('生活/旅行记'), findsOneWidget);
     expect(row('工作'), findsNothing);
     expect(row('生活'), findsNothing);
+    expect(find.byType(ReorderableDragStartListener), findsNothing);
 
     await tester.enterText(searchField, 'missing');
     await tester.pumpAndSettle();
@@ -329,22 +339,93 @@ void main() {
     await tester.enterText(searchField, '');
     await tester.pumpAndSettle();
     expect(row('工作'), findsOneWidget);
+    expect(find.byType(ReorderableDragStartListener), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('tag-manager-sort')), findsNothing);
+    expect(find.byKey(const ValueKey('tag-sort-save')), findsNothing);
   });
+
+  testWidgets('clearing a global search returns to the current siblings', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    await tester.tap(find.byKey(const ValueKey('tag-manager-children:生活')));
+    await tester.pumpAndSettle();
+    expect(find.text('#生活'), findsOneWidget);
+    expect(row('生活/旅行'), findsOneWidget);
+    expect(row('生活/旅行记'), findsOneWidget);
+    expect(row('生活/旅行/海边'), findsNothing);
+
+    await tester.enterText(searchField, '工作');
+    await tester.pumpAndSettle();
+    expect(row('工作'), findsOneWidget);
+    expect(find.byType(ReorderableDragStartListener), findsNothing);
+    expect(find.byKey(const ValueKey('tag-manager-parent')), findsNothing);
+    await tester.enterText(searchField, '');
+    await tester.pumpAndSettle();
+    expect(row('工作'), findsNothing);
+    expect(row('生活/旅行'), findsOneWidget);
+    expect(find.text('#生活'), findsOneWidget);
+    expect(find.byType(ReorderableDragStartListener), findsNWidgets(2));
+    expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
+  });
+
+  testWidgets('tag rows use larger text with compact spacing', (tester) async {
+    await pumpPage(tester);
+    final label = tester.widget<Text>(find.text('工作'));
+    final context = tester.element(row('工作'));
+    expect(
+      label.style!.fontSize,
+      context.theme.typography.bodyLarge.onSurface.fontSize,
+    );
+    expect(tester.getSize(row('工作')).height, lessThanOrEqualTo(48));
+    expect(tester.getSize(row('生活')).height, lessThanOrEqualTo(48));
+  });
+
+  testWidgets('small screens with large text keep controls within the row', (
+    tester,
+  ) async {
+    kv.data[MoodiaryKVs.defaultTag.name] = '生活';
+    await pumpPage(tester, size: const Size(320, 640), textScale: 2);
+    expect(row('生活'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('tag-manager-children:生活')));
+    await tester.pumpAndSettle();
+    expect(row('生活/旅行'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'nested search fits a small screen with large text and keyboard',
+    (tester) async {
+      kv.data[MoodiaryKVs.defaultTag.name] = '生活/旅行/海边';
+      await pumpPage(tester, size: const Size(320, 640), textScale: 2);
+      await tester.tap(find.byKey(const ValueKey('tag-manager-children:生活')));
+      await tester.pumpAndSettle();
+      await tester.tap(searchField);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('tag-manager-parent')), findsOneWidget);
+      expect(tester.widget<TextField>(searchField).controller!.text, isEmpty);
+      expect(tester.takeException(), isNull);
+      expect(row('生活/旅行记').hitTestable(), findsOneWidget);
+      expect(tester.getBottomLeft(row('生活/旅行记')).dy, lessThanOrEqualTo(340));
+    },
+  );
 
   testWidgets('row tap, overflow, and long press all open the bottom menu', (
     tester,
   ) async {
     await pumpPage(tester);
+    await tester.enterText(searchField, '生活/旅行');
+    await tester.pumpAndSettle();
     for (var entry = 0; entry < 3; entry++) {
       switch (entry) {
         case 0:
           await tester.tap(row('生活/旅行'));
         case 1:
           await tester.tap(
-            find.descendant(
-              of: row('生活/旅行'),
-              matching: find.byType(IconButton),
-            ),
+            find.byKey(const ValueKey('tag-manager-more:生活/旅行')),
           );
         case 2:
           await tester.longPress(row('生活/旅行'));
@@ -365,22 +446,17 @@ void main() {
   });
 
   Future<void> reorderRoots(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('tag-manager-sort')));
-    await tester.pumpAndSettle();
     tester
         .widget<ReorderableListView>(find.byType(ReorderableListView))
         .onReorderItem!(0, 1);
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sort only writes on save and refreshes the manager order', (
+  testWidgets('sorting immediately saves whole subtrees and refreshes rows', (
     tester,
   ) async {
     await pumpPage(tester);
     await reorderRoots(tester);
-    expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
-    await tester.tap(find.byKey(const ValueKey('tag-sort-save')));
-    await tester.pumpAndSettle();
     expect(kv.data[MoodiaryKVs.tagOrder.name], [
       '生活',
       '生活/旅行记',
@@ -395,17 +471,19 @@ void main() {
     expect(kv.data[MoodiaryKVs.expandedTagPaths.name], expandedPaths);
   });
 
-  testWidgets('leaving sort without saving preserves the manager order', (
+  testWidgets('sorting persists after closing and reopening the manager', (
     tester,
   ) async {
     await pumpPage(tester);
     await reorderRoots(tester);
-    await tester.tap(find.byKey(const ValueKey('tag-sort-back')));
+    await tester.tap(find.byKey(const ValueKey('tag-manager-back')));
     await tester.pumpAndSettle();
-    expect(kv.data[MoodiaryKVs.tagOrder.name], tagOrder);
+    expect(find.byType(TagManagerPage), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('open-tag-manager')));
+    await tester.pumpAndSettle();
     expect(
-      tester.getTopLeft(row('工作')).dy,
-      lessThan(tester.getTopLeft(row('生活')).dy),
+      tester.getTopLeft(row('生活')).dy,
+      lessThan(tester.getTopLeft(row('工作')).dy),
     );
   });
 
@@ -528,7 +606,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('empty tags show an empty state and disable sorting', (
+  testWidgets('empty tags show an empty state without drag handles', (
     tester,
   ) async {
     await pumpPage(tester, loadTags: () async => []);
@@ -536,12 +614,7 @@ void main() {
     expect(find.text('默认标签'), findsOneWidget);
     expect(find.text('未设置'), findsOneWidget);
     expect(kv.data.containsKey(MoodiaryKVs.defaultTag.name), isFalse);
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const ValueKey('tag-manager-sort')))
-          .onPressed,
-      isNull,
-    );
+    expect(find.byType(ReorderableDragStartListener), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -562,18 +635,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('loading disables sorting and renders tags when available', (
+  testWidgets('loading hides sorting and renders tags when available', (
     tester,
   ) async {
     final pending = Completer<List<String>>();
     await pumpPage(tester, loadTags: () => pending.future, settle: false);
     expect(row('生活'), findsNothing);
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const ValueKey('tag-manager-sort')))
-          .onPressed,
-      isNull,
-    );
+    expect(find.byType(ReorderableDragStartListener), findsNothing);
     pending.complete(tags);
     await tester.pumpAndSettle();
     expect(row('生活'), findsOneWidget);

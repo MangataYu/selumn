@@ -221,7 +221,7 @@ void main() {
         expect(find.byKey(ValueKey('filter-$filter')), findsNothing);
       }
       expect(find.byKey(const ValueKey('tag-search-toggle')), findsOneWidget);
-      expect(find.byKey(const ValueKey('tag-sort-button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-manager-button')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('all-diaries-expand')),

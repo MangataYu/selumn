@@ -283,7 +283,7 @@ void main() {
         tester.getRect(_row('a')).top,
         greaterThan(tester.getRect(tagTitle).bottom),
       );
-      final sort = find.byKey(const ValueKey('tag-sort-button'));
+      final sort = find.byKey(const ValueKey('tag-manager-button'));
       final search = find.byKey(const ValueKey('tag-search-toggle'));
       expect(
         tester.getCenter(sort).dy,

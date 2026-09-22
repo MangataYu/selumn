@@ -92,7 +92,7 @@ void main() {
       for (final path in ['生活', '生活/旅行', '生活/旅行/海边', '工作', '阅读']) {
         expect(find.byKey(ValueKey('tag-row:$path')), findsNothing);
       }
-      expect(find.byKey(const ValueKey('tag-sort-button')), findsNothing);
+      expect(find.byKey(const ValueKey('tag-manager-button')), findsNothing);
       expect(find.byKey(const ValueKey('tag-search-toggle')), findsNothing);
       expect(find.byKey(const ValueKey('all-diaries-row')), findsOneWidget);
       expect(find.byKey(const ValueKey('filter-untagged')), findsNothing);
@@ -110,7 +110,7 @@ void main() {
       expect(find.text('海边'), findsOneWidget);
       expect(find.text('项目'), findsNothing);
       expect(find.text('小说'), findsNothing);
-      expect(find.byKey(const ValueKey('tag-sort-button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('tag-manager-button')), findsOneWidget);
       expect(find.byKey(const ValueKey('tag-search-toggle')), findsOneWidget);
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('tag-row:阅读'))).dy,
@@ -157,7 +157,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_menuLabel, findsOneWidget);
     expect(find.text('生活'), findsNothing);
-    expect(find.byKey(const ValueKey('tag-sort-button')), findsNothing);
+    expect(find.byKey(const ValueKey('tag-manager-button')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpWidget(_wrap(const TagDrawer()));
@@ -217,20 +217,20 @@ void main() {
     await pumpDrawer(tester, _wrap(const TagDrawer(), tags: []));
     expect(_menuLabel, findsOneWidget);
     expect(_menuArrow, findsOneWidget);
-    final sortButton = find.byKey(const ValueKey('tag-sort-button'));
-    expect(tester.widget<IconButton>(sortButton).onPressed, isNull);
+    final managerButton = find.byKey(const ValueKey('tag-manager-button'));
+    expect(tester.widget<IconButton>(managerButton).onPressed, isNotNull);
 
     await _tap(tester, _menuLabel);
     expect(_menuLabel, findsOneWidget);
     expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isFalse);
-    expect(sortButton, findsNothing);
+    expect(managerButton, findsNothing);
     for (final filter in ['untagged', 'images', 'links', 'audio']) {
       expect(find.byKey(ValueKey('filter-$filter')), findsOneWidget);
     }
 
     await _tap(tester, _menuArrow);
     expect(kv.data[MoodiaryKVs.tagTreeExpanded.name], isTrue);
-    expect(tester.widget<IconButton>(sortButton).onPressed, isNull);
+    expect(tester.widget<IconButton>(managerButton).onPressed, isNotNull);
     expect(kv.data[MoodiaryKVs.diaryFiltersExpanded.name], isNull);
   });
 }

@@ -352,16 +352,17 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                         ),
                       ),
                       IconButton(
-                        key: const ValueKey('tag-sort-button'),
-                        tooltip: context.l10n.diary.tagSortTitle,
+                        key: const ValueKey('tag-manager-button'),
+                        tooltip: context.l10n.diary.tagManagerTitle,
                         style: compactButtonStyle,
                         icon: const Icon(
                           LucideIcons.slidersHorizontal,
                           size: _tagIconSize,
                         ),
-                        onPressed: tags.isEmpty || tagsAsync.hasError
-                            ? null
-                            : () => showTagSorting(context, tags),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          const TagManagerRoute().push(context);
+                        },
                       ),
                       SizedBox(
                         width: _tagRowHeight,

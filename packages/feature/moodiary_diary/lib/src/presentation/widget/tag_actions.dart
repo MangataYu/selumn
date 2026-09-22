@@ -5,25 +5,6 @@ import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:mui/mui.dart';
 
 import 'tag_rename_sheet.dart';
-import 'tag_sort_page.dart';
-
-Future<void> showTagSorting(BuildContext context, List<String> tags) async {
-  final management = ProviderScope.containerOf(
-    context,
-    listen: false,
-  ).read(tagManagementProvider);
-  final order = await showTagSortPage(
-    context,
-    tags: tags,
-    initialOrder: management.savedOrder,
-  );
-  if (order == null) return;
-  try {
-    management.saveOrder(order, tags);
-  } catch (_) {
-    toast.error(message: l10n.diary.saveFailed);
-  }
-}
 
 Future<void> showTagActions(BuildContext context, String tag) async {
   final management = ProviderScope.containerOf(

@@ -2045,6 +2045,12 @@ class Translations$diary$zh {
 	/// zh: '标签排序'
 	String get tagSortTitle => '标签排序';
 
+	/// zh: '拖动手柄排序，顺序自动保存'
+	String get tagSortHint => '拖动手柄排序，顺序自动保存';
+
+	/// zh: '管理子标签'
+	String get tagChildren => '管理子标签';
+
 	/// zh: '暂无标签'
 	String get tagSortEmpty => '暂无标签';
 

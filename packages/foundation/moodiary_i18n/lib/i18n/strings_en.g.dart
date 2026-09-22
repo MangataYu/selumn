@@ -738,6 +738,8 @@ class _Translations$diary$en extends Translations$diary$zh {
 	@override String get tagSetDefault => 'Set as default tag';
 	@override String get tagClearDefault => 'Clear default tag';
 	@override String get tagSortTitle => 'Sort tags';
+	@override String get tagSortHint => 'Drag handles to reorder. Changes save automatically.';
+	@override String get tagChildren => 'Manage subtags';
 	@override String get tagSortEmpty => 'No tags yet';
 	@override String get filterImages => 'With images';
 	@override String get filterLinks => 'With links';

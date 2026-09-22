@@ -175,6 +175,8 @@
   "tagSetDefault": "设为默认标签",
   "tagClearDefault": "取消默认标签",
   "tagSortTitle": "标签排序",
+  "tagSortHint": "拖动手柄排序，顺序自动保存",
+  "tagChildren": "管理子标签",
   "tagSortEmpty": "暂无标签",
   "filterImages": "有图片",
   "filterLinks": "有链接",
