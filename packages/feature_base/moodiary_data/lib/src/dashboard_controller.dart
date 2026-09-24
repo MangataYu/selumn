@@ -1,3 +1,4 @@
+import 'package:meta/meta.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -41,7 +42,10 @@ class DashboardController extends _$DashboardController {
     final byDay = _aggregateByDay(visible);
 
     return DashboardStats(
-      useDays: _useDays(),
+      useDays: dashboardUseDays(
+        startTime: MoodiaryKVs.startTime.get(),
+        now: DateTime.now(),
+      ),
       diaryCount: visible.length,
       wordCount: _wordCount(visible),
       categoryCount: cats.length,
@@ -51,14 +55,6 @@ class DashboardController extends _$DashboardController {
       byDay: byDay,
       lastYearCount: _lastYearCount(byDay),
     );
-  }
-
-  int _useDays() {
-    final ms = MoodiaryKVs.startTime.get();
-    if (ms == null || ms == 0) return 1;
-    final first = DateTime.fromMillisecondsSinceEpoch(ms);
-    final diff = DateTime.now().difference(first).inDays;
-    return diff < 0 ? 1 : diff + 1;
   }
 
   int _wordCount(List<Diary> diaries) {
@@ -157,6 +153,19 @@ class DashboardController extends _$DashboardController {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
+}
+
+@visibleForTesting
+int dashboardUseDays({required int? startTime, required DateTime now}) {
+  if (startTime == null || startTime <= 0) return 1;
+  final first = DateTime.fromMillisecondsSinceEpoch(startTime);
+  final localNow = now.toLocal();
+  // Compare local calendar dates in UTC so daylight-saving changes do not
+  // turn a calendar day into a 23- or 25-hour interval.
+  final firstDay = DateTime.utc(first.year, first.month, first.day);
+  final today = DateTime.utc(localNow.year, localNow.month, localNow.day);
+  final diff = today.difference(firstDay).inDays;
+  return diff < 0 ? 1 : diff + 1;
 }
 
 int Function(int count, int words) heatmapLevelResolver(

@@ -25,6 +25,17 @@ Future<void> bootstrapPlatform() async {
   AppLogger.configure(logFilePath: AppFiles.getErrorLogPath());
 }
 
+void initializeUsageStartTime() {
+  if (MmkvKVStorage.legacyMigrationPending) return;
+  final storage = getIt<IKVStorage>();
+  final startTime = storage.get<int>(MoodiaryKVs.startTime.name);
+  if (startTime != null && startTime > 0) return;
+  storage.set<int>(
+    MoodiaryKVs.startTime.name,
+    DateTime.now().millisecondsSinceEpoch,
+  );
+}
+
 void runStartupMaintenance() {
   unawaited(purgeExpiredTombstones());
   unawaited(purgeSyncMediaTemp());

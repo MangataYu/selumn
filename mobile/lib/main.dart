@@ -38,6 +38,7 @@ Future<void> _initSystem() async {
     AppFiles.getRealPath('database', 'moodiary.db'),
   ).exists();
   await configureDependencies();
+  initializeUsageStartTime();
   await AppLockPin.load();
 
   await getIt<DiaryRepository>().migrateLegacyCategoriesToTags();
