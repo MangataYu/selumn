@@ -6,7 +6,6 @@ import 'package:moodiary_utils/moodiary_utils.dart';
 
 import 'diary_filter.dart';
 import 'diary_selection.dart';
-import 'tag_order.dart';
 
 final tagManagementProvider = Provider(TagManagementController.new);
 
