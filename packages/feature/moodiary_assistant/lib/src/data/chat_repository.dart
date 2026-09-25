@@ -37,7 +37,10 @@ class ChatRepository {
   static ChatSessionsCompanion _toSessionCompanion(ChatSession s) =>
       ChatSessionsCompanion.insert(
         id: s.id,
-        title: Value(s.title),
+        // Empty titles can come from a page snapshot taken before background
+        // title generation. Omit them so an upsert keeps the stored title;
+        // newly inserted sessions still receive the database's empty default.
+        title: s.title.trim().isEmpty ? const Value.absent() : Value(s.title),
         providerId: s.providerId,
         model: s.model,
         createdAt: dbTime(s.createdAt),
@@ -157,6 +160,67 @@ class ChatRepository {
       _db.chatSessions,
     )..where((s) => s.id.equals(id))).getSingleOrNull();
     return row == null ? null : _toSession(row);
+  }
+
+  // SQLite's one-argument trim only removes ASCII spaces. Match Dart's
+  // String.trim whitespace so legacy whitespace-only titles are also empty.
+  static Expression<bool> _isEmptyTitle(Expression<String> title) =>
+      FunctionCallExpression<String>('trim', [
+        title,
+        const Constant(
+          '\u0009\u000a\u000b\u000c\u000d\u0020\u0085\u00a0\u1680'
+          '\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008'
+          '\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff',
+        ),
+      ]).equals('');
+
+  /// First user messages for local title previews, without loading histories
+  /// or tool calls. Message IDs break ties when timestamps are equal.
+  Future<Map<String, ChatMessage>> getUntitledSessionFirstMessages() async {
+    final sessions = _db.chatSessions;
+    final messages = _db.chatMessages;
+    final firstMessage = _db.alias(messages, 'first_message');
+    final firstMessageIds = _db.selectOnly(firstMessage)
+      ..addColumns([firstMessage.id])
+      ..where(
+        firstMessage.sessionId.equalsExp(sessions.id) &
+            firstMessage.role.equals('user'),
+      )
+      ..orderBy([
+        OrderingTerm.asc(firstMessage.createdAt),
+        OrderingTerm.asc(firstMessage.id),
+      ])
+      ..limit(1);
+    final rows =
+        await (_db.select(sessions).join([
+                innerJoin(messages, messages.id.isInQuery(firstMessageIds)),
+              ])
+              ..where(_isEmptyTitle(sessions.title))
+              ..orderBy([
+                OrderingTerm.asc(messages.createdAt),
+                OrderingTerm.asc(messages.id),
+              ]))
+            .get();
+    return {
+      for (final row in rows)
+        row.readTable(messages).sessionId: _toMessage(
+          row.readTable(messages),
+          const [],
+        ),
+    };
+  }
+
+  /// Saves a generated title only while the existing session is untitled.
+  Future<bool> setSessionTitleIfEmpty(String sessionId, String title) async {
+    final trimmed = title.trim();
+    if (sessionId.trim().isEmpty || trimmed.isEmpty) return false;
+    final updated =
+        await (_db.update(_db.chatSessions)
+              ..where((s) => s.id.equals(sessionId) & _isEmptyTitle(s.title)))
+            .write(ChatSessionsCompanion(title: Value(trimmed)));
+    if (updated == 0) return false;
+    _events.add(null);
+    return true;
   }
 
   Future<void> upsertSession(ChatSession session) async {

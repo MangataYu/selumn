@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_assistant/src/application/session_title_controller.dart';
 import 'package:moodiary_assistant/src/data/assistant.dart';
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
+import 'package:moodiary_assistant/src/data/chat_repository.dart';
+import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 
@@ -14,6 +17,8 @@ class _FakeAssistant implements AssistantService {
   final bool hang;
 
   final int failFirst;
+  final int throwFirst;
+  final Future<void> Function()? beforeReply;
   final List<AssistantChatRequest> seen = [];
 
   _FakeAssistant({
@@ -21,16 +26,20 @@ class _FakeAssistant implements AssistantService {
     this.error,
     this.hang = false,
     this.failFirst = 0,
+    this.throwFirst = 0,
+    this.beforeReply,
   });
 
   @override
   Stream<AssistantStreamEvent> chat(AssistantChatRequest request) {
     seen.add(request);
+    if (seen.length <= throwFirst) throw StateError('synchronous failure');
     if (seen.length <= failFirst) {
       return Stream<AssistantStreamEvent>.error(StateError('flaky'));
     }
     if (hang) return StreamController<AssistantStreamEvent>().stream;
     return () async* {
+      await beforeReply?.call();
       for (final c in chunks) {
         yield AssistantStreamEvent.text(c);
       }
@@ -67,9 +76,10 @@ void main() {
     ChatSession? from,
     String seed = '这周搬家好累，帮我看看日记',
     Duration timeout = const Duration(seconds: 5),
+    SessionTitleController? controller,
   }) {
     use(fake);
-    return SessionTitleController().maybeTitle(
+    return (controller ?? SessionTitleController()).maybeTitle(
       session: from ?? session(),
       firstUserText: seed,
       provider: provider(),
@@ -143,6 +153,47 @@ void main() {
       expect(await run(fake), isNull);
       expect(fake.seen.length, assistantTitleRetries + 1);
     });
+
+    test('同步抛错也保留有限重试', () async {
+      final fake = _FakeAssistant(chunks: ['搬家后的疲惫'], throwFirst: 2);
+      expect((await run(fake))?.title, '搬家后的疲惫');
+      expect(fake.seen.length, 3);
+    });
+
+    test('一次耗尽重试后，下次仍能成功', () async {
+      final fake = _FakeAssistant(
+        chunks: ['搬家后的疲惫'],
+        failFirst: assistantTitleRetries + 1,
+      );
+      final controller = SessionTitleController();
+      final current = session();
+      expect(await run(fake, from: current, controller: controller), isNull);
+      expect(
+        (await run(fake, from: current, controller: controller))?.title,
+        '搬家后的疲惫',
+      );
+      expect(fake.seen.length, assistantTitleRetries + 2);
+    });
+
+    test('同一会话正在生成时不重复调用模型', () async {
+      final started = Completer<void>();
+      final release = Completer<void>();
+      final fake = _FakeAssistant(
+        chunks: ['搬家后的疲惫'],
+        beforeReply: () {
+          started.complete();
+          return release.future;
+        },
+      );
+      final controller = SessionTitleController();
+      final current = session();
+      final pending = run(fake, from: current, controller: controller);
+      await started.future;
+      expect(await run(fake, from: current, controller: controller), isNull);
+      expect(fake.seen, hasLength(1));
+      release.complete();
+      expect((await pending)?.title, '搬家后的疲惫');
+    });
   });
 
   group('失败一律退回兜底', () {
@@ -164,12 +215,160 @@ void main() {
       );
       expect(updated, isNull);
     });
+  });
 
-    test('输入过长直接放弃，不截半句去总结', () async {
-      final fake = _FakeAssistant(chunks: ['x']);
-      final huge = '搬' * assistantTitleMaxInputBytes;
-      expect(await run(fake, seed: huge), isNull);
+  group('输入预算', () {
+    for (final part in ['搬家😀', '"\\\n\t\u0000😀']) {
+      test('过长输入保留完整字符前缀且 JSON 编码不超过预算：${jsonEncode(part)}', () async {
+        final fake = _FakeAssistant(chunks: ['搬家后的疲惫']);
+        final huge = part * assistantTitleMaxInputBytes;
+        expect((await run(fake, seed: huge))?.title, '搬家后的疲惫');
+        final framed = fake.seen.single.history.single.content;
+        expect(
+          utf8.encode(framed).length,
+          lessThanOrEqualTo(assistantTitleMaxInputBytes),
+        );
+        final decoded =
+            jsonDecode(framed.substring(framed.indexOf('\n') + 1)) as List;
+        expect(decoded, hasLength(1));
+        final seed = decoded.single as String;
+        expect(seed, isNotEmpty);
+        expect(huge.startsWith(seed), isTrue);
+        expect(seed.length, lessThan(huge.length));
+        expect(seed, isNot(contains('\uFFFD')));
+      });
+    }
+  });
+
+  group('持久化', () {
+    late MoodiaryDatabase db;
+    late ChatRepository repo;
+    late ChatSession stored;
+
+    setUp(() async {
+      db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
+      repo = ChatRepository(db);
+      getIt.registerSingleton<ChatRepository>(repo);
+      stored = session();
+      await repo.upsertSession(stored);
+    });
+
+    tearDown(() async {
+      getIt.unregister<ChatRepository>();
+      await db.close();
+    });
+
+    Future<ChatSession?> save([SessionTitleController? controller]) =>
+        (controller ?? SessionTitleController()).maybeTitleAndSave(
+          session: stored,
+          firstUserText: '这周搬家好累，帮我看看日记',
+          provider: provider(),
+          model: 'm1',
+          apiKey: 'k',
+        );
+
+    test('生成后独立落库，重新打开旧快照不重复生成', () async {
+      final fake = _FakeAssistant(chunks: ['搬家后的疲惫']);
+      use(fake);
+      expect((await save())?.title, '搬家后的疲惫');
+      expect((await repo.getSession(stored.id))?.title, '搬家后的疲惫');
+      expect((await save())?.title, '搬家后的疲惫');
+      expect(fake.seen, hasLength(1));
+    });
+
+    test('标题请求失败后保留空标题，下次成功再保存', () async {
+      final fake = _FakeAssistant(
+        chunks: ['搬家后的疲惫'],
+        failFirst: assistantTitleRetries + 1,
+      );
+      use(fake);
+      final controller = SessionTitleController();
+      expect(await save(controller), isNull);
+      expect((await repo.getSession(stored.id))?.title, isEmpty);
+      expect((await save(controller))?.title, '搬家后的疲惫');
+    });
+
+    test('空输出不填入正式标题', () async {
+      use(_FakeAssistant(chunks: [' \n ']));
+      expect(await save(), isNull);
+      expect((await repo.getSession(stored.id))?.title, isEmpty);
+    });
+
+    test('生成前删除会话不会发起请求', () async {
+      final fake = _FakeAssistant(chunks: ['搬家后的疲惫']);
+      use(fake);
+      await repo.deleteSession(stored.id);
+      expect(await save(), isNull);
       expect(fake.seen, isEmpty);
+    });
+
+    test('后台生成中删除会话不会被结果重新创建', () async {
+      use(
+        _FakeAssistant(
+          chunks: ['搬家后的疲惫'],
+          beforeReply: () => repo.deleteSession(stored.id),
+        ),
+      );
+      expect(await save(), isNull);
+      expect(await repo.getSession(stored.id), isNull);
+    });
+
+    test('生成期间已更新的正式标题不会被覆盖', () async {
+      use(
+        _FakeAssistant(
+          chunks: ['搬家后的疲惫'],
+          beforeReply: () async {
+            await repo.setSessionTitleIfEmpty(stored.id, '已有标题');
+          },
+        ),
+      );
+      expect((await save())?.title, '已有标题');
+      expect((await repo.getSession(stored.id))?.title, '已有标题');
+    });
+
+    test('标题保存不覆盖期间改变的模型、压缩信息和时间', () async {
+      final modified = stored.copyWith(
+        providerId: 'p2',
+        model: 'm2',
+        reasoningEffort: 'low',
+        updatedAt: stored.updatedAt.add(const Duration(minutes: 5)),
+        compactedSummary: 'compacted',
+        compactedUpToMessageId: 'watermark',
+      );
+      use(
+        _FakeAssistant(
+          chunks: ['搬家后的疲惫'],
+          beforeReply: () => repo.upsertSession(modified),
+        ),
+      );
+      final result = await save();
+      expect(result?.title, '搬家后的疲惫');
+      expect(result?.providerId, modified.providerId);
+      expect(result?.model, modified.model);
+      expect(result?.reasoningEffort, modified.reasoningEffort);
+      expect(result?.updatedAt, modified.updatedAt);
+      expect(result?.compactedSummary, modified.compactedSummary);
+      expect(result?.compactedUpToMessageId, modified.compactedUpToMessageId);
+    });
+
+    test('并发保存同一会话只请求一次模型', () async {
+      final started = Completer<void>();
+      final release = Completer<void>();
+      final fake = _FakeAssistant(
+        chunks: ['搬家后的疲惫'],
+        beforeReply: () {
+          started.complete();
+          return release.future;
+        },
+      );
+      use(fake);
+      final controller = SessionTitleController();
+      final pending = save(controller);
+      await started.future;
+      expect(await save(controller), isNull);
+      expect(fake.seen, hasLength(1));
+      release.complete();
+      expect((await pending)?.title, '搬家后的疲惫');
     });
   });
 

@@ -3,12 +3,51 @@ import 'dart:convert';
 
 import 'package:moodiary_assistant/src/data/assistant.dart';
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
+import 'package:moodiary_assistant/src/data/chat_repository.dart';
 import 'package:moodiary_assistant/src/data/model_resolver.dart';
 import 'package:moodiary_di/moodiary_di.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 
 class SessionTitleController {
   final Set<String> _inFlight = <String>{};
+  final Set<String> _saving = <String>{};
+
+  Future<ChatSession?> maybeTitleAndSave({
+    required ChatSession session,
+    required String firstUserText,
+    required LlmProvider provider,
+    required String model,
+    required String apiKey,
+    Duration timeout = assistantTitleTimeout,
+  }) async {
+    if (!_saving.add(session.id)) return null;
+    try {
+      final repo = getIt<ChatRepository>();
+      final current = await repo.getSession(session.id);
+      if (current == null || current.title.trim().isNotEmpty) return current;
+      final updated = await maybeTitle(
+        session: current,
+        firstUserText: firstUserText,
+        provider: provider,
+        model: model,
+        apiKey: apiKey,
+        timeout: timeout,
+      );
+      if (updated == null) return null;
+      await repo.setSessionTitleIfEmpty(session.id, updated.title);
+      return await repo.getSession(session.id);
+    } catch (error, stack) {
+      logger.e(
+        'Assistant session title persistence failed',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      return null;
+    } finally {
+      _saving.remove(session.id);
+    }
+  }
 
   Future<ChatSession?> maybeTitle({
     required ChatSession session,
@@ -18,42 +57,46 @@ class SessionTitleController {
     required String apiKey,
     Duration timeout = assistantTitleTimeout,
   }) async {
-    if (session.title.isNotEmpty) return null;
+    if (session.title.trim().isNotEmpty) return null;
     if (_inFlight.contains(session.id)) return null;
     final seed = firstUserText.trim();
     if (seed.isEmpty) return null;
 
-    final framed =
-        'Generate the session title from this JSON array of user messages:\n'
-        '${jsonEncode([seed])}';
-    if (utf8.encode(framed).length > assistantTitleMaxInputBytes) return null;
+    final framed = _frameTitleInput(seed);
 
     _inFlight.add(session.id);
     try {
       for (var attempt = 0; attempt <= assistantTitleRetries; attempt++) {
-        final raw = await _generate(
-          provider: provider,
-          model: model,
-          apiKey: apiKey,
-          framed: framed,
-          timeout: timeout,
-        );
-        final title = raw == null
-            ? ''
-            : normalizeSessionTitle(raw, maxBytes: assistantTitleMaxBytes);
-        if (title.isNotEmpty) {
-          return session.copyWith(title: title);
+        try {
+          final raw = await _generate(
+            provider: provider,
+            model: model,
+            apiKey: apiKey,
+            framed: framed,
+            timeout: timeout,
+          );
+          final title = normalizeSessionTitle(
+            raw,
+            maxBytes: assistantTitleMaxBytes,
+          );
+          if (title.isNotEmpty) {
+            return session.copyWith(title: title);
+          }
+        } catch (error, stack) {
+          logger.e(
+            'Assistant session title generation failed',
+            error: error.runtimeType,
+            stackTrace: stack,
+          );
         }
       }
-      return null;
-    } catch (_) {
       return null;
     } finally {
       _inFlight.remove(session.id);
     }
   }
 
-  Future<String?> _generate({
+  Future<String> _generate({
     required LlmProvider provider,
     required String model,
     required String apiKey,
@@ -73,30 +116,46 @@ class SessionTitleController {
     );
 
     final buffer = StringBuffer();
-    final done = Completer<bool>();
-    late final StreamSubscription<AssistantStreamEvent> sub;
-    sub = getIt<AssistantService>()
+    final done = Completer<void>();
+    final sub = getIt<AssistantService>()
         .chat(request)
         .listen(
           (event) {
             if (event.kind == .text) buffer.write(event.text);
           },
-          onError: (_) {
-            if (!done.isCompleted) done.complete(false);
+          onError: (Object error, StackTrace stack) {
+            if (!done.isCompleted) done.completeError(error, stack);
           },
           onDone: () {
-            if (!done.isCompleted) done.complete(true);
+            if (!done.isCompleted) done.complete();
           },
         );
-    final deadline = Timer(timeout, () {
-      if (!done.isCompleted) done.complete(false);
-    });
-
-    final ok = await done.future;
-    deadline.cancel();
-    await sub.cancel();
-    return ok ? buffer.toString() : null;
+    try {
+      await done.future.timeout(timeout);
+      return buffer.toString();
+    } finally {
+      await sub.cancel();
+    }
   }
+}
+
+String _frameTitleInput(String seed) {
+  const prefix =
+      'Generate the session title from this JSON array of user messages:\n';
+  final available =
+      assistantTitleMaxInputBytes -
+      utf8.encode('$prefix${jsonEncode([''])}').length;
+  final buffer = StringBuffer();
+  var used = 0;
+  for (final rune in seed.runes) {
+    final char = String.fromCharCode(rune);
+    // Count JSON escaping as well as UTF-8 bytes, excluding the string quotes.
+    final bytes = utf8.encode(jsonEncode(char)).length - 2;
+    if (used + bytes > available) break;
+    buffer.write(char);
+    used += bytes;
+  }
+  return '$prefix${jsonEncode([buffer.toString()])}';
 }
 
 final RegExp _controlCharacter = RegExp(

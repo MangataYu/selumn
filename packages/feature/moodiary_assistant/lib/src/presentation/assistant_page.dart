@@ -9,6 +9,7 @@ import 'package:moodiary_assistant/src/application/chat_items.dart';
 import 'package:moodiary_assistant/src/application/context_compaction_controller.dart';
 import 'package:moodiary_assistant/src/application/diary_citation.dart';
 import 'package:moodiary_assistant/src/application/session_title_controller.dart';
+import 'package:moodiary_assistant/src/application/session_title_display.dart';
 import 'package:moodiary_assistant/src/application/tool_approval.dart';
 import 'package:moodiary_assistant/src/data/assistant.dart';
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
@@ -33,6 +34,7 @@ import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -83,9 +85,21 @@ class AssistantPage extends StatefulWidget {
   State<AssistantPage> createState() => _AssistantPageState();
 }
 
-String _sessionTitle(ChatSession? session, Translations l10n) {
+String _sessionTitle(
+  ChatSession? session,
+  Translations l10n, {
+  String firstUserText = '',
+  bool hasImage = false,
+}) {
   final title = session?.title.trim() ?? '';
-  return title.isEmpty ? l10n.assistant.newChat : title;
+  if (title.isNotEmpty) return title;
+  final local = localSessionTitle(firstUserText);
+  if (local.isNotEmpty) return local;
+  if (hasImage) return l10n.assistant.imageMessageLabel;
+  if (splitDiaryCitation(firstUserText).diaryId != null) {
+    return l10n.assistant.citationRead;
+  }
+  return l10n.assistant.newChat;
 }
 
 class _AssistantPageState extends State<AssistantPage> {
@@ -97,6 +111,7 @@ class _AssistantPageState extends State<AssistantPage> {
   late final AssistantChatController _chat;
 
   StreamSubscription<AssistantStreamEvent>? _streamSub;
+  StreamSubscription<void>? _sessionSub;
 
   AssistantTurn? _streamingMessage;
 
@@ -169,11 +184,41 @@ class _AssistantPageState extends State<AssistantPage> {
   final Map<String, ({AssistantTurn turn, Widget widget})> _turnWidgets = {};
 
   String _titleText(Translations l10n) {
-    for (final candidate in [_session?.title, widget.initialTitle]) {
-      final trimmed = candidate?.trim() ?? '';
-      if (trimmed.isNotEmpty) return trimmed;
+    if (_session == null && widget.initialSessionId != null) {
+      final initial = widget.initialTitle?.trim() ?? '';
+      if (initial.isNotEmpty) return initial;
     }
-    return l10n.assistant.newChat;
+    final first = _firstUserTurn;
+    return _sessionTitle(
+      _session,
+      l10n,
+      firstUserText: first?.text ?? '',
+      hasImage: first?.imageName.isNotEmpty ?? false,
+    );
+  }
+
+  AssistantTurn? get _firstUserTurn => _chat.items
+      .whereType<AssistantTurn>()
+      .where((turn) => turn.fromUser && turn.text != continueTurnMarker)
+      .firstOrNull;
+
+  Future<void> _refreshSessionTitle() async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      final stored = await getIt<ChatRepository>().getSession(session.id);
+      if (!mounted || _session?.id != session.id || stored == null) return;
+      if (stored.title.trim().isEmpty || stored.title == _session?.title) {
+        return;
+      }
+      setState(() => _session = _session!.copyWith(title: stored.title));
+    } catch (error, stack) {
+      logger.e(
+        'Failed to refresh session title',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+    }
   }
 
   void _onInputFocusChanged() {
@@ -259,6 +304,9 @@ class _AssistantPageState extends State<AssistantPage> {
     _reasoningLevel = MoodiaryKVs.assistantReasoningEffort.get();
     if (widget.initialSessionId == null) _citedDiaryId = widget.citedDiaryId;
     _chat.addListener(_syncDerivedFromItems);
+    _sessionSub = getIt<ChatRepository>().sessionEvents.listen(
+      (_) => unawaited(_refreshSessionTitle()),
+    );
     _inputFocusNode.addListener(_onInputFocusChanged);
     if (!_disclaimerAccepted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -289,6 +337,7 @@ class _AssistantPageState extends State<AssistantPage> {
     _inputFocusNode.dispose();
     _chatScroll.dispose();
     _streamSub?.cancel();
+    _sessionSub?.cancel();
     _chat.dispose();
     super.dispose();
   }
@@ -562,12 +611,14 @@ class _AssistantPageState extends State<AssistantPage> {
     });
     await Future.wait([_chat.loadSession(session.id), _refreshReady()]);
     if (!mounted) return;
+    setState(() {});
+    unawaited(_refreshSessionTitle());
     _syncCompactionNotice();
     _syncModelSwitchNotices();
     _listKey.currentState?.pinToBottom();
   }
 
-  Future<ChatSession?> _ensureSession(String firstUserText) async {
+  Future<ChatSession?> _ensureSession() async {
     final existing = _session;
     if (existing != null) return existing;
     final provider = _provider;
@@ -580,30 +631,25 @@ class _AssistantPageState extends State<AssistantPage> {
     await getIt<ChatRepository>().upsertSession(session);
     _chat.sessionId = session.id;
     if (mounted) setState(() => _session = session);
-    unawaited(_generateTitle(session, firstUserText));
     return session;
   }
 
-  Future<void> _generateTitle(ChatSession session, String firstUserText) async {
-    final provider = _provider;
-    if (provider == null) return;
-    final key = await getIt<LlmProviderRepository>().getKey(provider.id);
-    if (key == null || key.isEmpty) return;
-    if (!mounted || _session?.id != session.id) return;
-
-    final updated = await _title.maybeTitle(
+  Future<void> _generateTitle(
+    ChatSession session,
+    String firstUserText,
+    LlmProvider provider,
+    AssistantChatRequest request,
+  ) async {
+    final updated = await _title.maybeTitleAndSave(
       session: session,
       firstUserText: firstUserText,
       provider: provider,
-      model: _modelId,
-      apiKey: key,
+      model: request.model,
+      apiKey: request.apiKey,
     );
     final current = _session;
     if (updated == null || !mounted || current?.id != session.id) return;
-    final merged = current!.copyWith(title: updated.title);
-    await getIt<ChatRepository>().upsertSession(merged);
-    if (!mounted || _session?.id != session.id) return;
-    setState(() => _session = merged);
+    setState(() => _session = current!.copyWith(title: updated.title));
   }
 
   Future<void> _openFullscreenComposer() async {
@@ -698,7 +744,6 @@ class _AssistantPageState extends State<AssistantPage> {
         !_disclaimerAccepted) {
       return;
     }
-    final imageLabel = context.l10n.assistant.imageMessageLabel;
     final gen = ++_generation;
     _staleReplyIds = [];
 
@@ -719,7 +764,6 @@ class _AssistantPageState extends State<AssistantPage> {
 
     await _generate(
       gen: gen,
-      sessionSeedText: text.isEmpty ? imageLabel : text,
       userMessage: userMsg,
       placeholderAt: base.add(const Duration(milliseconds: 1)),
     );
@@ -757,7 +801,6 @@ class _AssistantPageState extends State<AssistantPage> {
 
     await _generate(
       gen: gen,
-      sessionSeedText: splitDiaryCitation(userMsg.text).text,
       userMessage: userMsg,
       placeholderAt: .timestamp(),
     );
@@ -773,7 +816,6 @@ class _AssistantPageState extends State<AssistantPage> {
     setState(() => _sending = true);
     await _generate(
       gen: gen,
-      sessionSeedText: '',
       userMessage: userMsg,
       placeholderAt: base.add(const Duration(milliseconds: 1)),
     );
@@ -787,12 +829,12 @@ class _AssistantPageState extends State<AssistantPage> {
 
   Future<void> _generate({
     required int gen,
-    required String sessionSeedText,
     required AssistantTurn userMessage,
     required DateTime placeholderAt,
   }) async {
     _listKey.currentState?.pinToBottom();
     final l10n = context.l10n;
+    final titleProvider = _provider;
     final toolsActive = _canUseTools;
     final memoryEnabled =
         toolsActive && (MoodiaryKVs.assistantMemoryEnabled.get() ?? true);
@@ -846,12 +888,23 @@ class _AssistantPageState extends State<AssistantPage> {
       return;
     }
 
-    final session = await _ensureSession(sessionSeedText);
+    final session = await _ensureSession();
     if (!mounted || gen != _generation) return;
     if (session != null) {
       await _chat.persist(userMessage);
       if (!mounted || gen != _generation) return;
     }
+
+    final firstUserTurn = _firstUserTurn;
+    final firstUserText = splitDiaryCitation(firstUserTurn?.text ?? '').text;
+    final titleSeed = firstUserText.trim().isNotEmpty
+        ? firstUserText
+        : _sessionTitle(
+            null,
+            l10n,
+            firstUserText: firstUserTurn?.text ?? '',
+            hasImage: firstUserTurn?.imageName.isNotEmpty ?? false,
+          );
 
     final needApiKeyText = l10n.assistant.needApiKey;
     var errored = false;
@@ -901,6 +954,11 @@ class _AssistantPageState extends State<AssistantPage> {
               if (errored) return;
               _finalizeStreaming(persist: true);
               if (mounted) setState(() => _sending = false);
+              if (session != null && titleProvider != null) {
+                unawaited(
+                  _generateTitle(session, titleSeed, titleProvider, request),
+                );
+              }
               unawaited(_maybeCompact());
               _flushQueued();
             },
@@ -2670,6 +2728,9 @@ class _SessionListView extends StatefulWidget {
 
 class _SessionListViewState extends State<_SessionListView> {
   List<ChatSession>? _sessions;
+  Map<String, ChatMessage> _firstMessages = {};
+  int _loadRevision = 0;
+  bool _loadFailed = false;
   StreamSubscription<void>? _sub;
 
   @override
@@ -2686,8 +2747,27 @@ class _SessionListViewState extends State<_SessionListView> {
   }
 
   Future<void> _load() async {
-    final sessions = await getIt<ChatRepository>().getAllSessions();
-    if (mounted) setState(() => _sessions = sessions);
+    final revision = ++_loadRevision;
+    final repo = getIt<ChatRepository>();
+    try {
+      final sessions = await repo.getAllSessions();
+      final firstMessages = await repo.getUntitledSessionFirstMessages();
+      if (!mounted || revision != _loadRevision) return;
+      setState(() {
+        _sessions = sessions;
+        _firstMessages = firstMessages;
+        _loadFailed = false;
+      });
+    } catch (error, stack) {
+      logger.e(
+        'Failed to load session titles',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      if (mounted && revision == _loadRevision) {
+        setState(() => _loadFailed = true);
+      }
+    }
   }
 
   List<_HistoryEntry> _entries(List<ChatSession> sessions) {
@@ -2705,6 +2785,16 @@ class _SessionListViewState extends State<_SessionListView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadFailed) {
+      return Center(
+        child: TextButton(
+          onPressed: _load,
+          child: Text(
+            '${context.l10n.common.loadFailed} · ${context.l10n.common.retry}',
+          ),
+        ),
+      );
+    }
     final sessions = _sessions;
     return switch (sessions) {
       null => const Center(child: CircularProgressIndicator()),
@@ -2719,6 +2809,7 @@ class _SessionListViewState extends State<_SessionListView> {
               _HistoryHeader(:final bucket) => _HistoryGroupLabel(bucket),
               _HistoryRow(:final session, :final bucket) => _SessionTile(
                 session: session,
+                firstMessage: _firstMessages[session.id],
                 bucket: bucket,
                 onTap: () => widget.onSelect(session),
                 onDelete: () => widget.onDelete(session),
@@ -2782,12 +2873,14 @@ class _EmptySessions extends StatelessWidget {
 
 class _SessionTile extends StatelessWidget {
   final ChatSession session;
+  final ChatMessage? firstMessage;
   final SessionHistoryBucket bucket;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const _SessionTile({
     required this.session,
+    required this.firstMessage,
     required this.bucket,
     required this.onTap,
     required this.onDelete,
@@ -2799,12 +2892,19 @@ class _SessionTile extends StatelessWidget {
     .earlier => TimeFormat.relative(session.updatedAt),
   };
 
+  String _title(Translations l10n) => _sessionTitle(
+    session,
+    l10n,
+    firstUserText: firstMessage?.content ?? '',
+    hasImage: firstMessage?.imageName?.isNotEmpty ?? false,
+  );
+
   Future<bool> _confirmDelete(BuildContext context) async {
     final l10n = context.l10n;
     return MAlert.confirm(
       context,
       title: l10n.common.delete,
-      message: _sessionTitle(session, l10n),
+      message: _title(l10n),
       confirmLabel: l10n.common.delete,
       isDestructive: true,
     );
@@ -2842,7 +2942,7 @@ class _SessionTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _sessionTitle(session, l10n),
+                  _title(l10n),
                   maxLines: 1,
                   overflow: .ellipsis,
                   style: typography.bodyMedium.onSurface,
