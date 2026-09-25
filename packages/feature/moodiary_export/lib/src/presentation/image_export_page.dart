@@ -149,7 +149,7 @@ class _ImageExportPageState extends State<ImageExportPage> {
       style: _style(),
       outPath: p.join(
         dir.path,
-        'moodiary-${DateTime.now().millisecondsSinceEpoch}.png',
+        'selumn-${DateTime.now().millisecondsSinceEpoch}.png',
       ),
     );
     return File(result.path).existsSync() ? result.path : null;

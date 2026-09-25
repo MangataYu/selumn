@@ -303,7 +303,7 @@ class ExportService {
     }
     return _zip(
       outDir,
-      p.join(workDir.path, 'moodiary-markdown-${_stamp()}.zip'),
+      p.join(workDir.path, 'selumn-markdown-${_stamp()}.zip'),
       token,
     );
   }
@@ -370,7 +370,7 @@ class ExportService {
     }
     return _zip(
       outDir,
-      p.join(workDir.path, 'moodiary-docx-${_stamp()}.zip'),
+      p.join(workDir.path, 'selumn-docx-${_stamp()}.zip'),
       token,
     );
   }
@@ -445,7 +445,7 @@ class ExportService {
     }
     return _zip(
       outDir,
-      p.join(workDir.path, 'moodiary-pdf-${_stamp()}.zip'),
+      p.join(workDir.path, 'selumn-pdf-${_stamp()}.zip'),
       token,
     );
   }
@@ -501,7 +501,7 @@ class ExportService {
     if (images.length <= _kLooseImageLimit) return images.first;
     final zipPath = await _zip(
       outDir,
-      p.join(workDir.path, 'moodiary-image-${_stamp()}.zip'),
+      p.join(workDir.path, 'selumn-image-${_stamp()}.zip'),
       token,
     );
     images.clear();
@@ -550,7 +550,7 @@ class ExportService {
   static String _stamp() {
     final t = DateTime.now();
     String two(int v) => v.toString().padLeft(2, '0');
-    return 'moodiary-${t.year}${two(t.month)}${two(t.day)}-'
+    return 'selumn-${t.year}${two(t.month)}${two(t.day)}-'
         '${two(t.hour)}${two(t.minute)}${two(t.second)}';
   }
 
