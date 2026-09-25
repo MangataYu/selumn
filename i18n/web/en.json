@@ -5,6 +5,7 @@
   "toolbar": {
     "undo": "Undo",
     "redo": "Redo",
+    "insertTag": "Insert tag",
     "insertImage": "Insert image",
     "insertAudio": "Insert audio",
     "insertVideo": "Insert video",

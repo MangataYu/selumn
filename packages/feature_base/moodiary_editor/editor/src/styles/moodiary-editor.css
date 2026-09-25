@@ -775,7 +775,8 @@ body {
   margin: 1.2em 0;
 }
 .moodiary-editor .ProseMirror strong {
-  font-weight: 600;
+  /* Android CJK fallback fonts may only have 400; 700 enables synthetic bold. */
+  font-weight: 700;
 }
 /* 行内代码 */
 .moodiary-editor .ProseMirror code {

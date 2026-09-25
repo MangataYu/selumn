@@ -5,6 +5,7 @@
   "toolbar": {
     "undo": "撤销",
     "redo": "重做",
+    "insertTag": "插入标签",
     "insertImage": "插入图片",
     "insertAudio": "插入音频",
     "insertVideo": "插入视频",

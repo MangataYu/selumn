@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import type { Editor } from '@tiptap/core'
 import IconUndo from '~icons/lucide/undo-2'
 import IconRedo from '~icons/lucide/redo-2'
+import IconHash from '~icons/lucide/hash'
 import IconImage from '~icons/lucide/image'
 import IconAudio from '~icons/lucide/music'
 import IconVideo from '~icons/lucide/video'
@@ -24,6 +25,7 @@ import IconH1 from '~icons/lucide/heading-1'
 import IconH2 from '~icons/lucide/heading-2'
 import IconH3 from '~icons/lucide/heading-3'
 import { openSearch } from '../editor/search'
+import { tagSuggestion } from '../editor/tag'
 import TableGridPicker from './TableGridPicker.vue'
 import PopupMenu from './PopupMenu.vue'
 import type { PopupMenuItem } from './PopupMenu.vue'
@@ -71,6 +73,20 @@ const canRedo = (): boolean => {
 
 const insertLink = (): void => {
   chain().insertContent('[[').run()
+}
+
+const canInsertTag = (): boolean =>
+  !['heading', 'codeBlock', 'code', 'link', 'tag'].some((name) => isActive(name))
+
+const insertTag = (): void => {
+  if (tagSuggestion.open) {
+    chain().run()
+    return
+  }
+  const { $from } = props.editor.state.selection
+  const before = $from.parent.textBetween(0, $from.parentOffset, '\n', '\ufffc')
+  // Explicit text avoids interpreting the hash as a Markdown heading.
+  chain().insertContent({ type: 'text', text: before && !/\s$/.test(before) ? ' #' : '#' }).run()
 }
 
 interface Tool {
@@ -183,6 +199,18 @@ function onHeadingSelect(key: string): void {
     </button>
     <span class="mx-1 h-5 w-px shrink-0 bg-base-300" />
 
+    <button
+      :class="[btnClass, 'btn-square']"
+      type="button"
+      :title="t('toolbar.insertTag')"
+      :aria-label="t('toolbar.insertTag')"
+      data-testid="insert-tag"
+      :disabled="!canInsertTag()"
+      @mousedown.prevent
+      @click="insertTag"
+    >
+      <IconHash class="size-5" />
+    </button>
     <button :class="[btnClass, 'btn-square']" type="button" :title="t('toolbar.insertImage')" @mousedown.prevent @click="emit('pick-image')">
       <IconImage class="size-5" />
     </button>
