@@ -2256,7 +2256,7 @@ class _UserBubble extends StatelessWidget {
           ),
           child: SelectableText(
             text,
-            style: context.theme.typography.bodyMedium.onSurface,
+            style: context.theme.typography.bodyLarge.onSurface,
           ),
         ),
       );
@@ -2404,7 +2404,7 @@ class _AssistantBubble extends StatelessWidget {
       bubble = SelectionArea(
         child: GptMarkdown(
           text,
-          style: context.theme.typography.bodyMedium.onSurface,
+          style: context.theme.typography.bodyLarge.onSurface,
           codeBuilder: _codeBlock,
         ),
       );
