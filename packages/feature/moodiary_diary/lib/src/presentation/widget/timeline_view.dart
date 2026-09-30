@@ -64,6 +64,13 @@ class DiaryTimelineView extends ConsumerWidget {
               final selNotifier = ref.read(diarySelectionProvider.notifier);
               var offset = 0;
 
+              final headerStyle =
+                  context.theme.typography.titleMedium.emphasized.onSurface;
+              final headerHeight =
+                  MediaQuery.textScalerOf(context)
+                          .scale(headerStyle.fontSize!) *
+                      (headerStyle.height ?? 1) +
+                  10;
               final slivers = <Widget>[];
               for (final month in months) {
                 final base = offset;
@@ -73,6 +80,7 @@ class DiaryTimelineView extends ConsumerWidget {
                   delegate: _MonthHeaderDelegate(
                     month: month.month,
                     count: monthCounts?[month.month],
+                    height: headerHeight,
                   ),
                 );
                 final list = SliverList.builder(
@@ -191,35 +199,38 @@ class DiaryTimelineView extends ConsumerWidget {
 class _MonthHeaderDelegate extends SliverPersistentHeaderDelegate {
   final DateTime month;
   final int? count;
+  final double height;
 
-  const _MonthHeaderDelegate({required this.month, required this.count});
-
-  static const double _height = 34.0;
+  const _MonthHeaderDelegate({
+    required this.month,
+    required this.count,
+    required this.height,
+  });
 
   @override
-  double get minExtent => _height;
+  double get minExtent => height;
 
   @override
-  double get maxExtent => _height;
+  double get maxExtent => height;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlaps) {
     final colors = context.theme.colors;
     return Container(
-      height: _height,
+      height: height,
       alignment: .centerLeft,
       color: colors.surface,
       child: Row(
         children: [
           Text(
             TimeFormat.monthTitle(month),
-            style: context.theme.typography.titleSmall.emphasized.onSurface,
+            style: context.theme.typography.titleMedium.emphasized.onSurface,
           ),
           if (count != null) ...[
             const SizedBox(width: 8),
             Text(
               context.l10n.diary.timelineMonthCount(count: count!),
-              style: context.theme.typography.labelSmall.onSurfaceVariant,
+              style: context.theme.typography.labelMedium.onSurfaceVariant,
             ),
           ],
           const SizedBox(width: 10),
@@ -231,5 +242,5 @@ class _MonthHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _MonthHeaderDelegate old) =>
-      old.month != month || old.count != count;
+      old.month != month || old.count != count || old.height != height;
 }

@@ -89,8 +89,8 @@ class DiaryFeedTile extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: .ellipsis,
-              style: context.theme.typography.titleSmall.emphasized.onSurface
-                  .copyWith(height: 1.4),
+              style: context.theme.typography.bodyMedium.emphasized.onSurface
+                  .copyWith(height: 1.5),
             ),
           ],
           if (body.isNotEmpty) ...[
@@ -299,7 +299,7 @@ class _MoreOverlay extends StatelessWidget {
       child: Center(
         child: Text(
           '+$count',
-          style: context.theme.typography.labelLarge.emphasized.onMedia,
+          style: context.theme.typography.labelMedium.emphasized.onMedia,
         ),
       ),
     );
@@ -368,7 +368,7 @@ class _AudioBar extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '$count',
-              style: context.theme.typography.labelSmall.onSurfaceVariant,
+              style: context.theme.typography.labelMedium.onSurfaceVariant,
             ),
           ],
         ],

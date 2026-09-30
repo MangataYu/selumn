@@ -127,7 +127,7 @@ class _DateColumn extends StatelessWidget {
           TimeFormat.weekdayShort(stamp),
           maxLines: 1,
           overflow: .clip,
-          style: typo.labelSmall.onSurfaceVariant.copyWith(height: 1.1),
+          style: typo.labelMedium.onSurfaceVariant.copyWith(height: 1.1),
         ),
       ],
     );
@@ -183,7 +183,7 @@ class _Content extends StatelessWidget {
               diary.title.trim(),
               maxLines: 1,
               overflow: .ellipsis,
-              style: typo.titleMedium.onSurface,
+              style: typo.bodyMedium.emphasized.onSurfaceVariant,
             ),
           ],
           if (body.isNotEmpty) ...[
@@ -231,7 +231,7 @@ class _MetaLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final onVariant = colors.onSurfaceVariant;
-    final style = context.theme.typography.labelSmall.onSurfaceVariant;
+    final style = context.theme.typography.labelMedium.onSurfaceVariant;
     final weather = diary.weather;
 
     return Row(
@@ -375,7 +375,7 @@ class _Thumb extends StatelessWidget {
                 child: Text(
                   '+$moreCount',
                   style:
-                      context.theme.typography.titleMedium.emphasized.onMedia,
+                      context.theme.typography.labelMedium.emphasized.onMedia,
                 ),
               ),
             ),
@@ -396,7 +396,7 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    final style = context.theme.typography.labelSmall.onSurfaceVariant;
+    final style = context.theme.typography.labelMedium.onSurfaceVariant;
     final chips = <Widget>[];
 
     if (diary.audioName.isNotEmpty) {
