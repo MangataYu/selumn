@@ -17,7 +17,8 @@ const _i18nWebDir = 'i18n/web/';
 void main(List<String> args) async {
   await build(args, (input, output) async {
     if (input.config.buildCodeAssets &&
-        input.config.code.targetOS == OS.current) {
+        input.config.code.targetOS == OS.current &&
+        input.config.code.targetOS != OS.windows) {
       return;
     }
     final editorDir = input.packageRoot.resolve('editor/');

@@ -218,12 +218,16 @@ final Map<String, Future<void> Function(List<String> rest)> _tasks = {
   'run': (rest) async {
     await _flutter(['run', ...rest]);
   },
+  'run-desktop': (rest) =>
+      _flutter(['run', '-d', 'windows', ...rest], cwd: 'desktop'),
   'build-apk': (rest) async {
     await _flutter(['build', 'apk', ...rest]);
   },
   'build-ios': (rest) async {
     await _flutter(['build', 'ios', ...rest]);
   },
+  'build-windows': (rest) =>
+      _flutter(['build', 'windows', ...rest], cwd: 'desktop'),
   'analyze': (_) async {
     await _run('dart', ['tool/check_generated.dart']);
     await _checkLayers();
@@ -262,6 +266,7 @@ final Map<String, Future<void> Function(List<String> rest)> _tasks = {
     await _flutter(['test', ...testDirs, ...flutterArgs], cwd: null);
   },
   'test-mobile': (rest) => _flutter(['test', ...rest]),
+  'test-desktop': (rest) => _flutter(['test', ...rest], cwd: 'desktop'),
   'build-runner': (_) async {
     await _run('melos', [
       'exec',

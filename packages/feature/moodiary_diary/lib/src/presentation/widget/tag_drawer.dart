@@ -21,6 +21,9 @@ class TagDrawer extends ConsumerStatefulWidget {
   final VoidCallback? onFilterSelected;
   final bool isDiarySelected;
 
+  /// Keeps the current route open when used as a desktop sidebar.
+  final bool persistent;
+
   const TagDrawer({
     super.key,
     this.overview,
@@ -28,6 +31,7 @@ class TagDrawer extends ConsumerStatefulWidget {
     this.afterDiary,
     this.onFilterSelected,
     this.isDiarySelected = true,
+    this.persistent = false,
   });
 
   @override
@@ -37,48 +41,52 @@ class TagDrawer extends ConsumerStatefulWidget {
 class _TagDrawerState extends ConsumerState<TagDrawer> {
   String _query = '';
   bool _searchVisible = false;
-  late bool _filtersExpanded = MoodiaryKVs.diaryFiltersExpanded.get()!;
-  late bool _tagsExpanded = MoodiaryKVs.tagTreeExpanded.get()!;
+  late final _filtersExpandedListenable = MoodiaryKVs.diaryFiltersExpanded
+      .getNotifier();
+  late final _tagsExpandedListenable = MoodiaryKVs.tagTreeExpanded
+      .getNotifier();
   late final _tagOrderListenable = MoodiaryKVs.tagOrder.getNotifier();
   late final _expandedPathsListenable = MoodiaryKVs.expandedTagPaths
       .getNotifier();
 
   List<String> get _tagOrder => _tagOrderListenable.value;
   Set<String> get _expandedPaths => _expandedPathsListenable.value.toSet();
+  bool get _filtersExpanded => _filtersExpandedListenable.value;
+  bool get _tagsExpanded => _tagsExpandedListenable.value;
 
   @override
   void initState() {
     super.initState();
     _tagOrderListenable.addListener(_onTagPreferencesChanged);
     _expandedPathsListenable.addListener(_onTagPreferencesChanged);
+    _filtersExpandedListenable.addListener(_onTagPreferencesChanged);
+    _tagsExpandedListenable.addListener(_onTagPreferencesChanged);
   }
 
   @override
   void dispose() {
     _tagOrderListenable.removeListener(_onTagPreferencesChanged);
     _expandedPathsListenable.removeListener(_onTagPreferencesChanged);
+    _filtersExpandedListenable.removeListener(_onTagPreferencesChanged);
+    _tagsExpandedListenable.removeListener(_onTagPreferencesChanged);
     super.dispose();
   }
 
-  void _onTagPreferencesChanged() => setState(() {});
+  void _onTagPreferencesChanged() => setState(() {
+    if (!_tagsExpanded) {
+      _searchVisible = false;
+      _query = '';
+    }
+  });
 
   void _toggleFilters() {
-    final expanded = !_filtersExpanded;
-    MoodiaryKVs.diaryFiltersExpanded.set(expanded);
-    setState(() => _filtersExpanded = expanded);
+    MoodiaryKVs.diaryFiltersExpanded.set(!_filtersExpanded);
   }
 
   void _toggleTags() {
     final expanded = !_tagsExpanded;
-    MoodiaryKVs.tagTreeExpanded.set(expanded);
     if (!expanded) FocusScope.of(context).unfocus();
-    setState(() {
-      _tagsExpanded = expanded;
-      if (!expanded) {
-        _searchVisible = false;
-        _query = '';
-      }
-    });
+    MoodiaryKVs.tagTreeExpanded.set(expanded);
   }
 
   void _saveExpandedPaths(Set<String> paths) {
@@ -95,8 +103,12 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
   void _pick(DiaryFilter filter) {
     ref.read(diarySelectionProvider.notifier).clear();
     ref.read(homeDiaryFilterProvider.notifier).select(filter);
-    Navigator.of(context).pop();
+    _closeDrawer();
     widget.onFilterSelected?.call();
+  }
+
+  void _closeDrawer() {
+    if (!widget.persistent) Navigator.of(context).pop();
   }
 
   @override
@@ -252,7 +264,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                     style: compactButtonStyle,
                     icon: const Icon(LucideIcons.settings, size: 18),
                     onPressed: () {
-                      Navigator.of(context).pop();
+                      _closeDrawer();
                       const SettingRoute().push(context);
                     },
                   ),
@@ -359,7 +371,7 @@ class _TagDrawerState extends ConsumerState<TagDrawer> {
                           size: _tagIconSize,
                         ),
                         onPressed: () {
-                          Navigator.of(context).pop();
+                          _closeDrawer();
                           const TagManagerRoute().push(context);
                         },
                       ),

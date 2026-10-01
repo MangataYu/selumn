@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,6 +9,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -277,6 +279,26 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     if (shouldFlush && _dirty) _flushAutoSave();
   }
 
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    if (!_dirty) return AppExitResponse.exit;
+    try {
+      // The engine waits for this response before closing the last window.
+      // autoSave also waits for an earlier write before saving the draft.
+      await _flushAutoSave(autoFill: false);
+      if (!_dirty) return AppExitResponse.exit;
+    } catch (error, stack) {
+      logger.e(
+        'diary save before application exit failed',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      if (mounted) setState(() => _saveStatus = 'failed');
+    }
+    toast.error(message: l10n.diary.saveFailed);
+    return AppExitResponse.cancel;
+  }
+
   void _onContentChanged(String content, String plain) {
     _shownContent = content;
     ref.read(_provider.notifier).changeContent(content, contentText: plain);
@@ -297,7 +319,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     _autoSaveTimer = Timer(_autoSaveDebounce, _flushAutoSave);
   }
 
-  Future<void> _flushAutoSave() async {
+  Future<void> _flushAutoSave({bool autoFill = true}) async {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = null;
     if (mounted) setState(() => _saveStatus = 'saving');
@@ -306,7 +328,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     if (ok) _dirty = false;
     if (!mounted) return;
     setState(() => _saveStatus = ok ? 'saved' : 'failed');
-    if (ok) {
+    if (ok && autoFill) {
       unawaited(_maybeAutoFill());
     }
   }
@@ -485,7 +507,9 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
 
   Future<void> _maybeAutoFill() async {
     if (_autoFillTried || widget.diaryId != null) return;
-    final current = ref.read(_provider).value;
+    final provider = _provider;
+    bool active() => widget.diaryId == null && _provider == provider;
+    final current = ref.read(provider).value;
     if (current == null) return;
     final wantPlace =
         MoodiaryKVs.autoNearestPlace.get() == true && _placeUntouched;
@@ -495,13 +519,13 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     if (!wantPlace && !wantApi && !wantWeather) return;
     final qweatherReady =
         (wantApi || wantWeather) && await qweatherCredentials() != null;
-    if (!mounted) return;
+    if (!mounted || !active()) return;
     if (!wantPlace && !qweatherReady) return;
     _autoFillTried = true;
-    final notifier = ref.read(_provider.notifier);
+    final notifier = ref.read(provider.notifier);
     final located = await notifier.locate();
     final fix = located.coords;
-    if (!mounted || fix == null) return;
+    if (!mounted || !active() || fix == null) return;
     _fix = fix;
     var changed = false;
     if (wantPlace && _placeUntouched) {
@@ -518,7 +542,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
         coords: fix,
         onlyIfUnset: true,
       );
-      if (!mounted) return;
+      if (!mounted || !active()) return;
       changed = result.place != null && _placeUntouched;
     }
     if (wantWeather && qweatherReady && _weatherUntouched) {
@@ -527,7 +551,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
         coords: fix,
         onlyIfUnset: true,
       );
-      if (!mounted) return;
+      if (!mounted || !active()) return;
       changed = changed || (result.weather != null && _weatherUntouched);
     }
     if (!changed) return;
@@ -767,6 +791,39 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
       toast.success(message: l10n.diary.saved);
     }
     if (!mounted) return;
+    if (widget.diaryId == null && GoRouter.maybeOf(context) != null) {
+      final provider = _provider;
+      bool active() => widget.diaryId == null && _provider == provider;
+      final draft = ref.read(provider).value;
+      if (draft != null) {
+        try {
+          final saved = await getIt<DiaryRepository>().getDiaryByBusinessId(
+            draft.id,
+          );
+          if (!mounted || !active() || _dirty) return;
+          if (saved != null) {
+            DiaryRoute(diaryId: saved.id).replace(context);
+            return;
+          }
+          // Blank new drafts are not persisted; finish their creation route.
+          final router = GoRouter.of(context);
+          if (router.canPop()) {
+            router.pop();
+          } else {
+            const DiaryHomeRoute().go(context);
+          }
+          return;
+        } catch (error, stack) {
+          logger.e(
+            'saved diary lookup failed',
+            error: error.runtimeType,
+            stackTrace: stack,
+          );
+          if (mounted && active()) toast.error(message: l10n.diary.saveFailed);
+          return;
+        }
+      }
+    }
     setState(() => _mode = .read);
   }
 

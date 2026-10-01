@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Moodiary is a Flutter + Rust diary app. **Layered pub-workspace monorepo**: 32 shared packages under `packages/` in four dependency layers, consumed by the single Flutter app **`mobile/`** (Android + iOS, pub name `moodiary_mobile`). The root `pubspec.yaml` is the workspace + Melos coordinator — no app code, no dependencies beyond what the test run needs. A desktop app will be rebuilt later; the packages are layered for it, but no desktop target exists today.
+Moodiary is a Flutter + Rust diary app. **Layered pub-workspace monorepo**: shared packages under `packages/` in four dependency layers, consumed by **`mobile/`** (Android + iOS, pub name `moodiary_mobile`) and **`desktop/`** (Windows, pub name `moodiary_desktop`). Each app owns its bootstrap, dependency composition and navigation while reusing the diary, editor, data and sync packages. The root `pubspec.yaml` is the workspace + Melos coordinator — no app code, no dependencies beyond what the test run needs. The Windows app is an initial desktop implementation; see [desktop/README.md](desktop/README.md) for setup and its current limits.
 
 ## Tech Stack
 
@@ -18,9 +18,11 @@ Moodiary is a Flutter + Rust diary app. **Layered pub-workspace monorepo**: 32 s
 fvm use
 dart tool/task.dart setup          # flutter pub get (the editor bundle is built by moodiary_editor's build hook on run/build; needs corepack)
 
-# Run & Build (mobile app)
+# Run & Build
 dart tool/task.dart run            # flutter run
-dart tool/task.dart build-apk / build-ios  # the only two targets
+dart tool/task.dart build-apk / build-ios  # mobile/ targets
+dart tool/task.dart run-desktop    # desktop/: flutter run -d windows
+dart tool/task.dart build-windows  # desktop/: flutter build windows
 # Extra flutter flags go after --:  dart tool/task.dart run -- --release
 
 # Code Gen
@@ -34,6 +36,7 @@ dart tool/task.dart gen            # gen-rust + i18n
 dart tool/task.dart analyze        # layer check + flutter analyze
 dart tool/task.dart test           # affected packages only: changed vs --diff=<ref> (default: the merge-base with origin/develop, so the whole branch, plus uncommitted and untracked) plus transitive dependents; root pubspec change or --all runs everything (CI). Only the legacy-database migration tests need ISAR_TEST_DYLIB
 dart tool/task.dart test-mobile    # mobile/ only
+dart tool/task.dart test-desktop   # desktop/ only
 for d in packages/foundation/*/rust; do (cd $d && cargo clippy --all-targets -- -D warnings && cargo test); done  # six packages; fast_* would miss moodiary_rust
 cd packages/feature_base/moodiary_editor/editor && corepack pnpm type-check && corepack pnpm test
 
@@ -72,6 +75,11 @@ moodiary/                    # root = workspace + Melos coordinator (no app code
         home/                # home tab
         settings/            # settings hub
       main.dart
+  desktop/                   # Windows app (pub: moodiary_desktop)
+    lib/
+      app/                   # desktop composition, navigation and responsive shell
+      main.dart
+    windows/                 # native Windows runner
   packages/
     foundation/              # leaf layer, no internal deps
       moodiary_lint/         #   shared analyzer options; testing.dart carries repoRoot for tests that read repo files
@@ -136,7 +144,7 @@ Routes carry no path or query parameters, because the app never targets the web.
 
 ### DI: get_it + injectable (details in mobile/CLAUDE.md)
 
-- Binding annotations go on implementation classes (`@Singleton(as:)` etc.). storage / http / ml / data / assistant / sync / editor / theme are micro-packages mounted by `mobile/lib/app/di/di.dart`; there is exactly one `configureDependencies`.
+- Binding annotations go on implementation classes (`@Singleton(as:)` etc.). Shared services expose micro-packages mounted by each app's `lib/app/di/di.dart`; each app has its own `configureDependencies`, and must not import the other app's composition root.
 - The container owns the whole object graph: `MoodiaryDatabase` (preResolve), the 14 repositories (`@lazySingleton`, constructor-injected), and the process-level holders (`@singleton`). Resolve with `getIt<X>()`; Riverpod Notifiers / widgets write `late final _repo = getIt<X>()`. Riverpod manages UI state only; there are no repository providers and no static `X.get()` facades (`MoodiaryKVs.x.get()` is a key accessor and stays).
 - Tests: `XxxRepository(MoodiaryDatabase.forTesting(...))` for repositories; `getIt.registerSingleton<XxxRepository>(fake)` + `tearDown(getIt.reset)` above them.
 - After changing annotations run `dart tool/task.dart build-runner` (generated files are committed). Business code never hand-writes `getIt.register*`; the one exception is the session scope opened by `activateSyncProvider()`, which exposes the `@Named(SyncProviderIds.x)` backend as the unnamed `IRemoteSyncBackend`.
@@ -187,7 +195,7 @@ Principle: split freely, never duplicate dependencies. http / sync / llm share o
 | fast_zip | moodiary_export / moodiary_sync (`_nativePkgOwners`) | first archive / extract |
 | fast_crypto | whole repo | facade self-initializes per call |
 
-- Every build hook returns early when the target OS is the host (`flutter test`): Dart tests never load a Rust library, the editor bundle or the license manifest; Rust and the editor are tested by their own suites. **Three third-party code assets are the exception** — `sqlite3_vec`, `sqlite3_simple` and `flutter_js` build for the host too (`diary_fts` cannot even be created without the `simple` tokenizer, and the JS sandbox tests need quickjs), which is why the root pubspec dev-depends on their owners.
+- Native Assets build hooks support host Windows builds as well as mobile targets. The first Windows build or test run may compile native libraries and editor resources. Other same-host targets retain the existing test skip policy so the Linux / macOS Dart tests do not gain Rust, Node or cargo-about build requirements; the desktop license hook also skips those targets. `sqlite3_vec`, `sqlite3_simple` and `flutter_js` still build for the host (`diary_fts` cannot be created without the `simple` tokenizer, and the JS sandbox tests need quickjs), which is why the root pubspec dev-depends on their owners. Rust and editor behavior have their own targeted suites.
 - Every package exposes `XxxLib` and an idempotent `Xxx.ensureInitialized()`. Opaque handles (`CancelToken`) cannot cross a .so, so there is one per library, constructed synchronously; construct only after the await. After touching `rust/src/api` run `dart tool/task.dart gen-rust`.
 - Everything goes through FRB; raw dart:ffi saves only the 0.3 MB floor.
 - No `[workspace.dependencies]`: the same crate is pinned per package, and `tool/check_generated.dart` fails on drift across Cargo.toml, toolchain channel and FRB / ffigen pins.

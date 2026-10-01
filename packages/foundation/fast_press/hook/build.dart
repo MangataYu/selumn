@@ -6,7 +6,8 @@ void main(List<String> args) async {
     // buildCodeAssets 为 false 时访问 input.config.code 会直接抛异常
     if (!input.config.buildCodeAssets) return;
     final code = input.config.code;
-    if (code.targetOS == OS.current) return;
+    // Enable the Windows app while preserving other hosts' test setup.
+    if (code.targetOS == OS.current && code.targetOS != OS.windows) return;
     // 不设置部署目标环境变量，Xcode 26 SDK 下 rustc 链接会因 ___chkstk_darwin 失败
     final env = switch (code.targetOS) {
       OS.iOS => {'IPHONEOS_DEPLOYMENT_TARGET': '${code.iOS.targetVersion}.0'},

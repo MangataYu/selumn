@@ -46,15 +46,18 @@ class EditController extends _$EditController {
       ).future,
     );
     if (diary == null) throw StateError('Diary not found: $diaryId');
+    listenSelf((_, next) {
+      final value = next.value;
+      if (value != null) _latest = value;
+    });
+    // Repository events from a completed write may rebuild this provider while
+    // the next write is pending. Keep the newer draft until autosave settles.
+    if (_inFlight != null && _latest != null) return _latest!;
     _persisted = !(diaryId == null || diaryId.isEmpty);
     _wasNewDraft = !_persisted;
     _latest = diary;
     _indexedContent = diary.contentText;
     _indexedTitle = diary.title;
-    listenSelf((_, next) {
-      final value = next.value;
-      if (value != null) _latest = value;
-    });
     return diary;
   }
 
@@ -234,17 +237,33 @@ class EditController extends _$EditController {
   }
 
   Future<DraftSaveResult> _doAutoSave() async {
-    final current = _latest;
-    if (current == null) return .saved;
-    final next = touched(withDerivedMedia(current));
-    if (_wasNewDraft && _isBlank(next)) {
+    while (true) {
+      final current = _latest;
+      if (current == null) return .saved;
+      final next = touched(withDerivedMedia(current));
       try {
-        if (_persisted) {
-          await _repository.hardDeleteDiary(next.id);
-          _persisted = false;
+        if (_wasNewDraft && _isBlank(next)) {
+          if (_persisted) {
+            await _repository.hardDeleteDiary(next.id);
+            _persisted = false;
+          }
+        } else {
+          final indexMode =
+              next.contentText == _indexedContent && next.title == _indexedTitle
+              ? IndexMode.skip
+              : IndexMode.inline;
+          if (_persisted) {
+            await _repository.updateADiary(newDiary: next, index: indexMode);
+          } else {
+            await _repository.insertADiary(next);
+            _persisted = true;
+          }
         }
         _indexedContent = next.contentText;
         _indexedTitle = next.title;
+        // Edits made during the write belong to the next snapshot. Publishing
+        // this older snapshot would overwrite them in both UI and later saves.
+        if (_latest != current) continue;
         _latest = next;
         if (ref.mounted) {
           state = .data(next);
@@ -253,27 +272,6 @@ class EditController extends _$EditController {
       } catch (_) {
         return .failed;
       }
-    }
-    final indexMode =
-        next.contentText == _indexedContent && next.title == _indexedTitle
-        ? IndexMode.skip
-        : IndexMode.inline;
-    try {
-      if (_persisted) {
-        await _repository.updateADiary(newDiary: next, index: indexMode);
-      } else {
-        await _repository.insertADiary(next);
-        _persisted = true;
-      }
-      _indexedContent = next.contentText;
-      _indexedTitle = next.title;
-      _latest = next;
-      if (ref.mounted) {
-        state = .data(next);
-      }
-      return .saved;
-    } catch (_) {
-      return .failed;
     }
   }
 

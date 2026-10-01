@@ -70,7 +70,9 @@ impl RawDecoder for JpegRegion {
             ),
             None => turbo::decode_region(&self.bytes, denom, rect),
         }?;
+        // memmap2 的页面回收建议仅支持 Unix；其他平台仍使用正常的内存映射。
         // DontNeed 只让页不再计入本进程 RSS，页缓存仍在，下次访问是软缺页
+        #[cfg(unix)]
         let _ = unsafe {
             self.bytes
                 .unchecked_advise(memmap2::UncheckedAdvice::DontNeed)

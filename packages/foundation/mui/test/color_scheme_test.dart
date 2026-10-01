@@ -280,6 +280,70 @@ void main() {
       }
     });
 
+    test('Windows 的每个排版角色和强调档使用明确的中文回退字体', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final t = typo();
+      for (final level in MuiTypography.levels) {
+        final role = t.byLevel(level);
+        for (final style in [role.onSurface, role.emphasized.onSurface]) {
+          expect(style.fontFamily, 'Segoe UI', reason: level);
+          expect(style.fontFamilyFallback, [
+            'Microsoft YaHei UI',
+            'Microsoft YaHei',
+          ], reason: level);
+        }
+      }
+      final theme = buildMuiTheme(brightness: Brightness.light);
+      expect(theme.appBarTheme.titleTextStyle!.fontFamilyFallback, [
+        'Microsoft YaHei UI',
+        'Microsoft YaHei',
+      ]);
+    });
+
+    test('Windows 的中文回退保留自定义字体及其字重轴', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final t = typo(
+        font: const MuiFontConfig(
+          family: 'Custom Variable',
+          wghtAxis: {'Medium': 520, 'SemiBold': 610},
+        ),
+      );
+      final role = t.titleMedium;
+      expect(role.onSurface.fontFamily, 'Custom Variable');
+      expect(role.onSurface.fontVariations, [const FontVariation('wght', 520)]);
+      expect(role.emphasized.onSurface.fontVariations, [
+        const FontVariation('wght', 610),
+      ]);
+      expect(role.onSurface.fontFamilyFallback, [
+        'Microsoft YaHei UI',
+        'Microsoft YaHei',
+      ]);
+    });
+
+    test('其他平台不使用 Windows 的中文回退字体', () {
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      for (final platform in TargetPlatform.values) {
+        if (platform == TargetPlatform.windows) continue;
+        debugDefaultTargetPlatformOverride = platform;
+        final t = typo();
+        for (final level in MuiTypography.levels) {
+          final role = t.byLevel(level);
+          expect(
+            role.onSurface.fontFamilyFallback,
+            isNull,
+            reason: '$platform',
+          );
+          expect(
+            role.emphasized.onSurface.fontFamilyFallback,
+            isNull,
+            reason: '$platform',
+          );
+        }
+      }
+    });
+
     test('相等只看 (font, colors)', () {
       expect(typo(), typo());
       expect(typo().hashCode, typo().hashCode);

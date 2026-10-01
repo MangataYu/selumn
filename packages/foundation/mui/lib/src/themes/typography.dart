@@ -139,6 +139,11 @@ TextStyle _styleOf(String name, MuiWeight weight, MuiFontConfig font, Color c) {
     inherit: false,
     color: c,
     fontFamily: font.family ?? _platformFamily(baseSize),
+    // Segoe UI has no CJK glyphs. Choose a complete Chinese family before
+    // system fallback so a title does not mix faces or weights across glyphs.
+    fontFamilyFallback: defaultTargetPlatform == TargetPlatform.windows
+        ? const ['Microsoft YaHei UI', 'Microsoft YaHei']
+        : null,
     fontSize: baseSize,
     height: height,
     letterSpacing: spacing,

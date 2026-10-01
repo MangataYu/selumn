@@ -43,6 +43,89 @@ void main() {
 
   tearDown(() => getIt.popScope());
 
+  testWidgets('sidebar and drawer share section expansion preferences', (
+    tester,
+  ) async {
+    const firstKey = ValueKey('first-sidebar');
+    const secondKey = ValueKey('second-drawer');
+    await _pumpWidget(
+      tester,
+      wrap(
+        const Row(
+          children: [
+            Expanded(child: TagDrawer(key: firstKey, persistent: true)),
+            Expanded(child: TagDrawer(key: secondKey, persistent: true)),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Finder row(Key drawerKey, String rowKey) => find.descendant(
+      of: find.byKey(drawerKey),
+      matching: find.byKey(ValueKey(rowKey)),
+    );
+    expect(row(secondKey, 'tag-row:阅读'), findsOneWidget);
+    expect(row(secondKey, 'filter-untagged'), findsOneWidget);
+
+    await tester.tap(row(firstKey, 'tags-expand'));
+    await tester.pumpAndSettle();
+    expect(row(secondKey, 'tag-row:阅读'), findsNothing);
+    await tester.tap(row(firstKey, 'all-diaries-expand'));
+    await tester.pumpAndSettle();
+    expect(row(secondKey, 'filter-untagged'), findsNothing);
+
+    await tester.tap(row(secondKey, 'tags-expand'));
+    await tester.pumpAndSettle();
+    expect(row(firstKey, 'tag-row:阅读'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('persistent sidebar selection keeps the current route open', (
+    tester,
+  ) async {
+    var filterPicks = 0;
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await _pumpWidget(
+      tester,
+      wrap(
+        Navigator(
+          key: navigatorKey,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('first route')),
+          ),
+        ),
+      ),
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: TagDrawer(
+            persistent: true,
+            onFilterSelected: () => filterPicks++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TagDrawer)),
+    );
+    container.read(diarySelectionProvider.notifier).enter('selected-diary');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('tag-row:阅读')));
+    await tester.pumpAndSettle();
+
+    expect(navigatorKey.currentState!.canPop(), isTrue);
+    expect(find.byType(TagDrawer), findsOneWidget);
+    expect(
+      container.read(homeDiaryFilterProvider),
+      const DiaryFilter.tag('阅读'),
+    );
+    expect(container.read(diarySelectionProvider), isEmpty);
+    expect(filterPicks, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   Future<void> toggleTag(WidgetTester tester, String path) async {
     final button = find.byKey(ValueKey('tag-expand:$path'));
     await tester.ensureVisible(button);
