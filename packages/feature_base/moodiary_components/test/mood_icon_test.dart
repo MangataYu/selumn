@@ -138,6 +138,9 @@ void main() {
                 fontSize: 48,
                 color: Color(0xFFFF0000),
                 fontWeight: FontWeight.w900,
+                fontVariations: [FontVariation('wght', 900)],
+                height: 2,
+                letterSpacing: 8,
               ),
               child: Center(
                 child: MoodIconComponent(mood: .positive, size: 18),
@@ -159,6 +162,11 @@ void main() {
       );
       expect(paragraph.text.style!.fontFamily, 'packages/mui/NotoEmoji');
       expect(paragraph.text.style!.fontWeight, FontWeight.w400);
+      expect(paragraph.text.style!.fontVariations, const [
+        FontVariation('wght', 400),
+      ]);
+      expect(paragraph.text.style!.height, isNull);
+      expect(paragraph.text.style!.letterSpacing, isNull);
       expect(paragraph.text.style!.color, DiaryMood.positive.color);
       expect(paragraph.textScaler.scale(18), 18);
       expect(tester.takeException(), isNull);

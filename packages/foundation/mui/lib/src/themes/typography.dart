@@ -179,6 +179,16 @@ TextTheme buildTextTheme(MuiFontConfig font, Color color) {
 class MuiTypography with MuiValue {
   MuiTypography(this._textTheme, this._colors, this._onMedia, this.font);
 
+  /// Bundled icon glyphs keep their own metrics and weight, independent of
+  /// user text fonts. Static so offscreen exports need no theme ancestor.
+  static const TextStyle emojiIcon = TextStyle(
+    inherit: false,
+    fontFamily: 'NotoEmoji',
+    package: 'mui',
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
+  );
+
   final TextTheme _textTheme;
   final ColorScheme _colors;
   final Color _onMedia;

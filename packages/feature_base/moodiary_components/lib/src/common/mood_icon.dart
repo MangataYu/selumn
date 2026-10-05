@@ -31,11 +31,7 @@ class MoodIconComponent extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   textScaler: TextScaler.noScaling,
-                  style: TextStyle(
-                    inherit: false,
-                    fontFamily: 'NotoEmoji',
-                    package: 'mui',
-                    fontWeight: FontWeight.w400,
+                  style: MuiTypography.emojiIcon.copyWith(
                     color: mood.color,
                     fontSize: size,
                   ),
