@@ -20,6 +20,7 @@ import 'package:moodiary_assistant/src/data/llm_provider_repository.dart';
 import 'package:moodiary_assistant/src/data/memory_repository.dart';
 import 'package:moodiary_assistant/src/data/model_resolver.dart';
 import 'package:moodiary_assistant/src/presentation/assistant_notice.dart';
+import 'package:moodiary_assistant/src/presentation/assistant_reply.dart';
 import 'package:moodiary_assistant/src/presentation/assistant_tool_ui.dart';
 import 'package:moodiary_assistant/src/presentation/chat_list.dart';
 import 'package:moodiary_assistant/src/presentation/diary_citations.dart';
@@ -2246,7 +2247,7 @@ class _UserBubble extends StatelessWidget {
           constraints: BoxConstraints(maxWidth: maxWidth),
           padding: const .symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
+            color: scheme.primaryContainer,
             borderRadius: const .only(
               topLeft: .circular(16),
               topRight: .circular(16),
@@ -2254,9 +2255,14 @@ class _UserBubble extends StatelessWidget {
               bottomRight: .circular(4),
             ),
           ),
-          child: SelectableText(
-            text,
-            style: context.theme.typography.bodyLarge.onSurface,
+          child: TextSelectionTheme(
+            data: TextSelectionTheme.of(context).copyWith(
+              selectionColor: scheme.onPrimaryContainer.withValues(alpha: 0.25),
+            ),
+            child: SelectableText(
+              text,
+              style: context.theme.typography.bodyLarge.onPrimaryContainer,
+            ),
           ),
         ),
       );
@@ -2401,13 +2407,7 @@ class _AssistantBubble extends StatelessWidget {
 
     Widget? bubble;
     if (hasText) {
-      bubble = SelectionArea(
-        child: GptMarkdown(
-          text,
-          style: context.theme.typography.bodyLarge.onSurface,
-          codeBuilder: _codeBlock,
-        ),
-      );
+      bubble = AssistantReply(text: text);
     } else if (!showThinking) {
       bubble = const Padding(
         padding: .symmetric(vertical: 4),

@@ -764,6 +764,9 @@ body {
   color: var(--app-on-surface-variant);
   text-decoration: line-through;
 }
+.moodiary-editor .ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div strong {
+  color: inherit;
+}
 /* 嵌套子任务缩进 */
 .moodiary-editor .ProseMirror ul[data-type='taskList'] ul[data-type='taskList'] {
   margin: 0.2em 0 0;
@@ -777,6 +780,7 @@ body {
 .moodiary-editor .ProseMirror strong {
   /* Android CJK fallback fonts may only have 400; 700 enables synthetic bold. */
   font-weight: 700;
+  color: var(--app-primary);
 }
 /* 行内代码 */
 .moodiary-editor .ProseMirror code {
