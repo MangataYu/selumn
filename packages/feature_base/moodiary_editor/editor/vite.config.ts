@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import tailwindcss from '@tailwindcss/vite'
@@ -30,6 +30,14 @@ export default defineConfig({
     }),
   ],
   base: './',
+  server: {
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(fileURLToPath(new URL('.', import.meta.url))),
+        fileURLToPath(new URL('../../../foundation/mui/assets/fonts/NotoEmoji.ttf', import.meta.url)),
+      ],
+    },
+  },
   build: {
     outDir: '../assets/editor',
     emptyOutDir: true,

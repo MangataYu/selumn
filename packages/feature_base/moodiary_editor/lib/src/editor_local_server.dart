@@ -164,6 +164,7 @@ class EditorLocalServer {
       return 'application/json; charset=utf-8';
     }
     if (lower.endsWith('.woff2')) return 'font/woff2';
+    if (lower.endsWith('.ttf')) return 'font/ttf';
     if (lower.endsWith('.wasm')) return 'application/wasm';
     return 'application/octet-stream';
   }

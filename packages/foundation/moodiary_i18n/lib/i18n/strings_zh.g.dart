@@ -1374,8 +1374,8 @@ class Translations$common$zh {
 	/// zh: '无语'
 	String get moodSpeechless => '无语';
 
-	/// zh: '恋爱'
-	String get moodLove => '恋爱';
+	/// zh: '心动'
+	String get moodLove => '心动';
 
 	/// zh: '学习'
 	String get moodStudy => '学习';
@@ -1397,6 +1397,78 @@ class Translations$common$zh {
 
 	/// zh: '生病'
 	String get moodSick => '生病';
+
+	/// zh: '放松'
+	String get moodRelaxed => '放松';
+
+	/// zh: '感恩'
+	String get moodGrateful => '感恩';
+
+	/// zh: '孤单'
+	String get moodLonely => '孤单';
+
+	/// zh: '庆祝'
+	String get moodCelebrating => '庆祝';
+
+	/// zh: '专注'
+	String get moodFocused => '专注';
+
+	/// zh: '开会'
+	String get moodMeeting => '开会';
+
+	/// zh: '加班'
+	String get moodOvertime => '加班';
+
+	/// zh: '通勤'
+	String get moodCommuting => '通勤';
+
+	/// zh: '睡眠'
+	String get moodSleep => '睡眠';
+
+	/// zh: '咖啡'
+	String get moodCoffee => '咖啡';
+
+	/// zh: '宅家'
+	String get moodHome => '宅家';
+
+	/// zh: '购物'
+	String get moodShopping => '购物';
+
+	/// zh: '做饭'
+	String get moodCooking => '做饭';
+
+	/// zh: '游戏'
+	String get moodGaming => '游戏';
+
+	/// zh: '音乐'
+	String get moodMusic => '音乐';
+
+	/// zh: '观影'
+	String get moodMovie => '观影';
+
+	/// zh: '兴奋'
+	String get moodExcited => '兴奋';
+
+	/// zh: '期待'
+	String get moodExpectant => '期待';
+
+	/// zh: '自豪'
+	String get moodProud => '自豪';
+
+	/// zh: '释然'
+	String get moodRelieved => '释然';
+
+	/// zh: '委屈'
+	String get moodHurt => '委屈';
+
+	/// zh: '失望'
+	String get moodDisappointed => '失望';
+
+	/// zh: '烦躁'
+	String get moodIrritated => '烦躁';
+
+	/// zh: '迷茫'
+	String get moodConfused => '迷茫';
 
 	/// zh: '晴'
 	String get weatherSunny => '晴';

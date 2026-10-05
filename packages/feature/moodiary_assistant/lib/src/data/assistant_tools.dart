@@ -94,8 +94,9 @@ abstract final class AssistantToolRegistry {
           'text (use getDiary for that) — and state the total number of '
           'matches, which may exceed what is returned; when it does, say so '
           'instead of presenting the rows as the complete set. '
-          'Mood is one of a fixed set of emotion/state values (see the mood '
-          'enum on createDiary); neutral is also the default for entries whose '
+          'Mood records an emotion; older entries may contain retired activity '
+          'values. The createDiary enum lists selectable emotions. '
+          'Neutral is also the default for entries whose '
           'mood was never set, so do not over-read it. '
           'Call this whenever the user asks about what they wrote, and to get '
           'ids before editing or deleting entries.',
@@ -200,9 +201,9 @@ abstract final class AssistantToolRegistry {
                 'content': {'type': 'string', 'description': 'Body, Markdown.'},
                 'mood': {
                   'type': 'string',
-                  'enum': [for (final m in DiaryMood.values) m.name],
+                  'enum': [for (final m in DiaryMood.selectableValues) m.name],
                   'description':
-                      'Mood or life-state of the entry. Omit unless the user '
+                      'Emotion of the entry. Omit unless the user '
                       'conveyed one.',
                 },
                 'tags': {
@@ -247,8 +248,8 @@ abstract final class AssistantToolRegistry {
                 },
                 'mood': {
                   'type': 'string',
-                  'enum': [for (final m in DiaryMood.values) m.name],
-                  'description': 'New mood.',
+                  'enum': [for (final m in DiaryMood.selectableValues) m.name],
+                  'description': 'New emotion.',
                 },
                 'tags': {
                   'type': 'array',
@@ -1393,8 +1394,18 @@ abstract final class AssistantToolRegistry {
     return tag;
   }
 
-  static DiaryMood? _parseMood(Object? raw) =>
-      raw is String ? DiaryMood.values.asNameMap()[raw] : null;
+  static DiaryMood? _parseMood(Object? raw) {
+    if (raw == null) return null;
+    final mood = raw is String
+        ? DiaryMood.selectableValues.asNameMap()[raw]
+        : null;
+    if (mood == null) {
+      throw const FormatException(
+        'mood must be one of the selectable emotions.',
+      );
+    }
+    return mood;
+  }
 
   static String? _trimToNull(Object? raw) {
     final s = (raw as String?)?.trim();

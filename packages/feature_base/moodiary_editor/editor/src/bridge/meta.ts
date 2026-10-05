@@ -5,6 +5,8 @@ export interface EditorMetaMoodOption {
   label: string
   color: string
   icon: string
+  emoji?: string | null
+  selectable?: boolean
 }
 
 export interface EditorMetaPlace {

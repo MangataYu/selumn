@@ -148,7 +148,7 @@ class ImageCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(mood.icon, size: 14, color: color),
+          MoodIconComponent(mood: mood, size: 14, excludeFromSemantics: true),
           const SizedBox(width: 4),
           Text(
             mood.labelOf(l10n),

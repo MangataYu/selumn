@@ -865,7 +865,9 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
   }
 
   void _onChangeMoodName(String name) {
-    final mood = DiaryMood.values.where((m) => m.name == name).firstOrNull;
+    final mood = DiaryMood.selectableValues
+        .where((m) => m.name == name)
+        .firstOrNull;
     if (mood == null) return;
     _onChangeMood(mood);
   }
@@ -910,6 +912,8 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
             'label': mood.label(context),
             'color': _hexColor(mood.color),
             'icon': mood.iconName,
+            'emoji': mood.emoji,
+            'selectable': mood.isSelectable,
           },
       ],
       'weather': weather == null

@@ -19,9 +19,58 @@ abstract class AppColor {
   static const Color moodTravel = Color(0xFF0EA5E9);
   static const Color moodSports = Color(0xFF65A30D);
   static const Color moodSick = Color(0xFFBA68C8);
+  static const Color moodRelaxed = Color(0xFF22C55E);
+  static const Color moodGrateful = Color(0xFFD97706);
+  static const Color moodLonely = Color(0xFF6366F1);
+  static const Color moodCelebrating = Color(0xFFD946EF);
+  static const Color moodFocused = Color(0xFF2563EB);
+  static const Color moodMeeting = Color(0xFF0891B2);
+  static const Color moodOvertime = Color(0xFFEA580C);
+  static const Color moodCommuting = Color(0xFF475569);
+  static const Color moodSleep = Color(0xFF7E57C2);
+  static const Color moodCoffee = Color(0xFFA16207);
+  static const Color moodHome = Color(0xFF059669);
+  static const Color moodShopping = Color(0xFFDB2777);
+  static const Color moodCooking = Color(0xFFC2410C);
+  static const Color moodGaming = Color(0xFF9333EA);
+  static const Color moodMusic = Color(0xFFE11D48);
+  static const Color moodMovie = Color(0xFF4F46E5);
+  static const Color moodExcited = Color(0xFFF59E0B);
+  static const Color moodExpectant = Color(0xFF06B6D4);
+  static const Color moodProud = Color(0xFFB45309);
+  static const Color moodRelieved = Color(0xFF0D9488);
+  static const Color moodHurt = Color(0xFFA21CAF);
+  static const Color moodDisappointed = Color(0xFF5B7393);
+  static const Color moodIrritated = Color(0xFFF43F5E);
+  static const Color moodConfused = Color(0xFF7373B3);
 }
 
 extension DiaryMoodVisuals on DiaryMood {
+  /// Face emoji for current moods; historical activities keep their icons.
+  String? get emoji => switch (this) {
+    .positive => '😊',
+    .neutral => '😐',
+    .negative => '😔',
+    .fulfilled => '😁',
+    .angry => '😠',
+    .anxious => '😰',
+    .tired => '😩',
+    .speechless => '😑',
+    .love => '🥰',
+    .relaxed => '😌',
+    .grateful => '🥹',
+    .lonely => '🥲',
+    .excited => '😆',
+    .expectant => '🤩',
+    .proud => '😎',
+    .relieved => '😮‍💨',
+    .hurt => '🥺',
+    .disappointed => '😞',
+    .irritated => '😤',
+    .confused => '😕',
+    _ => null,
+  };
+
   Color get color => switch (this) {
     .positive => AppColor.moodPositive,
     .neutral => AppColor.moodNeutral,
@@ -39,6 +88,30 @@ extension DiaryMoodVisuals on DiaryMood {
     .travel => AppColor.moodTravel,
     .sports => AppColor.moodSports,
     .sick => AppColor.moodSick,
+    .relaxed => AppColor.moodRelaxed,
+    .grateful => AppColor.moodGrateful,
+    .lonely => AppColor.moodLonely,
+    .celebrating => AppColor.moodCelebrating,
+    .focused => AppColor.moodFocused,
+    .meeting => AppColor.moodMeeting,
+    .overtime => AppColor.moodOvertime,
+    .commuting => AppColor.moodCommuting,
+    .sleep => AppColor.moodSleep,
+    .coffee => AppColor.moodCoffee,
+    .home => AppColor.moodHome,
+    .shopping => AppColor.moodShopping,
+    .cooking => AppColor.moodCooking,
+    .gaming => AppColor.moodGaming,
+    .music => AppColor.moodMusic,
+    .movie => AppColor.moodMovie,
+    .excited => AppColor.moodExcited,
+    .expectant => AppColor.moodExpectant,
+    .proud => AppColor.moodProud,
+    .relieved => AppColor.moodRelieved,
+    .hurt => AppColor.moodHurt,
+    .disappointed => AppColor.moodDisappointed,
+    .irritated => AppColor.moodIrritated,
+    .confused => AppColor.moodConfused,
   };
 
   IconData get icon => switch (this) {
@@ -58,6 +131,30 @@ extension DiaryMoodVisuals on DiaryMood {
     .travel => LucideIcons.plane,
     .sports => LucideIcons.dumbbell,
     .sick => LucideIcons.thermometer,
+    .relaxed => LucideIcons.leaf,
+    .grateful => LucideIcons.handHeart,
+    .lonely => LucideIcons.cloudRain,
+    .celebrating => LucideIcons.partyPopper,
+    .focused => LucideIcons.target,
+    .meeting => LucideIcons.users,
+    .overtime => LucideIcons.clock,
+    .commuting => LucideIcons.trainFront,
+    .sleep => LucideIcons.moon,
+    .coffee => LucideIcons.coffee,
+    .home => LucideIcons.house,
+    .shopping => LucideIcons.shoppingBag,
+    .cooking => LucideIcons.chefHat,
+    .gaming => LucideIcons.gamepad2,
+    .music => LucideIcons.music,
+    .movie => LucideIcons.clapperboard,
+    .excited => LucideIcons.zap,
+    .expectant => LucideIcons.sunrise,
+    .proud => LucideIcons.award,
+    .relieved => LucideIcons.wind,
+    .hurt => LucideIcons.heartCrack,
+    .disappointed => LucideIcons.cloudDrizzle,
+    .irritated => LucideIcons.flame,
+    .confused => LucideIcons.circleQuestionMark,
   };
 
   String get iconName => switch (this) {
@@ -77,6 +174,30 @@ extension DiaryMoodVisuals on DiaryMood {
     .travel => 'plane',
     .sports => 'dumbbell',
     .sick => 'thermometer',
+    .relaxed => 'leaf',
+    .grateful => 'hand-heart',
+    .lonely => 'cloud-rain',
+    .celebrating => 'party-popper',
+    .focused => 'target',
+    .meeting => 'users',
+    .overtime => 'clock',
+    .commuting => 'train-front',
+    .sleep => 'moon',
+    .coffee => 'coffee',
+    .home => 'house',
+    .shopping => 'shopping-bag',
+    .cooking => 'chef-hat',
+    .gaming => 'gamepad-2',
+    .music => 'music',
+    .movie => 'clapperboard',
+    .excited => 'zap',
+    .expectant => 'sunrise',
+    .proud => 'award',
+    .relieved => 'wind',
+    .hurt => 'heart-crack',
+    .disappointed => 'cloud-drizzle',
+    .irritated => 'flame',
+    .confused => 'circle-question-mark',
   };
 
   String label(BuildContext context) => labelOf(context.l10n);
@@ -98,6 +219,30 @@ extension DiaryMoodVisuals on DiaryMood {
     .travel => l10n.common.moodTravel,
     .sports => l10n.common.moodSports,
     .sick => l10n.common.moodSick,
+    .relaxed => l10n.common.moodRelaxed,
+    .grateful => l10n.common.moodGrateful,
+    .lonely => l10n.common.moodLonely,
+    .celebrating => l10n.common.moodCelebrating,
+    .focused => l10n.common.moodFocused,
+    .meeting => l10n.common.moodMeeting,
+    .overtime => l10n.common.moodOvertime,
+    .commuting => l10n.common.moodCommuting,
+    .sleep => l10n.common.moodSleep,
+    .coffee => l10n.common.moodCoffee,
+    .home => l10n.common.moodHome,
+    .shopping => l10n.common.moodShopping,
+    .cooking => l10n.common.moodCooking,
+    .gaming => l10n.common.moodGaming,
+    .music => l10n.common.moodMusic,
+    .movie => l10n.common.moodMovie,
+    .excited => l10n.common.moodExcited,
+    .expectant => l10n.common.moodExpectant,
+    .proud => l10n.common.moodProud,
+    .relieved => l10n.common.moodRelieved,
+    .hurt => l10n.common.moodHurt,
+    .disappointed => l10n.common.moodDisappointed,
+    .irritated => l10n.common.moodIrritated,
+    .confused => l10n.common.moodConfused,
   };
 }
 

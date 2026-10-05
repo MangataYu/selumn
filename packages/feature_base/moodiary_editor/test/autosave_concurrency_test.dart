@@ -120,9 +120,13 @@ void main() {
     await getIt.popScope();
   });
 
-  Future<EditControllerProvider> openDiary({bool isNew = false}) async {
+  Future<EditControllerProvider> openDiary({
+    bool isNew = false,
+    DiaryMood mood = .neutral,
+  }) async {
     if (!isNew) {
-      repository.stored = Diary.empty(type: .tiptap).copyWith(id: 'entry');
+      repository.stored = Diary.empty(type: .tiptap)
+          .copyWith(id: 'entry', mood: mood);
     }
     final provider = editControllerProvider(
       isNew ? null : 'entry',
@@ -156,6 +160,49 @@ void main() {
       subscription.close();
     }
   }
+
+  test(
+    'new mood selections accept emotions and reject activity states',
+    () async {
+      final provider = await openDiary(isNew: true);
+      final controller = container.read(provider.notifier);
+      for (final mood in DiaryMood.selectableValues) {
+        controller.changeMood(mood);
+        expect(container.read(provider).value!.mood, mood);
+      }
+      controller.changeMood(.grateful);
+      for (final mood in DiaryMood.values.where((m) => !m.isSelectable)) {
+        expect(() => controller.changeMood(mood), throwsArgumentError);
+        expect(container.read(provider).value!.mood, DiaryMood.grateful);
+      }
+    },
+  );
+
+  test(
+    'autosave preserves a legacy activity until an emotion is selected',
+    () async {
+      final provider = await openDiary(mood: .work);
+      final controller = container.read(provider.notifier);
+      expect(container.read(provider).value!.mood, DiaryMood.work);
+
+      controller.changeTitle('updated title');
+      final firstSave = controller.autoSave();
+      final first = await repository.writeAt(0);
+      expect(first.diary!.mood, DiaryMood.work);
+      first.completed.complete();
+      expect(await firstSave, DraftSaveResult.saved);
+      await settleRepositoryEvent(provider, 'updated title');
+      expect(repository.stored!.mood, DiaryMood.work);
+
+      controller.changeMood(.grateful);
+      final secondSave = controller.autoSave();
+      final second = await repository.writeAt(1);
+      expect(second.diary!.mood, DiaryMood.grateful);
+      second.completed.complete();
+      expect(await secondSave, DraftSaveResult.saved);
+      expect(repository.stored!.mood, DiaryMood.grateful);
+    },
+  );
 
   test('repository updates are still applied while autosave is idle', () async {
     final provider = await openDiary();

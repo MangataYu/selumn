@@ -14,7 +14,58 @@ enum DiaryMood {
   work,
   travel,
   sports,
-  sick;
+  sick,
+  relaxed,
+  grateful,
+  lonely,
+  celebrating,
+  focused,
+  meeting,
+  overtime,
+  commuting,
+  sleep,
+  coffee,
+  home,
+  shopping,
+  cooking,
+  gaming,
+  music,
+  movie,
+  excited,
+  expectant,
+  proud,
+  relieved,
+  hurt,
+  disappointed,
+  irritated,
+  confused;
+
+  /// Moods offered for new selections. Activity values remain readable for
+  /// compatibility with existing diaries but are no longer offered to users.
+  static const selectableValues = <DiaryMood>[
+    positive,
+    neutral,
+    negative,
+    fulfilled,
+    angry,
+    anxious,
+    tired,
+    speechless,
+    love,
+    relaxed,
+    grateful,
+    lonely,
+    excited,
+    expectant,
+    proud,
+    relieved,
+    hurt,
+    disappointed,
+    irritated,
+    confused,
+  ];
+
+  bool get isSelectable => selectableValues.contains(this);
 
   static DiaryMood fromName(String name) =>
       values.asNameMap()[name] ?? .neutral;

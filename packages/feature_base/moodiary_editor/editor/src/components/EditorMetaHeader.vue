@@ -20,6 +20,28 @@ import IconBriefcase from '~icons/lucide/briefcase'
 import IconPlane from '~icons/lucide/plane'
 import IconDumbbell from '~icons/lucide/dumbbell'
 import IconThermometer from '~icons/lucide/thermometer'
+import IconLeaf from '~icons/lucide/leaf'
+import IconHandHeart from '~icons/lucide/hand-heart'
+import IconCloudRain from '~icons/lucide/cloud-rain'
+import IconPartyPopper from '~icons/lucide/party-popper'
+import IconTarget from '~icons/lucide/target'
+import IconUsers from '~icons/lucide/users'
+import IconClock from '~icons/lucide/clock'
+import IconTrainFront from '~icons/lucide/train-front'
+import IconMoon from '~icons/lucide/moon'
+import IconShoppingBag from '~icons/lucide/shopping-bag'
+import IconChefHat from '~icons/lucide/chef-hat'
+import IconGamepad from '~icons/lucide/gamepad-2'
+import IconMusic from '~icons/lucide/music'
+import IconClapperboard from '~icons/lucide/clapperboard'
+import IconZap from '~icons/lucide/zap'
+import IconSunrise from '~icons/lucide/sunrise'
+import IconAward from '~icons/lucide/award'
+import IconWind from '~icons/lucide/wind'
+import IconHeartCrack from '~icons/lucide/heart-crack'
+import IconCloudDrizzle from '~icons/lucide/cloud-drizzle'
+import IconFlame from '~icons/lucide/flame'
+import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconMapPin from '~icons/lucide/map-pin'
 import IconPlus from '~icons/lucide/plus'
 import IconTrash from '~icons/lucide/trash-2'
@@ -69,6 +91,30 @@ const MOOD_ICONS: Record<string, Component> = {
   plane: IconPlane,
   dumbbell: IconDumbbell,
   thermometer: IconThermometer,
+  leaf: IconLeaf,
+  'hand-heart': IconHandHeart,
+  'cloud-rain': IconCloudRain,
+  'party-popper': IconPartyPopper,
+  target: IconTarget,
+  users: IconUsers,
+  clock: IconClock,
+  'train-front': IconTrainFront,
+  moon: IconMoon,
+  coffee: IconCoffee,
+  house: IconHouse,
+  'shopping-bag': IconShoppingBag,
+  'chef-hat': IconChefHat,
+  'gamepad-2': IconGamepad,
+  music: IconMusic,
+  clapperboard: IconClapperboard,
+  zap: IconZap,
+  sunrise: IconSunrise,
+  award: IconAward,
+  wind: IconWind,
+  'heart-crack': IconHeartCrack,
+  'cloud-drizzle': IconCloudDrizzle,
+  flame: IconFlame,
+  'circle-question-mark': IconCircleQuestionMark,
 }
 
 const PLACE_ICONS: Record<string, Component> = {
@@ -86,10 +132,12 @@ const PLACE_ICONS: Record<string, Component> = {
 const currentMood = computed(
   () => props.meta.moods.find((m) => m.value === props.meta.mood) ?? props.meta.moods[0],
 )
+const selectableMoods = computed(() => props.meta.moods.filter((m) => m.selectable !== false))
 const moodIcon = computed(() => MOOD_ICONS[currentMood.value?.icon ?? ''] ?? IconMeh)
 
 const moodMenuOpen = ref(false)
 function onMoodSelect(key: string): void {
+  if (!props.editable || !selectableMoods.value.some((m) => m.value === key)) return
   moodMenuOpen.value = false
   post('changeMood', { mood: key })
 }
@@ -185,7 +233,10 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
             class="meta-mood-chip"
             :style="{ color: currentMood?.color, background: `${currentMood?.color}26` }"
           >
-            <component :is="moodIcon" class="size-4" />
+            <span v-if="currentMood?.emoji" class="mood-emoji meta-mood-emoji" aria-hidden="true">
+              {{ currentMood.emoji }}
+            </span>
+            <component :is="moodIcon" v-else class="size-4" aria-hidden="true" />
             <span class="meta-mood-label">{{ currentMood?.label }}</span>
           </span>
         </template>
@@ -193,11 +244,12 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
           <div class="mood-panel">
             <div class="mood-grid">
               <button
-                v-for="m in meta.moods"
+                v-for="m in selectableMoods"
                 :key="m.value"
                 type="button"
                 class="mood-cell"
                 :class="{ 'mood-cell--active': m.value === meta.mood }"
+                :aria-pressed="m.value === meta.mood"
                 :style="
                   m.value === meta.mood
                     ? { color: m.color, background: `${m.color}26` }
@@ -206,7 +258,15 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
                 @mousedown.prevent
                 @click.stop="onMoodSelect(m.value)"
               >
-                <component :is="MOOD_ICONS[m.icon] ?? IconMeh" class="mood-cell-icon" />
+                <span v-if="m.emoji" class="mood-emoji mood-cell-emoji" aria-hidden="true">
+                  {{ m.emoji }}
+                </span>
+                <component
+                  :is="MOOD_ICONS[m.icon] ?? IconMeh"
+                  v-else
+                  class="mood-cell-icon"
+                  aria-hidden="true"
+                />
                 <span class="mood-cell-label">{{ m.label }}</span>
               </button>
             </div>
@@ -218,7 +278,10 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
         class="meta-fn-mood meta-mood-chip"
         :style="{ color: currentMood?.color, background: `${currentMood?.color}26` }"
       >
-        <component :is="moodIcon" class="size-4" />
+        <span v-if="currentMood?.emoji" class="mood-emoji meta-mood-emoji" aria-hidden="true">
+          {{ currentMood.emoji }}
+        </span>
+        <component :is="moodIcon" v-else class="size-4" aria-hidden="true" />
         <span class="meta-mood-label">{{ currentMood?.label }}</span>
       </span>
       <PopupMenu
@@ -405,6 +468,14 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
 </template>
 
 <style scoped>
+@font-face {
+  font-family: 'NotoEmoji';
+  src: url('../../../../../foundation/mui/assets/fonts/NotoEmoji.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
 .meta-header {
   flex: 0 0 auto;
   display: flex;
@@ -479,6 +550,23 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
   flex: none;
   margin-right: 10px;
 }
+.mood-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-family: 'NotoEmoji';
+  font-weight: 400;
+  font-variant-ligatures: normal;
+  -webkit-font-variant-ligatures: normal;
+  line-height: 1;
+  letter-spacing: normal;
+}
+.meta-mood-emoji {
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+}
 .meta-fn-weather,
 .meta-fn-position {
   flex: 0 1 auto;
@@ -486,12 +574,16 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
 }
 
 .mood-panel {
-  width: 276px;
+  width: min(276px, calc(100vw - 32px));
+  max-height: min(360px, calc(100vh - 32px));
+  max-height: min(360px, calc(100dvh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-top: 4px;
 }
 .mood-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 2px;
 }
 .mood-cell {
@@ -512,6 +604,10 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
 .mood-cell:hover {
   background: var(--app-selected);
 }
+.mood-cell:focus-visible {
+  outline: 2px solid var(--app-primary);
+  outline-offset: -2px;
+}
 .mood-cell--active {
   font-weight: 600;
 }
@@ -519,9 +615,15 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
   width: 20px;
   height: 20px;
 }
+.mood-cell-emoji {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
 .mood-cell-label {
+  max-width: 100%;
   font-size: 11px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .weather-panel {

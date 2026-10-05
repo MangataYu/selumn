@@ -36,6 +36,7 @@ void main(List<String> args) async {
     }
     final repoRoot = input.packageRoot.resolve('../../../');
     output.dependencies.addAll([
+      repoRoot.resolve('packages/foundation/mui/assets/fonts/NotoEmoji.ttf'),
       for (final name in _sourceFiles) editorDir.resolve(name),
       ..._filesIn(repoRoot.resolve(_i18nWebDir)),
       ..._filesIn(editorDir.resolve('src/'), recursive: true),

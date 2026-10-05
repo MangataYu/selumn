@@ -109,6 +109,9 @@ class EditController extends _$EditController {
   }
 
   void changeMood(DiaryMood mood) {
+    if (!mood.isSelectable) {
+      throw ArgumentError.value(mood, 'mood', 'Only emotions can be selected.');
+    }
     state = state.whenData((current) => current.copyWith(mood: mood));
   }
 

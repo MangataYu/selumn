@@ -3,6 +3,37 @@ import 'package:moodiary_assistant/src/data/assistant_defs.dart';
 import 'package:moodiary_assistant/src/data/assistant_tools.dart';
 
 void main() {
+  test('新建和编辑日记只向助手提供 20 种情绪', () {
+    for (final tool in [AssistantTool.createDiary, AssistantTool.updateDiary]) {
+      final schema = AssistantToolRegistry.byId(tool.id)!.jsonSchema;
+      final properties = schema['properties'] as Map;
+      final items = (properties['items'] as Map)['items'] as Map;
+      final fields = items['properties'] as Map;
+      expect((fields['mood'] as Map)['enum'], [
+        'positive',
+        'neutral',
+        'negative',
+        'fulfilled',
+        'angry',
+        'anxious',
+        'tired',
+        'speechless',
+        'love',
+        'relaxed',
+        'grateful',
+        'lonely',
+        'excited',
+        'expectant',
+        'proud',
+        'relieved',
+        'hurt',
+        'disappointed',
+        'irritated',
+        'confused',
+      ], reason: tool.id);
+    }
+  });
+
   group('AssistantToolRegistry.specsFor', () {
     test('null = 全部当前工具，旧分类工具只保留历史显示', () {
       final tools = AssistantToolRegistry.specsFor(null)

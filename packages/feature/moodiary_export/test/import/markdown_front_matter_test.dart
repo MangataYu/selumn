@@ -84,9 +84,31 @@ tags: solo
       expect(parsed.meta.title, 'x');
       expect(parsed.body, '正文\n');
     });
+
+    test('新增专注状态按持久化名称解析', () {
+      const source = '---\nmood: focused\n---\n正文';
+      expect(MarkdownFrontMatter.parse(source).meta.mood, DiaryMood.focused);
+    });
   });
 
   group('与 MarkdownWriter 往返', () {
+    for (final mood in DiaryMood.values) {
+      test('心情与生活工作状态 ${mood.name} 往返后保持不变', () {
+        final doc = TiptapToIr.convert(
+          id: '01912345-89ab-7cde-8f01-23456789abcd',
+          title: '状态记录',
+          time: DateTime.utc(2026, 9, 6),
+          content: '{"type":"doc","content":[]}',
+          resolvePath: (kind, name) => '/data/$kind/$name',
+          mood: mood,
+        );
+
+        final md = MarkdownWriter.write(doc);
+        expect(md, contains('mood: ${mood.name}\n'));
+        expect(MarkdownFrontMatter.parse(md).meta.mood, mood);
+      });
+    }
+
     test('导出的 front matter 原样解回，时间跨时区仍是同一时刻', () {
       final time = DateTime(2026, 9, 6, 10, 30);
       final doc = TiptapToIr.convert(

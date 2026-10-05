@@ -28,6 +28,8 @@ dev_dependencies:
   moodiary_lint: 0.0.1
 
 flutter:
+  licenses:
+    - assets/fonts/NotoEmoji-OFL.txt
   fonts:
     - family: qweather
       fonts:
@@ -35,3 +37,7 @@ flutter:
     - family: Dosis
       fonts:
         - asset: assets/fonts/Dosis.ttf
+    - family: NotoEmoji
+      fonts:
+        - asset: assets/fonts/NotoEmoji.ttf
+          weight: 400

@@ -234,6 +234,23 @@ void main() {
   group('子表装配', () {
     oneDatabaseForGroup();
 
+    test('全部心情与生活工作状态按名称存储并读回', () async {
+      await repo.insertDiaries([
+        for (final mood in DiaryMood.values)
+          makeDiary('mood-${mood.name}', '正文').copyWith(mood: mood),
+      ]);
+
+      for (final mood in DiaryMood.values) {
+        final id = 'mood-${mood.name}';
+        final row = await (db.select(
+          db.diaries,
+        )..where((r) => r.id.equals(id))).getSingle();
+        expect(row.mood, mood.name, reason: id);
+        final got = (await repo.getDiaryByBusinessId(id))!;
+        expect(got.mood, mood, reason: id);
+      }
+    });
+
     test('媒体三列与标签保序往返', () async {
       final d = makeDiary(
         'd1',

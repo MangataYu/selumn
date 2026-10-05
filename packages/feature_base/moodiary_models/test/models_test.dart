@@ -13,11 +13,87 @@ void main() {
   });
 
   test('DiaryMood JSON round-trips by name and falls back to neutral', () {
-    final d = Diary.empty(type: .tiptap).copyWith(mood: .positive);
-    final json = d.toJson();
-    expect(json['mood'], 'positive');
-    expect(Diary.fromJson(json).mood, DiaryMood.positive);
+    for (final mood in DiaryMood.values) {
+      final d = Diary.empty(type: .tiptap).copyWith(mood: mood);
+      final json = d.toJson();
+      expect(json['mood'], mood.name);
+      expect(Diary.fromJson(json).mood, mood);
+      expect(DiaryMood.fromName(mood.name), mood);
+    }
     expect(DiaryMood.fromName('nope'), DiaryMood.neutral);
+    final unknownMoodJson = Diary.empty(type: .tiptap).toJson()
+      ..['mood'] = 'futureMood';
+    expect(Diary.fromJson(unknownMoodJson).mood, DiaryMood.neutral);
+  });
+
+  test(
+    'DiaryMood selections contain only the twenty moods without duplicates',
+    () {
+      expect(DiaryMood.selectableValues, const <DiaryMood>[
+        .positive,
+        .neutral,
+        .negative,
+        .fulfilled,
+        .angry,
+        .anxious,
+        .tired,
+        .speechless,
+        .love,
+        .relaxed,
+        .grateful,
+        .lonely,
+        .excited,
+        .expectant,
+        .proud,
+        .relieved,
+        .hurt,
+        .disappointed,
+        .irritated,
+        .confused,
+      ]);
+      expect(
+        DiaryMood.selectableValues.toSet(),
+        hasLength(DiaryMood.selectableValues.length),
+      );
+      expect(
+        DiaryMood.values.where((mood) => mood.isSelectable),
+        DiaryMood.selectableValues,
+      );
+    },
+  );
+
+  test('Legacy activities remain readable without being selectable', () {
+    const legacyNames = [
+      'study',
+      'slacking',
+      'food',
+      'work',
+      'travel',
+      'sports',
+      'sick',
+      'celebrating',
+      'focused',
+      'meeting',
+      'overtime',
+      'commuting',
+      'sleep',
+      'coffee',
+      'home',
+      'shopping',
+      'cooking',
+      'gaming',
+      'music',
+      'movie',
+    ];
+    for (final name in legacyNames) {
+      final mood = DiaryMood.fromName(name);
+      expect(mood.name, name);
+      expect(mood.isSelectable, isFalse);
+      final json = Diary.empty(type: .tiptap).toJson()..['mood'] = name;
+      final restored = Diary.fromJson(json);
+      expect(restored.mood, mood);
+      expect(restored.toJson()['mood'], name);
+    }
   });
 
   group('DiaryWeather 展示串', () {
