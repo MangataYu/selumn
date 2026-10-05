@@ -62,7 +62,9 @@ void main() {
   testWidgets('同一条回复随浅深模式和主题色切换更新，正文仍使用正文色', (tester) async {
     const reply = AssistantReply(
       text:
-          '### 回复标题\n\n普通正文 **强调文字**\n\n'
+          '# 一级标题\n\n## 二级标题\n\n### 回复标题\n\n'
+          '#### 四级标题\n\n##### 五级标题\n\n###### 六级标题\n\n'
+          '普通正文 **强调文字**\n\n'
           '| 主题表头 |\n| --- |\n| 表格正文 |',
     );
     final themes = [
@@ -77,6 +79,7 @@ void main() {
       buildMuiTheme(
         brightness: Brightness.dark,
         accent: const MuiAccent.seeded(Color(0xFF2E59A7)),
+        font: const MuiFontConfig(family: 'DiaryCustomFont'),
       ),
     ];
     final backgrounds = <Color?>[];
@@ -91,11 +94,17 @@ void main() {
       expect(element, same(replyElement));
       expect(_bubbleColor(tester), theme.colorScheme.surfaceContainer);
       expect(_styleOf(tester, '普通正文').color, theme.colorScheme.onSurface);
-      expect(_styleOf(tester, '回复标题').color, theme.colorScheme.onSurface);
-      expect(
-        _styleOf(tester, '回复标题').fontFamily,
-        theme.textTheme.bodyLarge!.fontFamily,
-      );
+      double? previousHeadingSize;
+      for (final heading in ['一级标题', '二级标题', '回复标题', '四级标题', '五级标题', '六级标题']) {
+        final style = _styleOf(tester, heading);
+        expect(style.color, theme.colorScheme.onSurface);
+        expect(style.fontFamily, theme.textTheme.bodyLarge!.fontFamily);
+        final size = style.fontSize!;
+        if (previousHeadingSize != null) {
+          expect(previousHeadingSize, greaterThan(size));
+        }
+        previousHeadingSize = size;
+      }
       expect(_styleOf(tester, '强调文字').color, theme.colorScheme.primary);
       expect(_styleOf(tester, '强调文字').fontWeight, FontWeight.bold);
       final table = tester.widget<Table>(find.byType(Table));

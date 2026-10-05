@@ -11,6 +11,14 @@ class AssistantReply extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     final bodyStyle = theme.typography.bodyLarge.onSurface;
+    final markdownTheme = GptMarkdownTheme.of(context).copyWith(
+      h1: theme.typography.headlineLarge.onSurface,
+      h2: theme.typography.headlineMedium.onSurface,
+      h3: theme.typography.headlineSmall.onSurface,
+      h4: theme.typography.titleLarge.onSurface,
+      h5: theme.typography.titleMedium.onSurface,
+      h6: theme.typography.titleSmall.onSurface,
+    );
     return LayoutBuilder(
       builder: (context, constraints) => Align(
         alignment: .centerLeft,
@@ -27,35 +35,33 @@ class AssistantReply extends StatelessWidget {
             ),
           ),
           child: SelectionArea(
-            child: GptMarkdown(
-              text,
-              style: bodyStyle,
-              inlineComponents: _inlineComponents,
-              styleSheet: GptMarkdownStyleSheet(
-                heading: HeadingStyle(
-                  textStyle: TextStyle(
-                    color: theme.colors.onSurface,
-                    fontFamily: bodyStyle.fontFamily,
-                    fontFamilyFallback: bodyStyle.fontFamilyFallback,
+            child: GptMarkdownTheme(
+              gptThemeData: markdownTheme,
+              child: GptMarkdown(
+                text,
+                style: bodyStyle,
+                inlineComponents: _inlineComponents,
+                styleSheet: GptMarkdownStyleSheet(
+                  heading: HeadingStyle(
+                    dividerColor: theme.colors.outlineVariant,
                   ),
-                  dividerColor: theme.colors.outlineVariant,
+                  link: LinkStyle(
+                    color: theme.colors.primary,
+                    hoverColor: theme.colors.primary,
+                  ),
+                  table: TableStyle(
+                    borderColor: theme.colors.outlineVariant,
+                    headerBackground: theme.colors.surfaceContainerHighest,
+                  ),
                 ),
-                link: LinkStyle(
-                  color: theme.colors.primary,
-                  hoverColor: theme.colors.primary,
-                ),
-                table: TableStyle(
+                inlineCodeStyle: InlineCodeStyle(
+                  color: theme.colors.onSurface,
+                  backgroundColor: theme.colors.surfaceContainerHighest,
                   borderColor: theme.colors.outlineVariant,
-                  headerBackground: theme.colors.surfaceContainerHighest,
                 ),
+                codeBuilder: (context, name, code, closed) =>
+                    MarkdownCodeBlock(name: name, code: code),
               ),
-              inlineCodeStyle: InlineCodeStyle(
-                color: theme.colors.onSurface,
-                backgroundColor: theme.colors.surfaceContainerHighest,
-                borderColor: theme.colors.outlineVariant,
-              ),
-              codeBuilder: (context, name, code, closed) =>
-                  MarkdownCodeBlock(name: name, code: code),
             ),
           ),
         ),
@@ -79,9 +85,8 @@ class _AccentBoldMd extends BoldMd {
     context,
     text,
     config.copyWith(
-      style: (config.style ?? const TextStyle()).copyWith(
-        color: context.theme.colors.primary,
-      ),
+      style: (config.style ?? context.theme.typography.bodyLarge.onSurface)
+          .copyWith(color: context.theme.colors.primary),
     ),
   );
 }
