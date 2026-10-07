@@ -37,11 +37,11 @@ class _AssistantSummaryTileState extends State<AssistantSummaryTile> {
 
   Future<void> _load() async {
     final active = await _repo.getActiveProvider();
-    final key = active == null ? null : await _repo.getKey(active.id);
+    final configured = active != null && await _repo.hasCredentials(active.id);
     if (!mounted) return;
     setState(() {
       _active = active;
-      _keyConfigured = key != null && key.isNotEmpty;
+      _keyConfigured = configured;
       _loaded = true;
     });
   }
@@ -54,7 +54,7 @@ class _AssistantSummaryTileState extends State<AssistantSummaryTile> {
         : active == null
         ? context.l10n.assistant.summaryNoProvider
         : '${active.name} · ${active.defaultModel} · '
-              '${_keyConfigured ? context.l10n.assistant.summaryKeySet : context.l10n.assistant.summaryKeyUnset}';
+              '${active.protocol == AssistantProviderType.chatgptSubscription ? (_keyConfigured ? context.l10n.assistant.chatGptLoggedIn : context.l10n.assistant.chatGptNeedLogin) : (_keyConfigured ? context.l10n.assistant.summaryKeySet : context.l10n.assistant.summaryKeyUnset)}';
     return SettingListTile(
       title: context.l10n.assistant.summaryTitle,
       subtitle: subtitle,

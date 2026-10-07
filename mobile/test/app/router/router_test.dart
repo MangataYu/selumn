@@ -10,6 +10,20 @@ import 'package:mui/mui.dart';
 
 void main() {
   group('route tree config', () {
+    test(
+      'ChatGPT subscription route is registered with only a provider ID',
+      () {
+        expect(
+          buildMobileRoutes().whereType<GoRoute>().where(
+            (route) => route.path == AssistantChatGptRoute.path,
+          ),
+          hasLength(1),
+        );
+        expect(const AssistantChatGptRoute(id: 'provider').params, {
+          'id': 'provider',
+        });
+      },
+    );
     test('tag manager is registered without extra route params', () {
       expect(
         buildMobileRoutes().whereType<GoRoute>().where(
@@ -81,6 +95,7 @@ void main() {
       AssistantConversationRoute(sessionId: 's1', title: '周三'),
       AssistantConversationRoute(citedDiaryId: 'd1'),
       AssistantProviderEditRoute(id: 'p1', presetId: 'openai'),
+      AssistantChatGptRoute(id: 'p2'),
     ];
 
     for (final route in routes) {

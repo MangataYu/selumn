@@ -18,6 +18,9 @@ class ModelCatalogRepository {
     required String baseUrl,
     required String apiKey,
   }) async {
+    if (protocol == AssistantProviderType.chatgptSubscription) {
+      throw StateError('Use the signed-in subscription catalog.');
+    }
     final res = await _http.get<dynamic>(
       _endpointFor(protocol, baseUrl),
       headers: _headersFor(protocol, apiKey),

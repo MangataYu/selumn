@@ -1,0 +1,16 @@
+base_locale: zh
+fallback_strategy: base_locale
+input_directory: i18n
+input_file_pattern: .i18n.json
+output_directory: lib/i18n
+output_file_name: strings.g.dart
+translate_var: probeL10n
+class_name: ProbeTranslations
+enum_name: ProbeLocale
+string_interpolation: braces
+flat_map: false
+timestamp: false
+statistics: false
+lazy: false
+format:
+  enabled: true

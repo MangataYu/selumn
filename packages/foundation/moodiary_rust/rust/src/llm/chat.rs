@@ -21,6 +21,7 @@ use std::future::Future;
 
 pub const PROTOCOL_OPENAI_COMPLETIONS: &str = "openai-completions";
 pub const PROTOCOL_OPENAI_RESPONSES: &str = "openai-responses";
+pub const PROTOCOL_CHATGPT_SUBSCRIPTION: &str = "chatgpt-subscription";
 pub const PROTOCOL_ANTHROPIC_MESSAGES: &str = "anthropic-messages";
 
 pub const REASONING_OFF: &str = "off";
@@ -342,6 +343,31 @@ pub async fn rig_chat_stream(
     let http_client = crate::http::client::shared()?;
 
     match config.protocol.as_str() {
+        PROTOCOL_CHATGPT_SUBSCRIPTION => {
+            let client = openai::Client::builder()
+                .api_key(&config.api_key)
+                .http_client(super::siwc::SiwcHttpClient::new()?)
+                .build()
+                .map_err(|_| anyhow::anyhow!("completion: failed to build ChatGPT client"))?
+                .with_system_instructions_placement(
+                    openai::responses_api::SystemInstructionsPlacement::AllInstructions,
+                );
+            // SiwC rejects max_output_tokens and temperature. The transport
+            // applies the remaining restrictions, including namespaced tools.
+            let mut ab = client.agent(&config.model).preamble(&system_prompt);
+            if let Some(params) = openai_responses_reasoning_params(&config) {
+                ab = ab.additional_params(params);
+            }
+            drive(
+                finish(ab, boxed_tools, &emit, &gate),
+                prompt,
+                prior,
+                &emit,
+                max_turns,
+            )
+            .await
+            .map_err(super::siwc::safe_chat_error)
+        }
         PROTOCOL_ANTHROPIC_MESSAGES => {
             let mut builder = anthropic::Client::builder().api_key(&config.api_key);
             if !config.base_url.is_empty() {
@@ -422,6 +448,10 @@ pub async fn rig_chat_stream(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "siwc_tests.rs"]
+mod siwc_tests;
 
 async fn drive(
     agent: Agent,

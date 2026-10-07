@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:moodiary_assistant/src/application/llm_provider_preset_controller.dart';
 import 'package:moodiary_assistant/src/data/llm_preset_repository.dart';
@@ -46,6 +48,11 @@ class _AssistantProviderPickerPageState
     if (saved == true && mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _openChatGpt() async {
+    final saved = await const AssistantChatGptRoute().push<bool>(context);
+    if (saved == true && mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _openPreset(LlmProviderPreset preset) async {
     final saved = await AssistantProviderEditRoute(presetId: preset.id)
         .push<bool>(context);
@@ -85,6 +92,24 @@ class _AssistantProviderPickerPageState
       body: ListView(
         padding: const .all(12),
         children: [
+          if (Platform.isAndroid) ...[
+            Card(
+              child: ListTile(
+                leading: ProviderLogo(
+                  logoUrl: ProviderLogo.urlOf(
+                    '',
+                    providerType: AssistantProviderType.chatgptSubscription,
+                  ),
+                  name: l10n.assistant.chatGptTitle,
+                ),
+                title: Text(l10n.assistant.chatGptAdd),
+                subtitle: Text(l10n.assistant.chatGptIntro),
+                trailing: const Icon(LucideIcons.chevronRight),
+                onTap: _openChatGpt,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _CustomTile(onTap: _openCustom),
           const SizedBox(height: 12),
           if (all.isNotEmpty) ...[

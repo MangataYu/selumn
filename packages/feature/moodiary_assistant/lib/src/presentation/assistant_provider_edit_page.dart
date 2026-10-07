@@ -86,6 +86,10 @@ class _AssistantProviderEditPageState
         if (mounted) Navigator.of(context).pop();
         return;
       }
+      if (provider.protocol == AssistantProviderType.chatgptSubscription) {
+        if (mounted) AssistantChatGptRoute(id: id).replace(context);
+        return;
+      }
       final key = await _repo.getKey(id);
       final preset = provider.isPreset
           ? await _findPreset(provider.presetId)
@@ -339,6 +343,7 @@ class _AssistantProviderEditPageState
       .openaiCompletions => l10n.assistant.protocolOpenAiCompletions,
       .openaiResponses => l10n.assistant.protocolOpenAiResponses,
       .anthropicMessages => l10n.assistant.protocolAnthropicMessages,
+      .chatgptSubscription => l10n.assistant.chatGptTitle,
     };
     return _LabeledField(
       label: l10n.assistant.protocolTitle,
@@ -346,7 +351,9 @@ class _AssistantProviderEditPageState
         spacing: 8,
         runSpacing: 8,
         children: [
-          for (final t in AssistantProviderType.values)
+          for (final t in AssistantProviderType.values.where(
+            (type) => type != AssistantProviderType.chatgptSubscription,
+          ))
             ChoiceChip(
               label: Text(label(t)),
               selected: _type == t,

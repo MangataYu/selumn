@@ -3,16 +3,21 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:injectable/injectable.dart';
 
+import 'package:moodiary_assistant/src/data/chatgpt_provider_auth.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 
 @lazySingleton
 class LlmProviderRepository {
-  LlmProviderRepository(this._db, this._secure);
+  LlmProviderRepository(this._db, this._secure, this._chatGpt) {
+    _authEvents = _chatGpt.changes.listen((_) => _events.add(null));
+  }
 
   final MoodiaryDatabase _db;
   final ISecureKVStorage _secure;
+  final ChatGptProviderAuth _chatGpt;
+  late final StreamSubscription<void> _authEvents;
 
   static String _keyOf(String id) => 'llm_key_$id';
 
@@ -76,6 +81,10 @@ class LlmProviderRepository {
   }
 
   Future<void> deleteProvider(String id) async {
+    final provider = await getProvider(id);
+    if (provider?.protocol == AssistantProviderType.chatgptSubscription) {
+      await _chatGpt.remove(id);
+    }
     await (_db.delete(_db.llmProviders)..where((p) => p.id.equals(id))).go();
     await removeKey(id);
     if (MoodiaryKVs.assistantActiveProviderId.get() == id) {
@@ -112,6 +121,29 @@ class LlmProviderRepository {
       _secure.set(_keyOf(id), value);
 
   Future<void> removeKey(String id) => _secure.remove(_keyOf(id));
+
+  Future<bool> hasCredentials(String id) async {
+    final provider = await getProvider(id);
+    if (provider?.protocol == AssistantProviderType.chatgptSubscription) {
+      return _chatGpt.hasCredentials(id);
+    }
+    return (await getKey(id))?.isNotEmpty ?? false;
+  }
+
+  Future<String?> getAccessToken(String id) async {
+    final provider = await getProvider(id);
+    if (provider == null) return null;
+    if (provider.protocol == AssistantProviderType.chatgptSubscription) {
+      return _chatGpt.getAccessToken(id);
+    }
+    return getKey(id);
+  }
+
+  @disposeMethod
+  Future<void> dispose() async {
+    await _authEvents.cancel();
+    await _events.close();
+  }
 
   Future<LlmProvider?> getActiveProvider() async {
     final id = MoodiaryKVs.assistantActiveProviderId.get();

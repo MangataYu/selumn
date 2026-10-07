@@ -3,6 +3,8 @@ enum AssistantProviderType {
 
   openaiResponses(id: 'openai-responses'),
 
+  chatgptSubscription(id: 'chatgpt-subscription'),
+
   anthropicMessages(id: 'anthropic-messages');
 
   final String id;

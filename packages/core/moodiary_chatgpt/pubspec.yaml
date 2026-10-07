@@ -1,0 +1,20 @@
+name: moodiary_chatgpt
+description: ChatGPT subscription authorization and account session protocol.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.13.0"
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: 3.0.7
+  http: 1.6.0
+  url_launcher: 6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

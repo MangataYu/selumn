@@ -472,43 +472,54 @@ class _ProviderHeader extends StatelessWidget {
       child: Row(
         children: [
           ProviderLogo(
-            logoUrl: ProviderLogo.urlOf(provider.presetId),
+            logoUrl: ProviderLogo.urlOf(
+              provider.presetId,
+              providerType: provider.protocol,
+            ),
             name: provider.name,
             size: 20,
           ),
           const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              provider.name,
-              maxLines: 1,
-              overflow: .ellipsis,
-              style: typography.labelLarge.emphasized.onSurfaceVariant,
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  provider.name,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                  style: typography.labelLarge.emphasized.onSurfaceVariant,
+                ),
+                if (empty && !provider.isPreset)
+                  Text(
+                    l10n.assistant.modelListEmpty,
+                    style: typography.labelSmall.onSurfaceVariant,
+                  ),
+                if (!hasKey) ...[
+                  _Badge(
+                    icon: LucideIcons.keyRound,
+                    text:
+                        provider.protocol ==
+                            AssistantProviderType.chatgptSubscription
+                        ? l10n.assistant.chatGptNeedLogin
+                        : l10n.assistant.modelProviderNoKey,
+                  ),
+                  MInkWell.fade(
+                    onTap: onFillKey,
+                    child: Padding(
+                      padding: const .symmetric(horizontal: 6, vertical: 4),
+                      child: Text(
+                        '${provider.protocol == AssistantProviderType.chatgptSubscription ? l10n.assistant.chatGptLogin : l10n.assistant.modelProviderFillKey} →',
+                        style: typography.labelSmall.emphasized.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (empty && !provider.isPreset) ...[
-            const SizedBox(width: 6),
-            Text(
-              l10n.assistant.modelListEmpty,
-              style: typography.labelSmall.onSurfaceVariant,
-            ),
-          ],
-          if (!hasKey) ...[
-            const SizedBox(width: 6),
-            _Badge(
-              icon: LucideIcons.keyRound,
-              text: l10n.assistant.modelProviderNoKey,
-            ),
-            MInkWell.fade(
-              onTap: onFillKey,
-              child: Padding(
-                padding: const .symmetric(horizontal: 6, vertical: 4),
-                child: Text(
-                  '${l10n.assistant.modelProviderFillKey} →',
-                  style: typography.labelSmall.emphasized.primary,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

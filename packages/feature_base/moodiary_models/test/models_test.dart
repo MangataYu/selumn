@@ -135,7 +135,7 @@ void main() {
   });
 
   group('AssistantProviderType.fromId', () {
-    test('三个值都认得', () {
+    test('所有协议值都认得，包括订阅登录', () {
       for (final t in AssistantProviderType.values) {
         expect(AssistantProviderType.fromId(t.id), t);
       }

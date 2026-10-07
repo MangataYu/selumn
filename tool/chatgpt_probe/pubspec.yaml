@@ -1,0 +1,29 @@
+name: selume_chatgpt_probe
+description: Android-only experiment for ChatGPT plan authorization and inference.
+publish_to: none
+version: 0.1.4+5
+
+environment:
+  sdk: ">=3.13.0"
+  flutter: ">=3.47.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  mui: 0.0.1
+  moodiary_chatgpt: 0.0.1
+  crypto: 3.0.7
+  http: 1.6.0
+  flutter_secure_storage: 11.0.0
+  url_launcher: 6.3.2
+  slang: 4.19.1
+  slang_flutter: 4.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

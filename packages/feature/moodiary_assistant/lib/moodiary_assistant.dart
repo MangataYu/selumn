@@ -2,6 +2,7 @@ library;
 
 import 'package:moodiary_router/moodiary_router.dart';
 
+import 'src/presentation/assistant_chatgpt_page.dart';
 import 'src/presentation/assistant_notes_page.dart';
 import 'src/presentation/assistant_page.dart';
 import 'src/presentation/assistant_provider_edit_page.dart';
@@ -39,6 +40,10 @@ List<RouteBase> assistantRoutes() => [
   GoRoute(
     path: AssistantProviderEditRoute.path,
     builder: (_, state) => AssistantProviderEditPage.fromRoute(state),
+  ),
+  GoRoute(
+    path: AssistantChatGptRoute.path,
+    builder: (_, state) => AssistantChatGptPage.fromRoute(state),
   ),
   GoRoute(
     path: AssistantConversationRoute.path,

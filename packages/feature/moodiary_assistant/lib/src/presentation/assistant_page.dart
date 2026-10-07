@@ -31,6 +31,7 @@ import 'package:moodiary_assistant/src/presentation/provider_logo.dart';
 import 'package:moodiary_assistant/src/presentation/reasoning_label.dart';
 import 'package:moodiary_assistant/src/presentation/tool_approval_card.dart';
 import 'package:moodiary_assistant/src/presentation/tool_approval_preview.dart';
+import 'package:moodiary_chatgpt/moodiary_chatgpt.dart';
 import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_files/moodiary_files.dart';
@@ -363,7 +364,8 @@ class _AssistantPageState extends State<AssistantPage> {
     _providers
       ..clear()
       ..addEntries([for (final p in all) MapEntry(p.id, p)]);
-    final key = provider == null ? null : await repo.getKey(provider.id);
+    final configured =
+        provider != null && await repo.hasCredentials(provider.id);
     final lastModel = MoodiaryKVs.assistantLastModelId.get() ?? '';
     final wanted = pinned != null && (session?.model.isNotEmpty ?? false)
         ? session!.model
@@ -384,10 +386,12 @@ class _AssistantPageState extends State<AssistantPage> {
         getIt<LlmPresetRepository>().cachedAt == 0;
     final modelMissing =
         provider != null &&
-        provider.isPreset &&
-        !catalogMissing &&
-        model == null &&
-        (resolved?.modelId.isNotEmpty ?? false);
+        ((provider.protocol == AssistantProviderType.chatgptSubscription &&
+                !provider.models.contains(resolved?.modelId)) ||
+            (provider.isPreset &&
+                !catalogMissing &&
+                model == null &&
+                (resolved?.modelId.isNotEmpty ?? false)));
     final caps = _capabilities(provider, model);
     final levels = provider == null
         ? const <String>[]
@@ -395,7 +399,7 @@ class _AssistantPageState extends State<AssistantPage> {
     if (mounted) {
       setState(() {
         _resolved = true;
-        _ready = provider != null && key != null && key.isNotEmpty;
+        _ready = configured;
         _provider = provider;
         _providerMissing = providerMissing;
         _catalogMissing = catalogMissing;
@@ -435,13 +439,15 @@ class _AssistantPageState extends State<AssistantPage> {
   Future<List<ProviderModels>> _providerGroups() async {
     final repo = getIt<LlmProviderRepository>();
     final providers = await repo.getAllProviders();
-    final keys = await Future.wait(providers.map((p) => repo.getKey(p.id)));
+    final credentials = await Future.wait(
+      providers.map((p) => repo.hasCredentials(p.id)),
+    );
     return [
       for (final (i, p) in providers.indexed)
         (
           provider: p,
           options: ModelResolver.optionsFor(p),
-          hasKey: keys[i]?.isNotEmpty ?? false,
+          hasKey: credentials[i],
         ),
     ];
   }
@@ -506,7 +512,15 @@ class _AssistantPageState extends State<AssistantPage> {
   }
 
   Future<void> _fillKey(String providerId) async {
-    await AssistantProviderEditRoute(id: providerId).push(context);
+    final provider = await getIt<LlmProviderRepository>().getProvider(
+      providerId,
+    );
+    if (!mounted) return;
+    if (provider?.protocol == AssistantProviderType.chatgptSubscription) {
+      await AssistantChatGptRoute(id: providerId).push(context);
+    } else {
+      await AssistantProviderEditRoute(id: providerId).push(context);
+    }
     await _refreshReady();
   }
 
@@ -641,12 +655,26 @@ class _AssistantPageState extends State<AssistantPage> {
     LlmProvider provider,
     AssistantChatRequest request,
   ) async {
+    String? key;
+    try {
+      key = provider.protocol == AssistantProviderType.chatgptSubscription
+          ? await getIt<LlmProviderRepository>().getAccessToken(provider.id)
+          : request.apiKey;
+    } catch (error, stack) {
+      logger.e(
+        'Assistant title authentication failed',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      return;
+    }
+    if (key == null || key.isEmpty) return;
     final updated = await _title.maybeTitleAndSave(
       session: session,
       firstUserText: firstUserText,
       provider: provider,
       model: request.model,
-      apiKey: request.apiKey,
+      apiKey: key,
     );
     final current = _session;
     if (updated == null || !mounted || current?.id != session.id) return;
@@ -701,9 +729,12 @@ class _AssistantPageState extends State<AssistantPage> {
   }) async {
     final provider = _provider;
     if (provider == null) return null;
-    final key = await getIt<LlmProviderRepository>().getKey(provider.id);
-    if (key == null || key.isEmpty) return null;
     final route = ModelResolver.resolve(provider, _modelId);
+    ModelResolver.validateForRequest(provider, route.modelId);
+    final key = await getIt<LlmProviderRepository>().getAccessToken(
+      provider.id,
+    );
+    if (key == null || key.isEmpty) return null;
     return AssistantChatRequest(
       type: route.protocol,
       baseUrl: route.baseUrl,
@@ -872,14 +903,35 @@ class _AssistantPageState extends State<AssistantPage> {
 
     final history = _buildHistory();
 
-    final request = await _buildRequest(
-      history,
-      systemPrompt: systemPrompt,
-      volatilePrefix: volatilePrefix,
-      toolsActive: toolsActive,
-      allowedTools: allowedTools,
-      toolGate: _gateTool,
-    );
+    final AssistantChatRequest? request;
+    try {
+      request = await _buildRequest(
+        history,
+        systemPrompt: systemPrompt,
+        volatilePrefix: volatilePrefix,
+        toolsActive: toolsActive,
+        allowedTools: allowedTools,
+        toolGate: _gateTool,
+      );
+    } catch (error, stack) {
+      logger.e(
+        'Assistant authentication failed',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      if (!mounted || gen != _generation) return;
+      _appendDelta(
+        error is ChatGptException && error.code == 'model_not_selected'
+            ? l10n.assistant.chatGptNeedModel
+            : _provider?.protocol == AssistantProviderType.chatgptSubscription
+            ? l10n.assistant.chatGptAuthError
+            : l10n.assistant.requestFailed(error: l10n.common.loadFailed),
+      );
+      _finalizeStreaming(persist: false);
+      setState(() => _sending = false);
+      _flushQueued();
+      return;
+    }
     if (!mounted || gen != _generation) return;
     if (request == null) {
       _appendDelta(l10n.assistant.needProvider);
@@ -889,6 +941,7 @@ class _AssistantPageState extends State<AssistantPage> {
       return;
     }
 
+    final chatRequest = request;
     final session = await _ensureSession();
     if (!mounted || gen != _generation) return;
     if (session != null) {
@@ -911,7 +964,7 @@ class _AssistantPageState extends State<AssistantPage> {
     var errored = false;
     try {
       _streamSub = getIt<AssistantService>()
-          .chat(request)
+          .chat(chatRequest)
           .listen(
             (event) {
               if (gen != _generation) return;
@@ -957,7 +1010,12 @@ class _AssistantPageState extends State<AssistantPage> {
               if (mounted) setState(() => _sending = false);
               if (session != null && titleProvider != null) {
                 unawaited(
-                  _generateTitle(session, titleSeed, titleProvider, request),
+                  _generateTitle(
+                    session,
+                    titleSeed,
+                    titleProvider,
+                    chatRequest,
+                  ),
                 );
               }
               unawaited(_maybeCompact());
@@ -1055,7 +1113,17 @@ class _AssistantPageState extends State<AssistantPage> {
     if (session == null || (!force && _lastTurnInputTokens <= 0)) return null;
     final provider = _provider;
     if (provider == null) return null;
-    final key = await getIt<LlmProviderRepository>().getKey(provider.id);
+    final String? key;
+    try {
+      key = await getIt<LlmProviderRepository>().getAccessToken(provider.id);
+    } catch (error, stack) {
+      logger.e(
+        'Assistant compaction authentication failed',
+        error: error.runtimeType,
+        stackTrace: stack,
+      );
+      return null;
+    }
     if (key == null || key.isEmpty) return null;
     if (!mounted || _session?.id != session.id) return null;
 
@@ -1475,9 +1543,23 @@ class _AssistantPageState extends State<AssistantPage> {
     }
     if (!_ready) {
       return _StatusBanner(
-        text: l10n.assistant.providerKeyMissingBanner(name: provider.name),
+        text: provider.protocol == AssistantProviderType.chatgptSubscription
+            ? l10n.assistant.chatGptNeedLogin
+            : l10n.assistant.providerKeyMissingBanner(name: provider.name),
         error: true,
         onTap: () => _fillKey(provider.id),
+      );
+    }
+    if (provider.protocol == AssistantProviderType.chatgptSubscription &&
+        _modelMissing) {
+      return _StatusBanner(
+        text: l10n.assistant.chatGptNeedModel,
+        error: true,
+        onTap: _sending
+            ? null
+            : provider.models.isEmpty
+            ? () => _fillKey(provider.id)
+            : _pickModel,
       );
     }
     if (_providerMissing) {
@@ -1703,7 +1785,10 @@ class _ModelChip extends StatelessWidget {
                 Icon(LucideIcons.triangleAlert, size: 16, color: scheme.error)
               else if (provider != null)
                 ProviderLogo(
-                  logoUrl: ProviderLogo.urlOf(provider.presetId),
+                  logoUrl: ProviderLogo.urlOf(
+                    provider.presetId,
+                    providerType: provider.protocol,
+                  ),
                   name: provider.name,
                   size: 18,
                 ),

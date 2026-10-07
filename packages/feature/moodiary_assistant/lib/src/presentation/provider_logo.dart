@@ -1,4 +1,5 @@
 import 'package:moodiary_components/moodiary_components.dart';
+import 'package:moodiary_models/moodiary_models.dart';
 import 'package:mui/mui.dart';
 
 class ProviderLogo extends StatelessWidget {
@@ -13,8 +14,12 @@ class ProviderLogo extends StatelessWidget {
     this.size = 40,
   });
 
-  static String? urlOf(String presetId) =>
-      presetId.isEmpty ? null : 'https://models.dev/logos/$presetId.svg';
+  static String? urlOf(String presetId, {AssistantProviderType? providerType}) {
+    final brand = providerType == AssistantProviderType.chatgptSubscription
+        ? 'openai'
+        : presetId;
+    return brand.isEmpty ? null : 'https://models.dev/logos/$brand.svg';
+  }
 
   @override
   Widget build(BuildContext context) {

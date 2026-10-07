@@ -34,12 +34,19 @@ void main() {
     required String modelId,
     String? level,
     List<ProviderModels>? groups,
+    ValueChanged<LlmProvider>? onFillKey,
+    double textScale = 1,
   }) {
     final data = buildMuiTheme(brightness: Brightness.light);
     return TranslationProvider(
       child: MuiTheme(
         data: data,
         child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           theme: data,
           locale: const Locale('zh'),
           localizationsDelegates: const [
@@ -77,7 +84,7 @@ void main() {
                     catalogUpdatedAt: 0,
                     onDownloadCatalog: () async => const [],
                     onManageProviders: () {},
-                    onFillKey: (_) {},
+                    onFillKey: onFillKey ?? (_) {},
                   );
                 },
                 child: const Text('open'),
@@ -157,6 +164,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(choice, isNull);
     expect(find.text('c'), findsOneWidget);
+  });
+
+  testWidgets('订阅缺凭据时提示登录并把对应供应商交给登录入口', (tester) async {
+    tester.view.physicalSize = const Size(320, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final subscription = beta.copyWith(
+      name: 'ChatGPT',
+      type: AssistantProviderType.chatgptSubscription.id,
+    );
+    LlmProvider? loginProvider;
+    await tester.pumpWidget(
+      host(
+        modelId: 'a',
+        textScale: 2,
+        groups: [
+          (provider: alpha, options: [_option('a')], hasKey: true),
+          (provider: subscription, options: [_option('c')], hasKey: false),
+        ],
+        onFillKey: (provider) => loginProvider = provider,
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('需要登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(find.text('登录 ChatGPT →'), findsOneWidget);
+    expect(find.text('缺少 Key'), findsNothing);
+    expect(find.text('去填写 →'), findsNothing);
+    expect(find.textContaining('API Key'), findsNothing);
+
+    await tester.tap(find.text('登录 ChatGPT →'));
+    await tester.pumpAndSettle();
+
+    expect(loginProvider, subscription);
+    expect(choice, isNull);
+    expect(find.text('需要登录'), findsNothing);
   });
 
   testWidgets('钉住的模型已不在目录里：造一条合成行，仍可重钉', (tester) async {

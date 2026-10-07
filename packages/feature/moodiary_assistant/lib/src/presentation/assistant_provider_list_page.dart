@@ -47,8 +47,7 @@ class _AssistantProviderListPageState extends State<AssistantProviderListPage> {
     final providers = await _repo.getAllProviders();
     final withKey = <String>{};
     for (final p in providers) {
-      final key = await _repo.getKey(p.id);
-      if (key != null && key.isNotEmpty) withKey.add(p.id);
+      if (await _repo.hasCredentials(p.id)) withKey.add(p.id);
     }
     if (!mounted) return;
     setState(() {
@@ -156,7 +155,9 @@ class _AssistantProviderListPageState extends State<AssistantProviderListPage> {
                     dragIndex: index,
                     onTap: () => _setDefault(p),
                     onEdit: () =>
-                        AssistantProviderEditRoute(id: p.id).push(context),
+                        p.protocol == AssistantProviderType.chatgptSubscription
+                        ? AssistantChatGptRoute(id: p.id).push(context)
+                        : AssistantProviderEditRoute(id: p.id).push(context),
                     onDelete: () => _delete(p),
                   ),
                 );
@@ -209,7 +210,10 @@ class _ProviderCard extends StatelessWidget {
                 Padding(
                   padding: const .only(right: 12),
                   child: ProviderLogo(
-                    logoUrl: ProviderLogo.urlOf(provider.presetId),
+                    logoUrl: ProviderLogo.urlOf(
+                      provider.presetId,
+                      providerType: provider.protocol,
+                    ),
                     name: provider.name,
                   ),
                 ),
@@ -253,7 +257,11 @@ class _ProviderCard extends StatelessWidget {
                       if (!hasKey) ...[
                         const SizedBox(height: 8),
                         _Badge(
-                          text: l10n.assistant.modelProviderNoKey,
+                          text:
+                              provider.protocol ==
+                                  AssistantProviderType.chatgptSubscription
+                              ? l10n.assistant.chatGptNeedLogin
+                              : l10n.assistant.modelProviderNoKey,
                           color: scheme.errorContainer,
                           onColor: scheme.onErrorContainer,
                         ),

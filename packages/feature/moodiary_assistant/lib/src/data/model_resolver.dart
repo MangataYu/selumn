@@ -1,5 +1,7 @@
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
+import 'package:moodiary_assistant/src/data/chatgpt_provider_auth.dart';
 import 'package:moodiary_assistant/src/data/llm_preset_repository.dart';
+import 'package:moodiary_chatgpt/moodiary_chatgpt.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 
@@ -30,8 +32,23 @@ typedef ResolvedModel = ({
 });
 
 abstract final class ModelResolver {
+  static void validateForRequest(LlmProvider provider, String modelId) {
+    if (provider.protocol == AssistantProviderType.chatgptSubscription &&
+        (modelId.isEmpty || !provider.models.contains(modelId))) {
+      throw const ChatGptException('model_not_selected');
+    }
+  }
+
   static ResolvedModel resolve(LlmProvider provider, [String modelId = '']) {
     final id = modelId.isEmpty ? provider.defaultModel : modelId;
+    if (provider.protocol == AssistantProviderType.chatgptSubscription) {
+      return (
+        protocol: AssistantProviderType.chatgptSubscription,
+        baseUrl: 'https://api.openai.com/v1',
+        modelId: id,
+        preset: null,
+      );
+    }
     final preset = provider.isPreset ? _presetModel(provider, id) : null;
     return (
       protocol: preset?.protocol ?? provider.protocol,
@@ -42,6 +59,19 @@ abstract final class ModelResolver {
   }
 
   static List<ModelOption> optionsFor(LlmProvider provider) {
+    if (provider.protocol == AssistantProviderType.chatgptSubscription) {
+      final cached = getIt<ChatGptProviderAuth>().cachedModels(provider.id);
+      final labels = {for (final model in cached) model.id: model.label};
+      return [
+        for (final id in provider.models)
+          ModelOption(
+            id: id,
+            label: labels[id] ?? id,
+            preset: null,
+            levels: const [],
+          ),
+      ];
+    }
     if (!provider.isPreset) {
       final ids = <String>{...provider.models};
       if (provider.defaultModel.isNotEmpty) ids.add(provider.defaultModel);
@@ -69,6 +99,9 @@ abstract final class ModelResolver {
   }
 
   static List<String> levelsFor(LlmProvider provider, String modelId) {
+    if (provider.protocol == AssistantProviderType.chatgptSubscription) {
+      return const [];
+    }
     final preset = resolve(provider, modelId).preset;
     if (preset != null) return reasoningLevelsFor(preset);
     return provider.reasoning ? customReasoningLevels : const [];

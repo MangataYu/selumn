@@ -1068,6 +1068,99 @@ class Translations$assistant$zh {
 	/// zh: '获取 API Key'
 	String get modelProviderGetApiKey => '获取 API Key';
 
+	/// zh: 'ChatGPT 订阅'
+	String get chatGptTitle => 'ChatGPT 订阅';
+
+	/// zh: '登录 ChatGPT 订阅'
+	String get chatGptAdd => '登录 ChatGPT 订阅';
+
+	/// zh: '登录 ChatGPT，使用订阅提供的模型和额度。'
+	String get chatGptIntro => '登录 ChatGPT，使用订阅提供的模型和额度。';
+
+	/// zh: '登录 ChatGPT'
+	String get chatGptLogin => '登录 ChatGPT';
+
+	/// zh: '退出登录'
+	String get chatGptLogout => '退出登录';
+
+	/// zh: '已登录'
+	String get chatGptLoggedIn => '已登录';
+
+	/// zh: '需要登录'
+	String get chatGptNeedLogin => '需要登录';
+
+	/// zh: '账户'
+	String get chatGptAccount => '账户';
+
+	/// zh: '需要重新授权订阅额度'
+	String get chatGptPermissionMissing => '需要重新授权订阅额度';
+
+	/// zh: '请在浏览器中完成授权，返回后继续。'
+	String get chatGptWaiting => '请在浏览器中完成授权，返回后继续。';
+
+	/// zh: '粘贴授权回调链接'
+	String get chatGptPaste => '粘贴授权回调链接';
+
+	/// zh: '浏览器完成授权后，如果无法自动返回，请复制地址栏中以 http://127.0.0.1 开头的完整链接并粘贴到这里。'
+	String get chatGptPasteHint => '浏览器完成授权后，如果无法自动返回，请复制地址栏中以 http://127.0.0.1 开头的完整链接并粘贴到这里。';
+
+	/// zh: '授权回调链接'
+	String get chatGptCallbackLabel => '授权回调链接';
+
+	/// zh: '链接无效或已过期，请检查链接，必要时重新登录。'
+	String get chatGptCallbackInvalid => '链接无效或已过期，请检查链接，必要时重新登录。';
+
+	/// zh: '已收到授权，请返回 Selume 继续。'
+	String get chatGptCallbackReceived => '已收到授权，请返回 Selume 继续。';
+
+	/// zh: '登录或请求失败，请重试。'
+	String get chatGptAuthError => '登录或请求失败，请重试。';
+
+	/// zh: '本地登录信息已清除，但远端授权撤销尚未确认。'
+	String get chatGptLogoutFailed => '本地登录信息已清除，但远端授权撤销尚未确认。';
+
+	/// zh: '请求超时，请检查网络后重试。'
+	String get chatGptTimeout => '请求超时，请检查网络后重试。';
+
+	/// zh: '无法读写安全存储，请稍后重试。'
+	String get chatGptStorageError => '无法读写安全存储，请稍后重试。';
+
+	/// zh: '可继续上次授权，或取消后重新登录。'
+	String get chatGptPending => '可继续上次授权，或取消后重新登录。';
+
+	/// zh: '刷新可用模型'
+	String get chatGptLoadModels => '刷新可用模型';
+
+	/// zh: '保存服务商'
+	String get chatGptSave => '保存服务商';
+
+	/// zh: 'ChatGPT 订阅已保存'
+	String get chatGptSaved => 'ChatGPT 订阅已保存';
+
+	/// zh: 'ChatGPT 订阅登录目前仅支持 Android。'
+	String get chatGptUnsupported => 'ChatGPT 订阅登录目前仅支持 Android。';
+
+	/// zh: '查看订阅用量'
+	String get chatGptUsage => '查看订阅用量';
+
+	/// zh: '取消授权'
+	String get chatGptCancel => '取消授权';
+
+	/// zh: '正在处理…'
+	String get chatGptBusy => '正在处理…';
+
+	/// zh: '模型来自当前账户的订阅目录。'
+	String get chatGptModelsHint => '模型来自当前账户的订阅目录。';
+
+	/// zh: '服务商名称'
+	String get chatGptName => '服务商名称';
+
+	/// zh: '登录状态'
+	String get chatGptStatus => '登录状态';
+
+	/// zh: '请先登录并选择可用模型'
+	String get chatGptNeedModel => '请先登录并选择可用模型';
+
 	/// zh: '选择供应商'
 	String get llmPickerTitle => '选择供应商';
 

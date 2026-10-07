@@ -285,3 +285,14 @@ class AssistantProviderEditRoute extends MoodiaryRouteBase {
   @override
   Map<String, dynamic> get params => {'id': id, 'preset_id': presetId};
 }
+
+class AssistantChatGptRoute extends MoodiaryRouteBase {
+  static const String path = '/assistant/providers/chatgpt';
+
+  final String? id;
+
+  const AssistantChatGptRoute({this.id}) : super(path);
+
+  @override
+  Map<String, dynamic> get params => {'id': id};
+}

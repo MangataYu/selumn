@@ -8,6 +8,7 @@ environment:
 workspace:
   - mobile
   - desktop
+  - tool/chatgpt_probe
   - packages/*/*
 
 melos:
