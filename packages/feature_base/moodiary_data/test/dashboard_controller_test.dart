@@ -6,12 +6,16 @@ import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 
-class _EmptyDiaries extends Fake implements DiaryRepository {
+class _Diaries extends Fake implements DiaryRepository {
+  _Diaries([this.diaries = const []]);
+
+  final List<Diary> diaries;
+
   @override
   Stream<DiaryEvent> get diaryEvents => const Stream.empty();
 
   @override
-  Future<List<Diary>> getAllDiaries() async => [];
+  Future<List<Diary>> getAllDiaries() async => diaries;
 }
 
 class _EmptyCategories extends Fake implements CategoryRepository {
@@ -85,7 +89,7 @@ void main() {
     getIt.pushNewScope(
       init: (gi) {
         gi.registerSingleton<IKVStorage>(MemoryKVStorage());
-        gi.registerSingleton<DiaryRepository>(_EmptyDiaries());
+        gi.registerSingleton<DiaryRepository>(_Diaries());
         gi.registerSingleton<CategoryRepository>(_EmptyCategories());
       },
     );
@@ -111,5 +115,36 @@ void main() {
       4,
     );
     expect(MoodiaryKVs.startTime.get(), first.millisecondsSinceEpoch);
+  });
+
+  test('导入更早日记不改变使用天数，连续记录和年度边界按自然日统计', () async {
+    final now = DateTime.now();
+    final first = DateTime(now.year, now.month, now.day - 3);
+    final diaries = [
+      for (final offset in [-365, -364, -2, -1, 0])
+        Diary.empty(type: .tiptap)
+            .copyWith(time: DateTime(now.year, now.month, now.day + offset)),
+    ];
+    getIt.pushNewScope(
+      init: (gi) {
+        gi.registerSingleton<IKVStorage>(MemoryKVStorage());
+        gi.registerSingleton<DiaryRepository>(_Diaries(diaries));
+        gi.registerSingleton<CategoryRepository>(_EmptyCategories());
+      },
+    );
+    addTearDown(getIt.popScope);
+    MoodiaryKVs.startTime.set(first.millisecondsSinceEpoch);
+    final container = ProviderContainer(retry: (_, _) => null);
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      dashboardControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    final stats = await container.read(dashboardControllerProvider.future);
+    expect(stats.useDays, 4);
+    expect(stats.streakDays, 3);
+    expect(stats.lastYearCount, 4);
   });
 }

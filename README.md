@@ -63,7 +63,7 @@ Thanks to [ZhuJHua](https://github.com/ZhuJHua), [Moodiary](https://github.com/Z
 
 This project continues to use the [GNU Affero General Public License v3.0](LICENSE). Existing copyright and license notices are retained. This README was adapted for selumn on **2026-09-21**.
 
-The [upstream documentation](https://docs.moodiary.net) describes Moodiary; this fork's interface and workflows may differ. To support the original author, visit the [upstream project](https://github.com/ZhuJHua/moodiary#-sponsor).
+The [upstream documentation](https://docs.moodiary.net) describes Moodiary; this fork's interface and workflows may differ. To support the original author, visit the [author's sponsorship page](https://yooss.cn/sponsor.html).
 
 <details>
 <summary>Original project's sponsors</summary>

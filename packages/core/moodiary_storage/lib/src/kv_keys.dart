@@ -69,6 +69,8 @@ enum MoodiaryKVs<T extends Object> {
   lockNow<bool>(defaultValue: false),
 
   appLockHint<bool>(),
+  appLockFailCount<int>(defaultValue: 0),
+  appLockLockedUntil<int>(defaultValue: 0),
   supportBiometrics<bool>(defaultValue: false),
   backendPrivacy<bool>(defaultValue: false),
 
@@ -111,6 +113,9 @@ enum MoodiaryKVs<T extends Object> {
   autoNearestPlace<bool>(defaultValue: false),
 
   placeOrder<List<String>>(),
+
+  mapTileSource<String>(defaultValue: ''),
+
   weather<List<String>>(),
 
   startTime<int>(),

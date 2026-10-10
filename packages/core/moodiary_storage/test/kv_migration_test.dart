@@ -36,6 +36,17 @@ void main() {
       MoodiaryKVs.autoSync.copyFrom(source, into: target);
       expect(target.data.containsKey(MoodiaryKVs.autoSync.name), isFalse);
     });
+
+    test('首次使用时间作为现用配置迁移，不作为废弃键丢弃', () {
+      final startTime = DateTime(2025, 12, 31, 23, 59).millisecondsSinceEpoch;
+      source.data['startTime'] = startTime;
+
+      for (final kv in MoodiaryKVs.values) {
+        kv.copyFrom(source, into: target);
+      }
+
+      expect(target.get<int>('startTime'), startTime);
+    });
   });
 
   test('每个 KV 的值类型都在后端支持的五种之内', () {

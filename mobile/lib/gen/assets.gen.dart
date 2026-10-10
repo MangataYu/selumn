@@ -14,21 +14,8 @@ import 'package:flutter/widgets.dart';
 class $ResGen {
   const $ResGen();
 
-  /// Directory path: res/sponsor
-  $ResSponsorGen get sponsor => const $ResSponsorGen();
-
   /// Directory path: res/welcome
   $ResWelcomeGen get welcome => const $ResWelcomeGen();
-}
-
-class $ResSponsorGen {
-  const $ResSponsorGen();
-
-  /// File path: res/sponsor/wechat.jpg
-  AssetGenImage get wechat => const AssetGenImage('res/sponsor/wechat.jpg');
-
-  /// List of all assets
-  List<AssetGenImage> get values => [wechat];
 }
 
 class $ResWelcomeGen {

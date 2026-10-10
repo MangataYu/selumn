@@ -63,7 +63,7 @@ fvm dart tool/task.dart run
 
 本项目继续采用 [GNU Affero General Public License v3.0](LICENSE)，保留已有版权与许可声明。本 README 于 **2026-09-21** 改写为 selumn 的项目说明。
 
-[上游文档](https://docs.moodiary.net) 面向 Moodiary，本分支的界面和操作可能有所不同。如需支持原作者，可前往[原项目](https://github.com/ZhuJHua/moodiary#-sponsor)查看捐助方式。
+[上游文档](https://docs.moodiary.net) 面向 Moodiary，本分支的界面和操作可能有所不同。如需支持原作者，可前往[作者的赞助页面](https://yooss.cn/sponsor.html)。
 
 <details>
 <summary>原项目捐助者</summary>
