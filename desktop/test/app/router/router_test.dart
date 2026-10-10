@@ -20,6 +20,7 @@ void main() {
         NewDiaryRoute.path,
         DiarySearchRoute.path,
         SettingRoute.path,
+        AccountRoute.path,
         BackupSyncRoute.path,
         AssistantConversationRoute.path,
       ]),
@@ -28,6 +29,13 @@ void main() {
     expect(paths, isNot(contains(EditorMigrationRoute.path)));
     final rootPaths = routes.whereType<GoRoute>().map((route) => route.path);
     expect(rootPaths, containsAll([LockRoute.path, EditorMigrationRoute.path]));
+  });
+
+  test('local diary and backup routes need no account session', () {
+    expect(migrationGateRedirect(DiaryHomeRoute.path), isNull);
+    expect(migrationGateRedirect(NewDiaryRoute.path), isNull);
+    expect(migrationGateRedirect(BackupSyncRoute.path), isNull);
+    expect(const AccountRoute().params, isNull);
   });
 
   testWidgets('unknown location shows the localized recovery page', (

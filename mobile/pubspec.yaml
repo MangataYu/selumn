@@ -17,6 +17,7 @@ dependencies:
 
   fast_image: 0.0.1
   moodiary_router: 0.0.1
+  moodiary_account: 0.0.1
   moodiary_assistant: 0.0.1
   moodiary_diary: 0.0.1
   moodiary_editor: 0.0.1

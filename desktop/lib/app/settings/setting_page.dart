@@ -15,6 +15,13 @@ class DesktopSettingPage extends ConsumerWidget {
     body: ListView(
       padding: EdgeInsets.all(context.spacing.md),
       children: [
+        SettingListTile(
+          title: context.l10n.account.title,
+          subtitle: context.l10n.account.entrySubtitle,
+          leading: const Icon(LucideIcons.userRound),
+          trailing: const Icon(LucideIcons.chevronRight),
+          onTap: () => const AccountRoute().push(context),
+        ),
         ValueListenableBuilder(
           valueListenable: MoodiaryKVs.themeMode.getNotifier(),
           builder: (context, mode, _) => SettingListTile(

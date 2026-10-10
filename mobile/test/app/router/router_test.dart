@@ -10,6 +10,24 @@ import 'package:mui/mui.dart';
 
 void main() {
   group('route tree config', () {
+    test('optional account route leaves diary and backup routes available', () {
+      final paths = buildMobileRoutes().whereType<GoRoute>().map(
+        (route) => route.path,
+      );
+      expect(
+        paths,
+        containsAll([
+          AccountRoute.path,
+          DiaryHomeRoute.path,
+          NewDiaryRoute.path,
+          BackupSyncRoute.path,
+          ExportRoute.path,
+        ]),
+      );
+      expect(const AccountRoute().params, isNull);
+      expect(migrationGateRedirect(DiaryHomeRoute.path), isNull);
+      expect(migrationGateRedirect(NewDiaryRoute.path), isNull);
+    });
     test(
       'ChatGPT subscription route is registered with only a provider ID',
       () {

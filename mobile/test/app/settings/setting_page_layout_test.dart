@@ -188,6 +188,7 @@ void main() {
   });
 
   for (final entry in [
+    (label: () => l10n.account.title, path: AccountRoute.path, inDiary: false),
     (
       label: () => l10n.diary.tagManagerTitle,
       path: TagManagerRoute.path,

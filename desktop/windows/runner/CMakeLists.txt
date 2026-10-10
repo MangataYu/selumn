@@ -20,6 +20,20 @@ add_executable(${BINARY_NAME} WIN32
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
 
+# Flutter's generated_config.cmake is loaded in the flutter subdirectory. Its
+# DART_DEFINES normally lives inside FLUTTER_TOOL_ENVIRONMENT, not in this scope.
+get_directory_property(SELUMN_DART_DEFINES
+  DIRECTORY "${FLUTTER_MANAGED_DIR}" DEFINITION DART_DEFINES)
+get_directory_property(SELUMN_FLUTTER_TOOL_ENVIRONMENT
+  DIRECTORY "${FLUTTER_MANAGED_DIR}" DEFINITION FLUTTER_TOOL_ENVIRONMENT)
+include("${CMAKE_CURRENT_SOURCE_DIR}/selumn_environment.cmake")
+selumn_windows_product_name(SELUMN_PRODUCT_NAME
+  "${SELUMN_DART_DEFINES}" "${SELUMN_FLUTTER_TOOL_ENVIRONMENT}")
+# path_provider and secure storage both use this resource to choose their data
+# directory. Production must retain the existing product name.
+target_compile_definitions(${BINARY_NAME} PRIVATE
+  "SELUMN_PRODUCT_NAME=\"${SELUMN_PRODUCT_NAME}\"")
+
 # Add preprocessor definitions for the build version.
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_MAJOR=${FLUTTER_VERSION_MAJOR}")

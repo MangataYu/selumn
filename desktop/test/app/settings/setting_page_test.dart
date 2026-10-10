@@ -42,6 +42,10 @@ Future<GoRouter> _pumpSettings(WidgetTester tester) async {
             path: SettingRoute.path,
             builder: (_, _) => const DesktopSettingPage(),
           ),
+          GoRoute(
+            path: AccountRoute.path,
+            builder: (_, _) => const Scaffold(body: Text('optional account')),
+          ),
         ],
       ),
     ],
@@ -82,6 +86,22 @@ void main() {
   tearDown(() async {
     await getIt.popScope();
     await LocaleSettings.setLocale(AppLocale.zh);
+  });
+
+  testWidgets('account is optional and leaves existing sync settings visible', (
+    tester,
+  ) async {
+    final router = await _pumpSettings(tester);
+    expect(find.text(l10n.account.entrySubtitle), findsOneWidget);
+    expect(find.text(l10n.app.syncBackup), findsOneWidget);
+    await tester.tap(find.text(l10n.account.title));
+    await tester.pumpAndSettle();
+    expect(find.text('optional account'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(DesktopSettingPage), findsOneWidget);
+    expect(find.text(l10n.app.syncBackup), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('language selection closes its dialog and keeps settings open', (

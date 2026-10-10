@@ -180,6 +180,12 @@ class BackupSyncRoute extends MoodiaryRouteBase {
   const BackupSyncRoute() : super(path);
 }
 
+class AccountRoute extends MoodiaryRouteBase {
+  static const String path = '/setting/account';
+
+  const AccountRoute() : super(path);
+}
+
 class ExportRoute extends MoodiaryRouteBase {
   static const String path = '/setting/export';
 

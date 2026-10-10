@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -10,6 +11,32 @@ val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.reader(Charsets.UTF_8).use { localProperties.load(it) }
+}
+
+// Keep local data separate when a release build connects to a test service.
+val selumnEnvironments = (project.findProperty("dart-defines") as? String)
+    .orEmpty()
+    .split(',')
+    .filter { it.isNotEmpty() }
+    .map { encoded ->
+        try {
+            String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+        } catch (error: IllegalArgumentException) {
+            throw GradleException("Invalid Flutter dart-defines encoding.", error)
+        }
+    }
+    .filter { it == "SELUMN_ENVIRONMENT" || it.startsWith("SELUMN_ENVIRONMENT=") }
+require(selumnEnvironments.size <= 1) { "SELUMN_ENVIRONMENT must be specified only once." }
+val selumnEnvironment = selumnEnvironments.singleOrNull()
+    ?.substringAfter('=', "") ?: "production"
+require(selumnEnvironment in setOf("production", "staging", "development")) {
+    "SELUMN_ENVIRONMENT must be production, staging, or development."
+}
+val selumnApplicationIdSuffix = if (selumnEnvironment == "production") "" else ".$selumnEnvironment"
+val selumnAppName = when (selumnEnvironment) {
+    "staging" -> "Selume Staging"
+    "development" -> "Selume Development"
+    else -> "Selume"
 }
 
 android {
@@ -60,6 +87,10 @@ android {
 
     buildTypes {
         release {
+            if (selumnApplicationIdSuffix.isNotEmpty()) {
+                applicationIdSuffix = selumnApplicationIdSuffix
+                resValue("string", "app_name", selumnAppName)
+            }
             signingConfig = signingConfigs.getByName("config")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -70,13 +101,16 @@ android {
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            resValue("string", "app_name", "Selume Debug")
-            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "$selumnAppName Debug")
+            applicationIdSuffix = "$selumnApplicationIdSuffix.debug"
             versionNameSuffix = "-debug"
         }
         maybeCreate("profile").apply {
             signingConfig = signingConfigs.getByName("debug")
-            applicationIdSuffix = ".profile"
+            applicationIdSuffix = "$selumnApplicationIdSuffix.profile"
+            if (selumnApplicationIdSuffix.isNotEmpty()) {
+                resValue("string", "app_name", "$selumnAppName Profile")
+            }
         }
     }
 }

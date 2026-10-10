@@ -1,3 +1,4 @@
+import 'package:moodiary_account/moodiary_account.dart' show accountRoutes;
 import 'package:moodiary_assistant/moodiary_assistant.dart'
     show assistantRoutes;
 import 'package:moodiary_desktop/app/router/route_error_page.dart';
@@ -59,6 +60,7 @@ List<RouteBase> buildDesktopRoutes() => [
         builder: (_, _) => const DesktopSettingPage(),
       ),
       ...syncRoutes(),
+      ...accountRoutes(),
       ...exportRoutes(),
       ...assistantRoutes(),
     ],

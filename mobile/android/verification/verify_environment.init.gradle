@@ -1,0 +1,64 @@
+// Only inspect the finalized Android variants; do not build or install an APK.
+gradle.beforeProject { project ->
+    if (project.path != ':app') return
+
+    project.plugins.withId('com.android.application') {
+        def variants = [:]
+        def androidComponents = project.extensions.getByName('androidComponents')
+        androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+            variants[variant.name] = [
+                applicationId: variant.applicationId,
+                resValues: variant.resValues,
+            ]
+        }
+
+        def environment = project.providers.gradleProperty('selumnVerificationEnvironment')
+            .getOrElse('default')
+        def original = [
+            release: ['com.aerieyarrowy.selume', null],
+            debug: ['com.aerieyarrowy.selume.debug', 'Selume Debug'],
+            profile: ['com.aerieyarrowy.selume.profile', null],
+        ]
+        def expectations = [
+            'default': original,
+            production: original,
+            staging: [
+                release: ['com.aerieyarrowy.selume.staging', 'Selume Staging'],
+                debug: ['com.aerieyarrowy.selume.staging.debug', 'Selume Staging Debug'],
+                profile: ['com.aerieyarrowy.selume.staging.profile', 'Selume Staging Profile'],
+            ],
+            development: [
+                release: ['com.aerieyarrowy.selume.development', 'Selume Development'],
+                debug: ['com.aerieyarrowy.selume.development.debug', 'Selume Development Debug'],
+                profile: ['com.aerieyarrowy.selume.development.profile', 'Selume Development Profile'],
+            ],
+        ]
+
+        project.tasks.register('verifySelumnEnvironment') {
+            group = 'verification'
+            description = 'Check the final Android application IDs and test app names.'
+            doLast {
+                def expected = expectations[environment]
+                if (expected == null) {
+                    throw new GradleException('Unknown selumnVerificationEnvironment.')
+                }
+                if (variants.keySet() != expected.keySet()) {
+                    throw new GradleException("Unexpected Android variants: ${variants.keySet()}")
+                }
+                expected.each { name, identity ->
+                    def variant = variants[name]
+                    def actualId = variant.applicationId.get()
+                    def nameResource = variant.resValues.get().find { key, value ->
+                        key.type == 'string' && key.name == 'app_name'
+                    }?.value?.value
+                    if (actualId != identity[0] || nameResource != identity[1]) {
+                        throw new GradleException(
+                            "${environment}/${name}: expected ${identity}, " +
+                            "got [${actualId}, ${nameResource}]")
+                    }
+                    logger.lifecycle("Verified ${environment}/${name}: ${actualId}")
+                }
+            }
+        }
+    }
+}

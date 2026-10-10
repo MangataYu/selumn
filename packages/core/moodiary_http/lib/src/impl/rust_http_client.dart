@@ -6,16 +6,20 @@ import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_rust/http.dart' as rust;
 
 class RustHttpClient extends IHttpClient {
-  RustHttpClient({this.onError});
+  RustHttpClient({this.onError, this.maxRedirects});
 
   final void Function(String message)? onError;
+
+  /// Null preserves the transport default; zero disables all redirects.
+  final int? maxRedirects;
 
   late final Future<rust.HttpClient> _client =
       rust.MoodiaryRust.ensureInitialized().then(
         (_) => rust.HttpClient.newInstance(
-          settings: const rust.ClientSettings(
+          settings: rust.ClientSettings(
             connectTimeoutMs: 5000,
             throwOnStatus: true,
+            maxRedirects: maxRedirects,
           ),
         ),
       );

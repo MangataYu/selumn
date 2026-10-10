@@ -1,0 +1,47 @@
+# Resolve the native storage identity from Flutter's Base64 dart-defines.
+# Keep this independent of Flutter and the compiler so it can be checked with
+# cmake -P. Unknown or ambiguous environments must never use production data.
+function(selumn_windows_product_name output_name dart_defines tool_environment)
+  set(defines "${dart_defines}")
+  set(found_tool_defines FALSE)
+  foreach(variable IN LISTS tool_environment)
+    if(variable MATCHES "^DART_DEFINES=(.*)$")
+      if(found_tool_defines)
+        message(FATAL_ERROR "Flutter supplied DART_DEFINES more than once.")
+      endif()
+      set(found_tool_defines TRUE)
+      set(tool_defines "${CMAKE_MATCH_1}")
+      if(NOT "${dart_defines}" STREQUAL "" AND
+          NOT "${dart_defines}" STREQUAL "${tool_defines}")
+        message(FATAL_ERROR "Flutter supplied inconsistent DART_DEFINES.")
+      endif()
+      set(defines "${tool_defines}")
+    endif()
+  endforeach()
+
+  set(product_name "Selume")
+  set(found_environment FALSE)
+  string(REPLACE "," ";" entries "${defines}")
+  foreach(entry IN LISTS entries)
+    # Base64 of SELUMN_ENVIRONMENT=production / staging / development.
+    if(entry STREQUAL "U0VMVU1OX0VOVklST05NRU5UPXByb2R1Y3Rpb24=")
+      set(candidate_name "Selume")
+    elseif(entry STREQUAL "U0VMVU1OX0VOVklST05NRU5UPXN0YWdpbmc=")
+      set(candidate_name "Selume Staging")
+    elseif(entry STREQUAL "U0VMVU1OX0VOVklST05NRU5UPWRldmVsb3BtZW50")
+      set(candidate_name "Selume Development")
+    elseif(entry MATCHES "^U0VMVU1OX0VOVklST05NRU5UP" OR
+        entry STREQUAL "U0VMVU1OX0VOVklST05NRU5U")
+      message(FATAL_ERROR
+        "SELUMN_ENVIRONMENT must be production, staging, or development.")
+    else()
+      continue()
+    endif()
+    if(found_environment)
+      message(FATAL_ERROR "SELUMN_ENVIRONMENT must be specified only once.")
+    endif()
+    set(found_environment TRUE)
+    set(product_name "${candidate_name}")
+  endforeach()
+  set(${output_name} "${product_name}" PARENT_SCOPE)
+endfunction()

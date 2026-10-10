@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:moodiary_account/injectable.module.dart';
 import 'package:moodiary_assistant/injectable.module.dart';
 import 'package:moodiary_assistant/moodiary_assistant.dart'
     show AssistantService;
@@ -26,6 +27,7 @@ import 'package:moodiary_theme/injectable.module.dart';
   externalPackageModulesBefore: [
     ExternalModule(MoodiaryStoragePackageModule),
     ExternalModule(MoodiaryHttpPackageModule),
+    ExternalModule(MoodiaryAccountPackageModule),
     // AppModule 的 database / httpClient 在全部 micro-package 之后注册，包内 eager 单例不得依赖它们。
     ExternalModule(MoodiaryMlPackageModule),
     ExternalModule(MoodiaryDataPackageModule),

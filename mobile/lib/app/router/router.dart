@@ -1,3 +1,4 @@
+import 'package:moodiary_account/moodiary_account.dart' show accountRoutes;
 import 'package:moodiary_assistant/moodiary_assistant.dart';
 import 'package:moodiary_diary/moodiary_diary.dart';
 import 'package:moodiary_editor/moodiary_editor.dart'
@@ -62,6 +63,7 @@ List<RouteBase> _mobileRoutes() => [
   ...diaryRoutes(),
   ...mediaRoutes(),
   ...settingRoutes(),
+  ...accountRoutes(),
   ...syncRoutes(),
   ...exportRoutes(),
   ...lockRoutes(),

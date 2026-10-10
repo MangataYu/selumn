@@ -15,6 +15,7 @@ dependencies:
   code_assets: 1.2.1
   hooks: 2.2.0
   fast_image: 0.0.1
+  moodiary_account: 0.0.1
   moodiary_assistant: 0.0.1
   moodiary_components: 0.0.1
   moodiary_data: 0.0.1

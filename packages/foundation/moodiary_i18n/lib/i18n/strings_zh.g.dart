@@ -36,6 +36,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	Translations $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => Translations(meta: meta ?? this.$meta);
 
 	// Translations
+	late final Translations$account$zh account = Translations$account$zh.internal(_root);
 	late final Translations$app$zh app = Translations$app$zh.internal(_root);
 	late final Translations$assistant$zh assistant = Translations$assistant$zh.internal(_root);
 	late final Translations$common$zh common = Translations$common$zh.internal(_root);
@@ -48,6 +49,189 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$share$zh share = Translations$share$zh.internal(_root);
 	late final Translations$sync$zh sync = Translations$sync$zh.internal(_root);
 	late final Translations$ui$zh ui = Translations$ui$zh.internal(_root);
+}
+
+// Path: account
+class Translations$account$zh {
+	Translations$account$zh.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// zh: 'Selume 账号'
+	String get title => 'Selume 账号';
+
+	/// zh: '可选账号服务，本地日记无需登录'
+	String get entrySubtitle => '可选账号服务，本地日记无需登录';
+
+	/// zh: '日记始终可以保存在本地'
+	String get localTitle => '日记始终可以保存在本地';
+
+	/// zh: '无需注册或登录，即可继续写日记、查看附件、备份和使用现有同步方式。账号服务是可选功能。'
+	String get localDescription => '无需注册或登录，即可继续写日记、查看附件、备份和使用现有同步方式。账号服务是可选功能。';
+
+	/// zh: '账号服务暂未开放'
+	String get unavailableTitle => '账号服务暂未开放';
+
+	/// zh: '当前版本暂未开通官方账号服务，本地日记和已有功能可以照常使用。'
+	String get unavailableDescription => '当前版本暂未开通官方账号服务，本地日记和已有功能可以照常使用。';
+
+	/// zh: '官方云同步尚未上线'
+	String get cloudTitle => '官方云同步尚未上线';
+
+	/// zh: '登录只连接账号，不会上传、迁移或删除这台设备上的日记和附件。'
+	String get cloudDescription => '登录只连接账号，不会上传、迁移或删除这台设备上的日记和附件。';
+
+	/// zh: '测试环境 · 非正式服务'
+	String get stagingEnvironment => '测试环境 · 非正式服务';
+
+	/// zh: '开发环境 · 仅用于联调测试'
+	String get developmentEnvironment => '开发环境 · 仅用于联调测试';
+
+	/// zh: '登录'
+	String get login => '登录';
+
+	/// zh: '注册账号'
+	String get register => '注册账号';
+
+	/// zh: '验证邮箱'
+	String get verify => '验证邮箱';
+
+	/// zh: '找回密码'
+	String get forgot => '找回密码';
+
+	/// zh: '重设密码'
+	String get reset => '重设密码';
+
+	/// zh: '邮箱'
+	String get email => '邮箱';
+
+	/// zh: '密码'
+	String get password => '密码';
+
+	/// zh: '注册时的密码'
+	String get originalPassword => '注册时的密码';
+
+	/// zh: '新密码'
+	String get newPassword => '新密码';
+
+	/// zh: '再次输入密码'
+	String get confirmPassword => '再次输入密码';
+
+	/// zh: '12～128 个字符，保留空格和大小写'
+	String get passwordHint => '12～128 个字符，保留空格和大小写';
+
+	/// zh: '邮件中的验证令牌'
+	String get verificationToken => '邮件中的验证令牌';
+
+	/// zh: '邮件中的重设令牌'
+	String get resetToken => '邮件中的重设令牌';
+
+	/// zh: '打开验证邮件，粘贴其中的令牌，并输入最初注册时的密码。'
+	String get verifyHint => '打开验证邮件，粘贴其中的令牌，并输入最初注册时的密码。';
+
+	/// zh: '粘贴找回邮件中的令牌并设置新密码。成功后，其他设备也需要重新登录。'
+	String get resetHint => '粘贴找回邮件中的令牌并设置新密码。成功后，其他设备也需要重新登录。';
+
+	/// zh: '重新发送验证邮件'
+	String get resendVerification => '重新发送验证邮件';
+
+	/// zh: '发送找回邮件'
+	String get sendRecovery => '发送找回邮件';
+
+	/// zh: '已有重设令牌'
+	String get haveResetToken => '已有重设令牌';
+
+	/// zh: '返回登录'
+	String get backToLogin => '返回登录';
+
+	/// zh: '请求已受理。如果邮箱符合条件，你将收到邮件；请检查收件箱和垃圾邮件，重发前请等待一分钟。'
+	String get mailAccepted => '请求已受理。如果邮箱符合条件，你将收到邮件；请检查收件箱和垃圾邮件，重发前请等待一分钟。';
+
+	/// zh: '邮箱验证成功，请登录。'
+	String get verified => '邮箱验证成功，请登录。';
+
+	/// zh: '密码已重设，请使用新密码登录。'
+	String get passwordReset => '密码已重设，请使用新密码登录。';
+
+	/// zh: '已登录'
+	String get signedIn => '已登录';
+
+	/// zh: '邮箱已验证'
+	String get emailVerified => '邮箱已验证';
+
+	/// zh: '邮箱尚未验证'
+	String get emailUnverified => '邮箱尚未验证';
+
+	/// zh: '刷新账号状态'
+	String get refreshAccount => '刷新账号状态';
+
+	/// zh: '退出登录'
+	String get logout => '退出登录';
+
+	/// zh: '退出此设备上的账号？'
+	String get logoutTitle => '退出此设备上的账号？';
+
+	/// zh: '退出后，本地日记、附件、备份和已有同步设置都会保留。你仍可继续离线使用。'
+	String get logoutDescription => '退出后，本地日记、附件、备份和已有同步设置都会保留。你仍可继续离线使用。';
+
+	/// zh: '已退出登录，本地数据已保留。'
+	String get loggedOut => '已退出登录，本地数据已保留。';
+
+	/// zh: '本机已退出登录，本地数据已保留；暂未能确认服务端会话已撤销。'
+	String get logoutRemoteError => '本机已退出登录，本地数据已保留；暂未能确认服务端会话已撤销。';
+
+	/// zh: '重试'
+	String get retry => '重试';
+
+	/// zh: '请输入有效的邮箱地址'
+	String get emailRequired => '请输入有效的邮箱地址';
+
+	/// zh: '请输入密码'
+	String get passwordRequired => '请输入密码';
+
+	/// zh: '密码需为 12～128 个字符'
+	String get passwordInvalid => '密码需为 12～128 个字符';
+
+	/// zh: '两次输入的密码不一致'
+	String get passwordMismatch => '两次输入的密码不一致';
+
+	/// zh: '请粘贴邮件中的令牌'
+	String get tokenRequired => '请粘贴邮件中的令牌';
+
+	/// zh: '邮箱或密码不正确，请检查后重试。'
+	String get invalidCredentials => '邮箱或密码不正确，请检查后重试。';
+
+	/// zh: '请先验证邮箱，再登录。'
+	String get unverifiedError => '请先验证邮箱，再登录。';
+
+	/// zh: '令牌已失效或已使用，请重新获取邮件。'
+	String get invalidToken => '令牌已失效或已使用，请重新获取邮件。';
+
+	/// zh: '当前暂不接受新注册，已有账号可以继续登录。'
+	String get registrationClosed => '当前暂不接受新注册，已有账号可以继续登录。';
+
+	/// zh: '登录设备数量已达上限，请先在其他设备退出登录。'
+	String get deviceLimit => '登录设备数量已达上限，请先在其他设备退出登录。';
+
+	/// zh: '操作过于频繁，请稍后重试。'
+	String get rateLimited => '操作过于频繁，请稍后重试。';
+
+	/// zh: '登录已失效，请重新登录。本地日记和附件不受影响。'
+	String get sessionExpired => '登录已失效，请重新登录。本地日记和附件不受影响。';
+
+	/// zh: '暂时无法连接账号服务，请检查网络后重试。本地功能仍可使用。'
+	String get networkError => '暂时无法连接账号服务，请检查网络后重试。本地功能仍可使用。';
+
+	/// zh: '无法安全读取或保存账号凭据，请重试。'
+	String get storageError => '无法安全读取或保存账号凭据，请重试。';
+
+	/// zh: '提交的内容不符合要求，请检查后重试。'
+	String get invalidInput => '提交的内容不符合要求，请检查后重试。';
+
+	/// zh: '账号服务暂时无法完成操作，请稍后重试。'
+	String get serviceError => '账号服务暂时无法完成操作，请稍后重试。';
 }
 
 // Path: app

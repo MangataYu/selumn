@@ -34,6 +34,7 @@ class TranslationsEn extends Translations with BaseTranslations<AppLocale, Trans
 	TranslationsEn $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsEn(meta: meta ?? this.$meta);
 
 	// Translations
+	@override late final _Translations$account$en account = _Translations$account$en._(_root);
 	@override late final _Translations$app$en app = _Translations$app$en._(_root);
 	@override late final _Translations$assistant$en assistant = _Translations$assistant$en._(_root);
 	@override late final _Translations$common$en common = _Translations$common$en._(_root);
@@ -46,6 +47,73 @@ class TranslationsEn extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$share$en share = _Translations$share$en._(_root);
 	@override late final _Translations$sync$en sync = _Translations$sync$en._(_root);
 	@override late final _Translations$ui$en ui = _Translations$ui$en._(_root);
+}
+
+// Path: account
+class _Translations$account$en extends Translations$account$zh {
+	_Translations$account$en._(TranslationsEn root) : this._root = root, super.internal(root);
+
+	final TranslationsEn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Selume account';
+	@override String get entrySubtitle => 'Optional account services; local journals need no login';
+	@override String get localTitle => 'Your journal can always stay local';
+	@override String get localDescription => 'Keep writing, viewing attachments, backing up and using existing sync options without registering or signing in. Account services are optional.';
+	@override String get unavailableTitle => 'Account services are not available yet';
+	@override String get unavailableDescription => 'Official account services are not enabled in this version. Your local journal and existing features remain available.';
+	@override String get cloudTitle => 'Official cloud sync is not available yet';
+	@override String get cloudDescription => 'Signing in only connects your account. It does not upload, move or delete journals or attachments on this device.';
+	@override String get stagingEnvironment => 'Test environment · Not a production service';
+	@override String get developmentEnvironment => 'Development environment · For integration testing only';
+	@override String get login => 'Sign in';
+	@override String get register => 'Create account';
+	@override String get verify => 'Verify email';
+	@override String get forgot => 'Forgot password';
+	@override String get reset => 'Reset password';
+	@override String get email => 'Email';
+	@override String get password => 'Password';
+	@override String get originalPassword => 'Original registration password';
+	@override String get newPassword => 'New password';
+	@override String get confirmPassword => 'Confirm password';
+	@override String get passwordHint => '12–128 characters; spaces and case are preserved';
+	@override String get verificationToken => 'Verification token from your email';
+	@override String get resetToken => 'Reset token from your email';
+	@override String get verifyHint => 'Open the verification email, paste its token and enter the password you originally registered with.';
+	@override String get resetHint => 'Paste the token from your recovery email and set a new password. Other devices will also need to sign in again.';
+	@override String get resendVerification => 'Resend verification email';
+	@override String get sendRecovery => 'Send recovery email';
+	@override String get haveResetToken => 'I have a reset token';
+	@override String get backToLogin => 'Back to sign in';
+	@override String get mailAccepted => 'Request accepted. If the email is eligible, instructions will arrive by email. Check your inbox and spam folder, and wait one minute before resending.';
+	@override String get verified => 'Email verified. You can now sign in.';
+	@override String get passwordReset => 'Password reset. Sign in with your new password.';
+	@override String get signedIn => 'Signed in';
+	@override String get emailVerified => 'Email verified';
+	@override String get emailUnverified => 'Email not verified';
+	@override String get refreshAccount => 'Refresh account status';
+	@override String get logout => 'Sign out';
+	@override String get logoutTitle => 'Sign out on this device?';
+	@override String get logoutDescription => 'Your local journals, attachments, backups and existing sync settings will be kept. You can continue using the app offline.';
+	@override String get loggedOut => 'Signed out. Your local data has been kept.';
+	@override String get logoutRemoteError => 'Signed out on this device. Local data has been kept, but revocation of the server session could not be confirmed.';
+	@override String get retry => 'Retry';
+	@override String get emailRequired => 'Enter a valid email address';
+	@override String get passwordRequired => 'Enter your password';
+	@override String get passwordInvalid => 'Use a password with 12–128 characters';
+	@override String get passwordMismatch => 'Passwords do not match';
+	@override String get tokenRequired => 'Paste the token from your email';
+	@override String get invalidCredentials => 'The email or password is incorrect. Check them and try again.';
+	@override String get unverifiedError => 'Verify your email before signing in.';
+	@override String get invalidToken => 'This token has expired or has already been used. Request a new email.';
+	@override String get registrationClosed => 'New registrations are currently closed. Existing accounts can still sign in.';
+	@override String get deviceLimit => 'Your account has reached its device limit. Sign out on another device first.';
+	@override String get rateLimited => 'Too many requests. Please try again later.';
+	@override String get sessionExpired => 'Your session has expired. Sign in again. Local journals and attachments are unaffected.';
+	@override String get networkError => 'Cannot connect to account services. Check your connection and try again. Local features are still available.';
+	@override String get storageError => 'Could not securely read or save account credentials. Please try again.';
+	@override String get invalidInput => 'Some information does not meet the requirements. Check it and try again.';
+	@override String get serviceError => 'Account services could not complete this request. Please try again later.';
 }
 
 // Path: app

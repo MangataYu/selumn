@@ -63,6 +63,13 @@ class _FeatureSection extends StatelessWidget {
     return MSliverSettingGroup(
       children: [
         SettingListTile(
+          title: context.l10n.account.title,
+          subtitle: context.l10n.account.entrySubtitle,
+          leading: _lead(context, LucideIcons.userRound),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const AccountRoute()),
+        ),
+        SettingListTile(
           title: context.l10n.app.diarySettings,
           leading: _lead(context, LucideIcons.fileText),
           trailing: _chevron(context),
