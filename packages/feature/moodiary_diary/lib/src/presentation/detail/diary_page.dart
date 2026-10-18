@@ -361,16 +361,12 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     _scheduleAutoSave();
   }
 
-  Future<void> _onAddTag(Diary current) async {
-    final entered = await MAlert.prompt(
-      context,
-      title: l10n.diary.addTag,
-      hintText: l10n.diary.tagNameHint,
-      confirmLabel: l10n.diary.add,
-    );
-    final tag = entered == null ? null : TagPath.normalize(entered);
-    if (tag == null || !mounted) return;
-    if (current.tags.contains(tag)) return;
+  void _onSelectTag(String entered) {
+    if (!mounted) return;
+    final tag = TagPath.normalize(entered);
+    if (tag == null) return;
+    final current = ref.read(_provider).value;
+    if (current == null || current.tags.contains(tag)) return;
     ref.read(_provider.notifier).changeTags([...current.tags, tag]);
     _dirty = true;
     _scheduleAutoSave();
@@ -848,7 +844,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
       linksJson: _linksJson(),
       onPickDate: () => _onPickDate(diary),
       onPickTime: () => _onPickTime(diary),
-      onAddTag: () => _onAddTag(diary),
+      onSelectTag: _onSelectTag,
       onRemoveTag: (i) => _onRemoveTag(diary, i),
       onChangeMood: _onChangeMoodName,
       onChangeWeather: _onChangeWeather,

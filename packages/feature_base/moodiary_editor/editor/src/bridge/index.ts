@@ -4,6 +4,7 @@ import { setLinks, setMeta } from './meta'
 import { setSaveStatus } from './save-status'
 import { getScrollY, setScrollY } from './scroll'
 import { focusTitle, setTitle } from './title'
+import { resolveTagCandidateRequest } from './tag-candidates'
 import type { EditorApi } from '../editor/tiptap'
 
 let api: EditorApi | null = null
@@ -46,7 +47,9 @@ export function installBridge(): void {
     resolveImage: (id: string, name: string) => api?.resolveUpload(id, name),
     resolveLinkCandidates: (reqId: string, json: string) =>
       api?.resolveLinkCandidates(reqId, json),
-    resolveTagCandidates: (reqId: string, json: string) => api?.resolveTagCandidates(reqId, json),
+    resolveTagCandidates: (reqId: string, json: string) => {
+      if (!resolveTagCandidateRequest(reqId, json)) api?.resolveTagCandidates(reqId, json)
+    },
     removeTag: (tag: string) => api?.removeTag(tag),
     scrollToHeading: (index: number) => api?.scrollToHeading(index),
     resumeVideo: (name: string, seconds: number) =>

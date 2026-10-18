@@ -157,6 +157,54 @@ void main() {
     expect(repository.writes, 0);
   });
 
+  testWidgets(
+    'selected tags use the latest draft and autosave without a dialog',
+    (tester) async {
+      repository.diary = repository.diary.copyWith(title: '已有日记', tags: ['已有']);
+      await _pumpDiary(tester);
+      final editor = tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor));
+      expect(editor.onAddTag, isNull);
+
+      // Reuse the same callback before a rebuild, as consecutive bridge messages do.
+      editor.onSelectTag!(' #工作 / 项目 ');
+      editor.onSelectTag!('生活 随记');
+      editor.onSelectTag!('C#');
+      editor.onSelectTag!('工作/项目');
+      await tester.pump();
+      expect(find.text(l10n.diary.addTag), findsNothing);
+      expect(repository.writes, 0);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(repository.writes, 1);
+      expect(repository.diary.tags, ['已有', '工作/项目', '生活 随记', 'C#']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('invalid and already selected tags leave the diary clean', (
+    tester,
+  ) async {
+    repository.diary = repository.diary.copyWith(
+      title: '已有日记',
+      tags: ['工作/项目'],
+    );
+    await _pumpDiary(tester);
+    final selectTag = tester
+        .widget<MoodiaryEditor>(find.byType(MoodiaryEditor))
+        .onSelectTag!;
+    for (final tag in ['', ' ', '#', '工作//项目', '工作\n项目', ' #工作 / 项目 ']) {
+      selectTag(tag);
+    }
+    await tester.pump(const Duration(seconds: 3));
+    expect(repository.writes, 0);
+    expect(await tester.binding.handleRequestAppExit(), AppExitResponse.exit);
+    expect(repository.writes, 0);
+    expect(repository.diary.tags, ['工作/项目']);
+    expect(find.text(l10n.diary.addTag), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('exit waits for the dirty draft before the debounce fires', (
     tester,
   ) async {

@@ -31,6 +31,7 @@ class EditorBody extends StatefulWidget {
   final VoidCallback? onPickTime;
   final VoidCallback? onPickCategory;
   final VoidCallback? onAddTag;
+  final ValueChanged<String>? onSelectTag;
   final ValueChanged<int>? onRemoveTag;
   final ValueChanged<String>? onChangeMood;
   final ValueChanged<String>? onChangeWeather;
@@ -63,6 +64,7 @@ class EditorBody extends StatefulWidget {
     this.onPickTime,
     this.onPickCategory,
     this.onAddTag,
+    this.onSelectTag,
     this.onRemoveTag,
     this.onChangeMood,
     this.onChangeWeather,
@@ -131,6 +133,7 @@ class _EditorBodyState extends State<EditorBody> {
         onPickTime: widget.onPickTime,
         onPickCategory: widget.onPickCategory,
         onAddTag: widget.onAddTag,
+        onSelectTag: widget.onSelectTag,
         onRemoveTag: widget.onRemoveTag,
         onChangeMood: widget.onChangeMood,
         onChangeWeather: widget.onChangeWeather,

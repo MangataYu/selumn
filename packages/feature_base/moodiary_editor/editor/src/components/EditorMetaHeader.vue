@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
+import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { post } from '../bridge/post'
 import type { EditorMeta } from '../bridge/meta'
 import PopupMenu, { type PopupMenuItem } from './PopupMenu.vue'
+import EditorTagPicker from './EditorTagPicker.vue'
 import IconChevronDown from '~icons/lucide/chevron-down'
 import IconSmile from '~icons/lucide/smile'
 import IconMeh from '~icons/lucide/meh'
@@ -179,6 +180,18 @@ function onPositionAction(type: string, payload?: unknown): void {
 }
 
 const tagMenuIndex = ref(-1)
+const tagPickerOpen = ref(false)
+const tagAddButton = ref<HTMLButtonElement>()
+watch(() => props.editable, () => { tagPickerOpen.value = false })
+function closeTagPicker(): void {
+  tagPickerOpen.value = false
+  void nextTick(() => tagAddButton.value?.focus({ preventScroll: true }))
+}
+function onTagPicked(tag: string): void {
+  if (!props.editable || props.meta.tags.includes(tag)) return
+  post('addTag', { tag })
+  closeTagPicker()
+}
 const tagMenuItems = computed<PopupMenuItem[]>(() => [
   {
     key: 'delete',
@@ -455,15 +468,23 @@ const showTagsRow = computed(() => props.editable || props.meta.tags.length > 0)
         <button v-else type="button" class="meta-plain-btn meta-tag" @click="post('tagTap', { tag })">#{{ tag }}</button>
       </template>
       <button
-        v-if="editable"
+        v-if="editable && !tagPickerOpen"
+        ref="tagAddButton"
         type="button"
         class="meta-plain-btn meta-tag-add"
+        :aria-label="t('tags.add')"
         @mousedown.prevent
-        @click="post('addTag')"
+        @click="tagPickerOpen = true; tagMenuIndex = -1"
       >
         <IconPlus class="size-3.5" />
       </button>
     </div>
+    <EditorTagPicker
+      v-if="editable && tagPickerOpen"
+      :selected="meta.tags"
+      @select="onTagPicked"
+      @close="closeTagPicker"
+    />
   </div>
 </template>
 

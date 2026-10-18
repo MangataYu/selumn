@@ -1,7 +1,8 @@
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import lucide from '@iconify-json/lucide/icons.json'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorMeta, EditorMetaMoodOption } from '../bridge/meta'
+import { installBridge } from '../bridge'
 import { post } from '../bridge/post'
 import EditorMetaHeader from './EditorMetaHeader.vue'
 
@@ -126,9 +127,265 @@ beforeEach(() => {
 afterEach(() => {
   header?.unmount()
   header = undefined
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   if (fontsDescriptor) Object.defineProperty(document, 'fonts', fontsDescriptor)
   else Reflect.deleteProperty(document, 'fonts')
+})
+
+function latestTagRequest(): { reqId: string; query: string } {
+  const requests = vi.mocked(post).mock.calls.filter(([type]) => type === 'requestTagCandidates')
+  expect(requests.length).toBeGreaterThan(0)
+  return requests[requests.length - 1][1] as { reqId: string; query: string }
+}
+
+async function replyWithTags(tags: string[] | null, reqId = latestTagRequest().reqId): Promise<void> {
+  window.MoodiaryBridge!.resolveTagCandidates(reqId, JSON.stringify(tags))
+  await flushPromises()
+}
+
+describe('inline tag selector', () => {
+  beforeEach(() => {
+    installBridge()
+  })
+
+  it('opens existing tag choices without asking the host to open an add dialog', async () => {
+    const view = render({ tags: ['生活'] })
+
+    await view.get('.meta-tag-add').trigger('click')
+
+    expect(view.find('.meta-tag-input').exists()).toBe(true)
+    expect(latestTagRequest().query).toBe('')
+    expect(post).not.toHaveBeenCalledWith('addTag')
+    await replyWithTags(['生活', '工作', '读书'])
+    const choices = view.findAll('.meta-tag-option')
+    expect(choices).toHaveLength(2)
+    expect(choices[0].text()).toContain('工作')
+    expect(choices[1].text()).toContain('读书')
+
+    await choices[1].trigger('click')
+
+    expect(post).toHaveBeenCalledWith('addTag', { tag: '读书' })
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+    expect(view.findAll('.meta-tag').map((tag) => tag.text())).toEqual(['#生活'])
+    await view.setProps({ meta: meta({ tags: ['生活', '读书'] }) })
+    expect(view.findAll('.meta-tag').map((tag) => tag.text())).toEqual(['#生活', '#读书'])
+  })
+
+  it.each([
+    ['  #旅行/日本  ', '旅行/日本'],
+    ['  old tag  ', 'old tag'],
+    [' C# ', 'C#'],
+  ])('creates the normalized tag %s directly from the inline input', async (input, tag) => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue(input)
+    await replyWithTags([])
+
+    await view.get('.meta-tag-create').trigger('click')
+
+    expect(post).toHaveBeenCalledWith('addTag', { tag })
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+  })
+
+  it.each(['', '   ', '#', '旅行//日本', '/旅行', '旅行/'])('does not submit an empty or invalid path %s', async (input) => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue(input)
+    await replyWithTags([])
+
+    await view.get('.meta-tag-input').trigger('keydown', { key: 'Enter' })
+
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+    expect(view.find('.meta-tag-input').exists()).toBe(true)
+    const create = view.find('.meta-tag-create')
+    expect(!create.exists() || create.attributes('disabled') !== undefined).toBe(true)
+  })
+
+  it('searches as the input changes and ignores responses for older queries', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    const initial = latestTagRequest()
+    await view.get('.meta-tag-input').setValue('工')
+    const firstQuery = latestTagRequest()
+    expect(firstQuery.query).toBe('工')
+    await view.get('.meta-tag-input').setValue('读')
+    const latestQuery = latestTagRequest()
+    expect(latestQuery.query).toBe('读')
+    expect(latestQuery.reqId).not.toBe(firstQuery.reqId)
+    await replyWithTags(['读书'], latestQuery.reqId)
+    await replyWithTags(['工作'], firstQuery.reqId)
+    await replyWithTags(['旅行'], initial.reqId)
+
+    expect(view.findAll('.meta-tag-option')).toHaveLength(1)
+    expect(view.get('.meta-tag-option').text()).toContain('读书')
+  })
+
+  it('uses Enter to submit the typed tag unless a suggestion is explicitly highlighted', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue('工作')
+    await replyWithTags(['工作/项目'])
+
+    await view.get('.meta-tag-input').trigger('keydown', { key: 'Enter' })
+
+    expect(post).toHaveBeenCalledWith('addTag', { tag: '工作' })
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+  })
+
+  it('selects an exact existing match with Enter without offering a duplicate new tag', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue(' #工作 ')
+    await replyWithTags(['工作', '工作/项目'])
+
+    expect(view.find('.meta-tag-create').exists()).toBe(false)
+    await view.get('.meta-tag-input').trigger('keydown', { key: 'Enter' })
+
+    expect(post).toHaveBeenCalledWith('addTag', { tag: '工作' })
+  })
+
+  it('allows arrow keys to choose an existing tag before pressing Enter', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags(['工作', '读书'])
+    const input = view.get('.meta-tag-input')
+
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    await input.trigger('keydown', { key: 'ArrowUp' })
+    await input.trigger('keydown', { key: 'Enter' })
+
+    expect(post).toHaveBeenCalledWith('addTag', { tag: '工作' })
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+  })
+
+  it('does not submit Enter while the user is composing text with an IME', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    const input = view.get('.meta-tag-input')
+    await input.setValue('学习')
+    await replyWithTags([])
+
+    await input.trigger('keydown', { key: 'Enter', isComposing: true })
+
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+    expect(view.find('.meta-tag-input').exists()).toBe(true)
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(post).toHaveBeenCalledWith('addTag', { tag: '学习' })
+  })
+
+  it('preserves Enter activation of the close button without submitting the input', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue('学习')
+    await replyWithTags([])
+    const close = view.get('.meta-tag-close')
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+
+    close.element.dispatchEvent(enter)
+
+    expect(enter.defaultPrevented).toBe(false)
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+    // jsdom does not synthesize the native button click after a keyboard event.
+    await close.trigger('click')
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+  })
+
+  it('does not re-add a selected tag typed into the input', async () => {
+    const view = render({ tags: ['工作'] })
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags(['工作'])
+    await view.get('.meta-tag-input').setValue(' #工作 ')
+    await replyWithTags(['工作'])
+
+    await view.get('.meta-tag-input').trigger('keydown', { key: 'Enter' })
+
+    expect(view.find('.meta-tag-option').exists()).toBe(false)
+    expect(view.find('.meta-tag-create').exists()).toBe(false)
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+  })
+
+  it.each(['Escape', 'close button'])('closes with %s and ignores late results after reopening', async (method) => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    const closedRequest = latestTagRequest()
+    if (method === 'Escape') await view.get('.meta-tag-input').trigger('keydown', { key: 'Escape' })
+    else await view.get('.meta-tag-close').trigger('click')
+
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags(['读书'])
+    await replyWithTags(['旧结果'], closedRequest.reqId)
+
+    expect(view.findAll('.meta-tag-option')).toHaveLength(1)
+    expect(view.get('.meta-tag-option').text()).toContain('读书')
+  })
+
+  it('shows a retry action when the host fails to load tags and recovers', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    const failedRequest = latestTagRequest()
+    await replyWithTags(null)
+
+    expect(view.find('.meta-tag-retry').exists()).toBe(true)
+    await view.get('.meta-tag-retry').trigger('click')
+    expect(latestTagRequest().reqId).not.toBe(failedRequest.reqId)
+    expect(latestTagRequest().query).toBe('')
+    await replyWithTags(['旅行'])
+
+    expect(view.find('.meta-tag-retry').exists()).toBe(false)
+    expect(view.get('.meta-tag-option').text()).toContain('旅行')
+  })
+
+  it('preserves Enter activation of retry without submitting the input', async () => {
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+    await replyWithTags([])
+    await view.get('.meta-tag-input').setValue('学习')
+    const failedRequest = latestTagRequest()
+    await replyWithTags(null)
+    const retry = view.get('.meta-tag-retry')
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+
+    retry.element.dispatchEvent(enter)
+
+    expect(enter.defaultPrevented).toBe(false)
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+    // Preserve the browser's native Enter-to-click behavior for the retry action.
+    await retry.trigger('click')
+    expect(latestTagRequest().reqId).not.toBe(failedRequest.reqId)
+    expect(latestTagRequest().query).toBe('学习')
+    await replyWithTags(['学习/课程'])
+    expect(view.get('.meta-tag-option').text()).toContain('学习/课程')
+  })
+
+  it('offers retry after a candidate request times out', async () => {
+    vi.useFakeTimers()
+    const view = render()
+    await view.get('.meta-tag-add').trigger('click')
+
+    await vi.advanceTimersByTimeAsync(4000)
+
+    expect(view.find('.meta-tag-retry').exists()).toBe(true)
+    expect(vi.mocked(post).mock.calls.filter(([type]) => type === 'addTag')).toHaveLength(0)
+  })
+
+  it('hides the add control and picker in read-only mode', () => {
+    const view = render({ tags: ['读书'] }, false)
+
+    expect(view.find('.meta-tag-add').exists()).toBe(false)
+    expect(view.find('.meta-tag-input').exists()).toBe(false)
+    expect(view.get('.meta-tag').text()).toBe('#读书')
+    expect(post).not.toHaveBeenCalled()
+  })
 })
 
 function render(options: Partial<EditorMeta> = {}, editable = true): VueWrapper {

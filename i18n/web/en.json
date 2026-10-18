@@ -76,6 +76,18 @@
     "copy": "Copy",
     "copied": "Copied"
   },
+  "tags": {
+    "add": "Add a tag",
+    "placeholder": "Choose or type a tag",
+    "existing": "Existing tags",
+    "create": "Add “{tag}”",
+    "loading": "Loading tags…",
+    "empty": "No tags available. Type a name to add one.",
+    "selected": "Tag already added",
+    "invalid": "Invalid tag path",
+    "failed": "Could not load tags",
+    "retry": "Retry"
+  },
   "link": {
     "searching": "Searching…",
     "prompt": "Type a keyword to search diaries…",

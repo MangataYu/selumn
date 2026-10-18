@@ -73,6 +73,7 @@ class MoodiaryEditor extends StatefulWidget {
   final VoidCallback? onPickTime;
   final VoidCallback? onPickCategory;
   final VoidCallback? onAddTag;
+  final ValueChanged<String>? onSelectTag;
   final ValueChanged<int>? onRemoveTag;
 
   final ValueChanged<String>? onChangeMood;
@@ -139,6 +140,7 @@ class MoodiaryEditor extends StatefulWidget {
     this.onPickTime,
     this.onPickCategory,
     this.onAddTag,
+    this.onSelectTag,
     this.onRemoveTag,
     this.onChangeMood,
     this.onChangeWeather,
@@ -429,7 +431,14 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
         widget.onPickCategory?.call();
         return;
       case 'addTag':
-        widget.onAddTag?.call();
+        if (payload is Map) {
+          final tag = payload['tag'];
+          if (tag is String && tag.trim().isNotEmpty) {
+            widget.onSelectTag?.call(tag);
+          }
+        } else if (payload == null) {
+          widget.onAddTag?.call();
+        }
         return;
       case 'removeTag':
         if (payload is Map) {
@@ -517,11 +526,16 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   }
 
   Future<void> _handleTagCandidates(String reqId, String query) async {
-    List<String> list = const [];
+    List<String>? list;
     try {
       list = await widget.onRequestTagCandidates?.call(query) ?? const [];
     } catch (e, s) {
-      _log('onRequestTagCandidates failed', error: e, stack: s, level: 1000);
+      _log(
+        'onRequestTagCandidates failed',
+        error: e.runtimeType,
+        stack: s,
+        level: 1000,
+      );
     }
     if (!mounted) return;
     await _run(
