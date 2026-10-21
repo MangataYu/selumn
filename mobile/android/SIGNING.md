@@ -2,11 +2,18 @@
 
 本分支使用独立的 Android 应用 ID：
 
-| 构建 | applicationId |
-| --- | --- |
-| Release | `com.aerieyarrowy.selume` |
-| Debug | `com.aerieyarrowy.selume.debug` |
-| Profile | `com.aerieyarrowy.selume.profile` |
+| 构建（默认 production 环境） | applicationId | 签名 |
+| --- | --- | --- |
+| Production Release | `com.aerieyarrowy.selume` | 正式签名，缺少材料时构建失败 |
+| Production Debug | `com.aerieyarrowy.selume.debug` | Debug 签名 |
+| Production Profile | `com.aerieyarrowy.selume.profile` | Debug 签名 |
+| Alpha Release | `com.aerieyarrowy.selume.alpha` | 正式材料完整时用正式签名，否则用 Debug 签名 |
+| Alpha Debug | `com.aerieyarrowy.selume.alpha.debug` | Debug 签名 |
+| Alpha Profile | `com.aerieyarrowy.selume.alpha.profile` | Debug 签名 |
+
+`--flavor` 选择发行渠道，`SELUMN_ENVIRONMENT` 选择账号服务环境，两者独立。staging / development 在渠道后追加环境后缀，例如 `--flavor alpha --dart-define=SELUMN_ENVIRONMENT=staging` 的 release 包名是 `com.aerieyarrowy.selume.alpha.staging`，显示名为 `Selume Staging Alpha`；debug / profile 再追加对应后缀。只选择 Alpha 不会自动切换 API 地址，测试服务仍需显式设置 `SELUMN_ENVIRONMENT` 和 `SELUMN_API_URL`。
+
+Alpha 与正式版独立安装和存储，不会覆盖正式版。相同包名的后续安装必须保持签名一致；同一个 Alpha 包从 Debug 签名改为正式签名后不能直接覆盖旧安装，因此长期使用 Alpha 时也应固定签名。签名回退不改变 release 优化配置，也不允许安装低于已安装 `versionCode` 的版本。文件存在且两个密码非空才算材料完整；密钥损坏、密码错误或缺少 `key0` 不会自动重试 Debug 签名。
 
 代码命名空间仍为 `cn.yooss.moodiary`，便于继续合并上游代码。应用 ID 与代码命名空间可以不同。深链接 host 使用各构建实际的应用 ID。
 
@@ -39,6 +46,15 @@ keyPassword=你的密钥密码
 fvm dart tool/task.dart build-apk
 ```
 
+该入口默认使用 `--flavor production`，产物为 `mobile/build/app/outputs/flutter-apk/app-production-release.apk`。本地 Alpha 构建与运行：
+
+```powershell
+fvm dart tool/task.dart build-apk -- --flavor alpha --release
+fvm dart tool/task.dart run -- --flavor alpha
+```
+
+Alpha release 产物为 `mobile/build/app/outputs/flutter-apk/app-alpha-release.apk`，应用内显示 `ALPHA` 角标。直接使用 `flutter run` / `flutter build apk` 时也要显式传入所需的 `--flavor`；正式调试使用 `fvm dart tool/task.dart run -- --flavor production`。独立环境与签名校验见 [验证说明](verification/README.md)。
+
 ## GitHub Actions
 
 Secrets 属于 GitHub 仓库，不属于 Git 分支，也不会从上游仓库自动复制。打开自己的仓库，进入 **Settings → Secrets and variables → Actions → New repository secret**，设置：
@@ -61,7 +77,7 @@ Set-Clipboard -Value ([Convert]::ToBase64String([IO.File]::ReadAllBytes($keystor
 本分支的 CI 行为：
 
 - 推送到 `main`，或提交目标为 `develop` / `main` 的 PR，会运行 **Quality & Tests**；该流程不需要正式签名。
-- 在 **Build & Release → Run workflow** 中选择 `main`，默认只构建并上传 APK。下载运行结果中的 `android-apk` artifact，即可取得 Selume 安装包。
+- 在 **Build & Release → Run workflow** 中选择 `main`，默认只构建并上传 **production release** APK。工作流必须提供全部签名 Secrets，缺失即失败，不回退 Debug 签名，也不自动生成 Alpha 包。下载运行结果中的 `android-apk` artifact，其中的文件名为 `app-production-release.apk`。
 - 手动勾选 `prerelease`，会在 APK 构建成功并上传附件后公开一个 **Pre-release**，不会设为 Latest。测试标签自动生成为 `v<版本>-selume-test.<运行编号>.<重跑次数>`，指向本次构建的提交；APK 文件名含完整测试标签。每次运行或重跑使用独立标签，不覆盖已有发布。预发布说明包含提交与构建链接，不要求修改 `CHANGELOG.md`。
 - `prerelease` 未勾选时，手动勾选 `create_release` 或推送版本标签会进入原有草稿发布流程；创建草稿要求 `CHANGELOG.md` 含对应版本说明，推送的标签必须严格等于 `mobile/pubspec.yaml` 中版本对应的 `v<版本>`。测试版请使用手动 `prerelease`，不要手动推测试标签。
 - `prerelease` 优先于 `create_release`，只勾选前者即可发布测试版。这仍是 `com.aerieyarrowy.selume` 的正式签名 APK，可以与 Debug 共存；GitHub 上的预发布标记不会改变应用 ID 或签名。

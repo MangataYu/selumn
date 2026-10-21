@@ -221,7 +221,15 @@ final Map<String, Future<void> Function(List<String> rest)> _tasks = {
   'run-desktop': (rest) =>
       _flutter(['run', '-d', 'windows', ...rest], cwd: 'desktop'),
   'build-apk': (rest) async {
-    await _flutter(['build', 'apk', ...rest]);
+    final hasFlavor = rest.any(
+      (arg) => arg == '--flavor' || arg.startsWith('--flavor='),
+    );
+    await _flutter([
+      'build',
+      'apk',
+      if (!hasFlavor) ...['--flavor', 'production'],
+      ...rest,
+    ]);
   },
   'build-ios': (rest) async {
     await _flutter(['build', 'ios', ...rest]);

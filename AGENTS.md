@@ -24,12 +24,13 @@
 
 ## 项目地图
 
-Selume / Moodiary 是 Flutter + Rust 的日记应用，正文编辑器使用 Vue + TipTap。根目录是 Dart workspace / Melos 协调层，移动应用位于 `mobile/`。
+Selume / Moodiary 是 Flutter + Rust 的日记应用，正文编辑器使用 Vue + TipTap。根目录是 Dart workspace / Melos 协调层，没有应用代码；移动应用位于 `mobile/`，Windows 应用位于 `desktop/`。两者复用功能包，各自维护启动、依赖组合和导航。Windows 当前能力与限制见 [desktop/README.md](desktop/README.md)。
 
 | 位置 | 职责 |
 | --- | --- |
 | `mobile/lib/app/` | 应用组合、依赖注入、路由、生命周期和设置 |
 | `mobile/android/`、`mobile/ios/` | 平台入口和原生配置 |
+| `desktop/lib/app/`、`desktop/windows/` | Windows 应用组合、导航、响应式外壳和原生入口 |
 | `packages/foundation/` | 基础工具、路由定义、国际化、UI 基础和 Rust 桥接 |
 | `packages/core/` | 平台、网络、文件、KV 存储、主题等基础设施 |
 | `packages/feature_base/moodiary_models/` | 领域模型与事件 |
@@ -39,11 +40,13 @@ Selume / Moodiary 是 Flutter + Rust 的日记应用，正文编辑器使用 Vue
 | `packages/feature/` | 日记、助手、同步、导入导出、媒体、应用锁等功能 |
 | `tool/` | 任务入口、依赖层级和生成代码检查 |
 
-SDK 与依赖版本以 `.fvmrc`、各包的 `pubspec.yaml`、`Cargo.toml`、`rust-toolchain.toml` 和编辑器 `package.json` 为准，不顺手升级。
+应用入口是 `mobile/lib/main.dart` 和 `desktop/lib/main.dart`。除非另有说明，路径均相对仓库根目录；包职责以各 `pubspec.yaml` 的 `description` 为准。
+
+SDK 与依赖版本以 `.fvmrc`、各包的 `pubspec.yaml`、`Cargo.toml`、`rust-toolchain.toml` 和编辑器 `package.json` 为准，不顺手升级。依赖保持固定版本，各原生包共享的工具链、FRB 和 ffigen 版本保持一致。
 
 ## 架构和代码约定
 
-- 依赖层级从低到高为 `foundation → core → feature_base → feature → mobile`。高层依赖低层；功能包不互相导入，跨功能组合放在应用层，共享实现放到合适的下层。
+- 依赖层级从低到高为 `foundation → core → feature_base → feature → apps`（`mobile` / `desktop`）。高层依赖低层；功能包不互相导入，跨功能组合放在应用层，共享实现放到合适的下层。
 - `core`、`feature_base` 内部也有依赖顺序，具体以 `tool/check_layers.dart` 为准，不通过增加例外绕过检查。
 - 服务和仓储使用 `get_it` / `injectable`，容器内优先构造函数注入；Riverpod 管理 UI 生命周期内的状态，不另造一套仓储容器。
 - 路由定义放在 `moodiary_router`，沿用 typed route 和 `extra` 参数，传递可序列化的 ID、布尔值等，不携带会过期的领域对象快照。
@@ -51,6 +54,29 @@ SDK 与依赖版本以 `.fvmrc`、各包的 `pubspec.yaml`、`Cargo.toml`、`rus
 - 编辑器行为修改 Vue / TipTap 源码，保持 Dart 桥接协议一致；不直接修改构建出的编辑器资源。
 - 生成代码修改其源文件后重新生成，不手改 `*.g.dart`、`*.freezed.dart`、FRB 绑定等生成产物。
 - 日记正文、分享文本和密钥不应被写入诊断日志；错误日志保留定位所需信息，避免暴露用户内容。
+
+### 依赖注入与包边界
+
+- 各应用在自己的 `lib/app/di/di.dart` 挂载共享微模块，各自维护一个 `configureDependencies`；不能导入另一应用的组合根。启动逻辑放在 `main.dart` / bootstrap，不使用 `@PostConstruct`。
+- 容器拥有数据库、构造函数注入的仓储与进程级状态；Riverpod Notifier / Widget 沿用 `late final _repo = getIt<X>()`，不新增仓储 provider 或静态单例门面。测试使用内存数据库或注册替身，并在结束时 `getIt.reset`。
+- 生产注册由 injectable 生成；`activateSyncProvider()` 通过 session scope 暴露当前的 `IRemoteSyncBackend` 是已有例外。修改注解后生成绑定，不手写 `getIt.register*` 替代生成流程。
+- `storage` 不依赖 `files`：数据库、字典等路径由组合根提供。`moodiary_logging` 的日志路径通过 `AppLogger.configure` 注入，不能直接读取 `AppFiles`。`core` 不认识日记等领域类型。
+- 包 barrel 通常导出整个 `src/` 文件。文件私有符号使用 `_`，包内共享但不对外的符号使用 `@internal` 并在 barrel 中 `hide`，仅测试使用的符号标记 `@visibleForTesting`。保留 FRB、第三方导出和 picker 的必要 `show`。
+
+### UI、国际化与 KV
+
+- 业务代码通过 `package:mui/mui.dart` 使用 Material；`mui` 对 `material_ui` 做补充，已有组件足够时直接使用，需要补充时沿用 `M` 前缀。主题由 `buildMuiTheme()` 构造，颜色和文字来自主题；额外 token 放在 `MuiTokens`。
+- Flutter 文案位于 `i18n/flutter/`，编辑器文案位于 `i18n/web/`；共享文案在两处维护。Widget 使用 `context.l10n`，服务与回调使用顶层 `l10n`；模型提示词、工具描述和结果保持英文，不放入用户界面国际化。
+- `IKVStorage.set` / `remove` / `clear` 同步返回 `void`；初始化和安全存储保持异步，是否存在值用 `containsKey` 判断。KV 只存约定的基础类型与 `List<String>`。
+- 应用锁 PIN 和供应商密钥使用安全存储；Widget 读取 `secretKvProvider(key)`，写入后 invalidate。应用锁通过 `AppLockPin` 处理 Argon2id 凭据，不能直接操作 `password`。
+
+### 原生资源与 Windows
+
+- 每个原生包维护自己的 crate、构建 hook、工具链和 Cargo.lock；HTTP、同步、LLM 和图布局复用 `moodiary_rust`，不重复网络依赖。通过 FRB 调用仓库内原生库，构造 opaque handle 前必须初始化对应运行时，handle 不能跨原生库。
+- Native Assets hooks 支持 Windows 本机构建；首次 Windows 构建或测试可能编译 Rust、编辑器资源和许可清单。其他本机目标保留原有测试跳过规则，desktop 许可 hook 同样跳过这些目标；不要恢复“所有本机测试都跳过”的假设。
+- `sqlite3_vec`、`sqlite3_simple` 和 `flutter_js` 仍需在宿主构建，根 pubspec 的相关 dev-dependencies 用于将它们纳入 hook 依赖树。Rust 与 Web 编辑器行为分别运行自己的测试。
+- 各原生 crate 不通过 `[workspace.dependencies]` 合并固定依赖；`tool/check_generated.dart` 检查共享版本漂移。zip 保留在 Rust，局域网归档使用逐条目 AES-256 加密。
+- 许可清单由各应用的构建 hook 生成，沿用 `cargo-about` 与外部原生包许可合并流程，不手改生成的许可资源。
 
 ## 数据与兼容性
 
@@ -69,32 +95,43 @@ SDK 与依赖版本以 `.fvmrc`、各包的 `pubspec.yaml`、`Cargo.toml`、`rus
 | 用途 | 命令 |
 | --- | --- |
 | 安装 Flutter 依赖 | `fvm dart tool/task.dart setup` |
-| 运行移动应用 | `fvm dart tool/task.dart run` |
+| 运行 Android 正式渠道 | `fvm dart tool/task.dart run -- --flavor production` |
+| 运行 iOS（选择 iOS 设备） | `fvm dart tool/task.dart run` |
+| 构建 Android 正式渠道 APK | `fvm dart tool/task.dart build-apk`（默认 `production`） |
+| 构建 Android Alpha APK | `fvm dart tool/task.dart build-apk -- --flavor alpha --release` |
+| 构建 iOS | `fvm dart tool/task.dart build-ios` |
+| 运行 / 构建 Windows | `fvm dart tool/task.dart run-desktop` / `fvm dart tool/task.dart build-windows` |
 | 检查生成代码、分层和静态分析 | `fvm dart tool/task.dart analyze` |
 | 仅检查依赖层级 | `fvm dart tool/task.dart check-layers` |
 | 测试改动影响的包及其依赖方 | `fvm dart tool/task.dart test` |
 | 指定测试比较基准 | `fvm dart tool/task.dart test --diff=<ref>` |
 | 仅移动应用测试 | `fvm dart tool/task.dart test-mobile` |
+| 仅桌面应用测试 | `fvm dart tool/task.dart test-desktop` |
 | 全部 Dart / Flutter 测试 | `fvm dart tool/task.dart test --all` |
 | Dart 模型、DI、Drift 等生成 | `fvm dart tool/task.dart build-runner` |
 | Rust FFI 绑定生成 | `fvm dart tool/task.dart gen-rust` |
 | 国际化生成 | `fvm dart tool/task.dart i18n` |
+| 数据库迁移生成 | `fvm dart tool/task.dart migrations` |
 
+- Android `production` / `alpha` 是安装与分发渠道，`SELUMN_ENVIRONMENT` 是独立的后端环境配置，两者不能互相推导。`productionRelease` 必须使用正式签名；只有 `alphaRelease` 在缺少正式密钥时允许 debug 签名回退，debug/profile 保持 debug 签名。签名配置见 [Android 签名说明](mobile/android/SIGNING.md)。
+- `test` 默认相对 `origin/develop` 的 merge-base 选择改动包及其依赖方，并计入未提交和未跟踪改动；根 pubspec 改动或 `--all` 会扩大到全部。任务以根目录为 cwd，在一个 Flutter test 进程内运行；读取仓库文件使用 `moodiary_lint/testing.dart` 的 `repoRoot`，临时输出放在各测试自己的 `createTempSync` 目录。
 - Flutter 单个测试：在相应包目录运行 `fvm flutter test test/<file>.dart`。根目录不是应用，不直接在根目录运行裸 `flutter test`。
-- Web 编辑器：在 `packages/feature_base/moodiary_editor/editor/` 运行 `corepack pnpm type-check`、`corepack pnpm test`；可向测试命令传入相关测试文件。使用仓库指定的 pnpm，不切换包管理器或重建其他锁文件。
+- Web 编辑器：在 `packages/feature_base/moodiary_editor/editor/` 先运行 `corepack pnpm install --frozen-lockfile`，再运行 `corepack pnpm type-check`、`corepack pnpm test`；可向测试命令传入相关测试文件。使用仓库指定的 pnpm，不切换包管理器或重建其他锁文件。
 - Rust：在受影响包的 `rust/` 目录运行 `cargo fmt --all`、相关 `cargo test`，再运行 `cargo clippy --all-targets -- -D warnings`。
 - 格式化限定于本次修改的源文件。`build-runner` 任务目前会生成全 workspace 并格式化全仓，运行前检查工作区，运行后仔细核对差异，保护已有改动。
 - 共享核心或依赖行为变化、用户要求完整验证时，再跑完整相关套件；全仓检查范围参考 `.github/workflows/quality.yml`，不仅包含 Dart，还包含原生 Rust 和 Web 编辑器。
 - 旧 Isar 数据库迁移集成测试需要 `ISAR_TEST_DYLIB`。缺少库导致跳过时，应明确报告，不视为迁移验证通过。
+- Melos bootstrap 用于 workspace 与 IDE 元数据，不运行代码生成。完整验证包含 `analyze`、`test --all`、受支持原生包的 Rust 检查与测试、编辑器检查与测试。
 
 ## 按需阅读的现有说明
 
 只读取本次任务相关部分，避免把所有细节复制到本文件。
 
-- 总体实现约定：[CLAUDE.md](CLAUDE.md)
-- 移动应用组合：[mobile/CLAUDE.md](mobile/CLAUDE.md)
-- 仓储、事件和同步写入边界：[数据包说明](packages/feature_base/moodiary_data/CLAUDE.md)
-- 国际化：[国际化说明](packages/foundation/moodiary_i18n/CLAUDE.md)
+- 移动应用组合：[mobile/AGENTS.md](mobile/AGENTS.md)
+- 仓储、事件和同步写入边界：[数据包说明](packages/feature_base/moodiary_data/AGENTS.md)
+- 助手认证、工具与审批：[助手说明](packages/feature/moodiary_assistant/AGENTS.md)
+- 同步锁、冲突与加密：[同步说明](packages/feature/moodiary_sync/AGENTS.md)
+- 国际化：[国际化说明](packages/foundation/moodiary_i18n/AGENTS.md)
 - 编辑器桥接与构建：[编辑器说明](packages/feature_base/moodiary_editor/README.md)
 - 后续产品计划：[TODO.md](TODO.md)
 

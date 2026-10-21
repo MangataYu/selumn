@@ -31,7 +31,7 @@ See [TODO.md](TODO.md) for planned work and validation still to do. Quick captur
 - **Themes and fonts**: light and dark modes, multiple color schemes, and imported fonts, including variable fonts.
 - **App lock**: password protection with biometric unlock.
 - **Import, export, and sharing**: export Markdown, Word, PDF, or long images; import Markdown archives and local backups.
-- **Backup and sync**: WebDAV, S3 / MinIO, and LAN sync, with optional end-to-end encryption.
+- **Backup and sync**: WebDAV and S3 / MinIO sync, LAN transfer, and optional end-to-end encryption.
 - **Weather and places**: attach weather and saved places to entries and view your footprints on a map.
 - **Mood tracking**: manually select or change the mood for each diary entry.
 - **Assistant**: connect an OpenAI- or Anthropic-compatible provider for chat and diary tools.
@@ -44,7 +44,7 @@ The core diary works offline. Optional online services require their own configu
 
 ## Development
 
-The Flutter app is in `mobile/`; shared packages are in `packages/`. Use the Flutter version pinned in [.fvmrc](.fvmrc), the Rust toolchains declared in each native package, and the Node / pnpm requirements in the [editor package](packages/feature_base/moodiary_editor/editor/package.json). Install Git LFS, FVM, and the platform build tools before building.
+The mobile Flutter app is in `mobile/`, the Windows app is in `desktop/`, and shared packages are in `packages/`. Use the Flutter version pinned in [.fvmrc](.fvmrc), the Rust toolchains declared in each native package, and the Node / pnpm requirements in the [editor package](packages/feature_base/moodiary_editor/editor/package.json). Install Git LFS, FVM, and the platform build tools before building.
 
 With those prerequisites installed, run from the repository root:
 
@@ -52,10 +52,12 @@ With those prerequisites installed, run from the repository root:
 git lfs pull
 fvm use
 fvm dart tool/task.dart setup
-fvm dart tool/task.dart run
+fvm dart tool/task.dart run -- --flavor production
 ```
 
-Connect a device or start an emulator before running the app. See [AGENTS.md](AGENTS.md) for repository structure and validation commands, and the [editor README](packages/feature_base/moodiary_editor/README.md) for editor development.
+Connect an Android device or start an emulator before running the app. Use `--flavor alpha` for the separately installed Alpha channel; use `fvm dart tool/task.dart run` with an iOS device. Windows setup and current limits are in [desktop/README.md](desktop/README.md).
+
+Android flavors are independent of the `SELUMN_ENVIRONMENT` backend setting. Production release APKs require the release signing key; only Alpha release builds can fall back to debug signing when that key is unavailable. See [Android signing](mobile/android/SIGNING.md), [AGENTS.md](AGENTS.md) for repository structure and validation commands, and the [editor README](packages/feature_base/moodiary_editor/README.md) for editor development.
 
 ## Credits and license
 

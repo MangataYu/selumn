@@ -1,3 +1,4 @@
+import com.android.build.api.variant.ResValue
 import java.util.Base64
 import java.util.Properties
 
@@ -39,6 +40,27 @@ val selumnAppName = when (selumnEnvironment) {
     else -> "Selume"
 }
 
+val releaseKeystore = file("key.jks")
+val releaseStorePassword = System.getenv("ANDROID_STORE_PASSWORD")
+    ?: localProperties.getProperty("storePassword")
+val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+    ?: localProperties.getProperty("keyPassword")
+val hasReleaseSigning = releaseKeystore.isFile &&
+    !releaseStorePassword.isNullOrBlank() && !releaseKeyPassword.isNullOrBlank()
+
+// AGP may emit an unsigned APK when a signing config is incomplete.
+val verifyProductionReleaseSigning = tasks.register("verifyProductionReleaseSigning") {
+    doLast {
+        check(hasReleaseSigning) {
+            "Production release signing requires app/key.jks, ANDROID_STORE_PASSWORD " +
+                "and ANDROID_KEY_PASSWORD (or storePassword/keyPassword in local.properties)."
+        }
+    }
+}
+tasks.matching { it.name == "preProductionReleaseBuild" }.configureEach {
+    dependsOn(verifyProductionReleaseSigning)
+}
+
 android {
     namespace = "cn.yooss.moodiary"
     compileSdk = 36
@@ -49,18 +71,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    // AGP 9 起 buildFeatures 默认全关；debug buildType 用 resValue 注入 app_name，必须显式打开。
+    // Channel and server environment both contribute to the generated app name.
     buildFeatures {
         resValues = true
     }
 
     signingConfigs {
         create("config") {
-            storeFile = file("key.jks")
-            storePassword = System.getenv("ANDROID_STORE_PASSWORD")
-                ?: localProperties.getProperty("storePassword")
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-                ?: localProperties.getProperty("keyPassword")
+            storeFile = releaseKeystore
+            storePassword = releaseStorePassword
+            keyPassword = releaseKeyPassword
             keyAlias = "key0"
             enableV3Signing = true
         }
@@ -85,13 +105,27 @@ android {
         }
     }
 
+    flavorDimensions += "channel"
+    productFlavors {
+        create("production") {
+            dimension = "channel"
+            // A production release must never fall back to a debug certificate.
+            signingConfig = signingConfigs.getByName("config")
+        }
+        create("alpha") {
+            dimension = "channel"
+            applicationIdSuffix = ".alpha"
+            signingConfig = signingConfigs.getByName(
+                if (hasReleaseSigning) "config" else "debug",
+            )
+        }
+    }
+
     buildTypes {
         release {
             if (selumnApplicationIdSuffix.isNotEmpty()) {
                 applicationIdSuffix = selumnApplicationIdSuffix
-                resValue("string", "app_name", selumnAppName)
             }
-            signingConfig = signingConfigs.getByName("config")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -101,17 +135,31 @@ android {
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            resValue("string", "app_name", "$selumnAppName Debug")
             applicationIdSuffix = "$selumnApplicationIdSuffix.debug"
             versionNameSuffix = "-debug"
         }
         maybeCreate("profile").apply {
             signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = "$selumnApplicationIdSuffix.profile"
-            if (selumnApplicationIdSuffix.isNotEmpty()) {
-                resValue("string", "app_name", "$selumnAppName Profile")
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        val isAlpha = variant.productFlavors.any { it.first == "channel" && it.second == "alpha" }
+        val appName = buildString {
+            append(selumnAppName)
+            if (isAlpha) append(" Alpha")
+            when (variant.buildType) {
+                "debug" -> append(" Debug")
+                "profile" -> if (isAlpha || selumnApplicationIdSuffix.isNotEmpty()) append(" Profile")
             }
         }
+        variant.resValues.put(
+            variant.makeResValueKey("string", "app_name"),
+            ResValue(appName, "Selume channel and server environment"),
+        )
     }
 }
 

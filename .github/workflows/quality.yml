@@ -97,6 +97,13 @@ jobs:
       - name: Test
         run: dart tool/task.dart test --all
 
+      - name: Test Android channel badges
+        working-directory: mobile
+        run: |
+          for flavor in production alpha; do
+            flutter test --no-pub --flavor "$flavor" test/app/build_badge_test.dart
+          done
+
   rust:
     name: Rust
     needs: changes

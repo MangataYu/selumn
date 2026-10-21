@@ -31,7 +31,7 @@
 - **主题与字体**：浅色与深色模式、多种配色，支持导入字体，包括可变字体。
 - **应用锁**：密码保护，支持生物识别解锁。
 - **导入、导出与分享**：导出为 Markdown、Word、PDF 或长图，从 Markdown 压缩包或本地备份导入。
-- **备份与同步**：WebDAV、S3 / MinIO 与局域网同步，可选端到端加密。
+- **备份与同步**：WebDAV 与 S3 / MinIO 同步、局域网传输，可选端到端加密。
 - **天气与地点**：为记录添加天气和常用地点，在地图上查看足迹。
 - **心情记录**：手动选择或修改每篇日记的心情。
 - **智能助手**：接入 OpenAI 或 Anthropic 兼容的供应商，使用对话和日记工具。
@@ -44,7 +44,7 @@
 
 ## 开发
 
-Flutter 应用位于 `mobile/`，共享包位于 `packages/`。Flutter 版本以 [.fvmrc](.fvmrc) 为准，Rust 版本以各原生包的工具链文件为准，Node / pnpm 要求见[编辑器依赖配置](packages/feature_base/moodiary_editor/editor/package.json)。构建前需安装 Git LFS、FVM 和目标平台的构建工具。
+Flutter 移动应用位于 `mobile/`，Windows 应用位于 `desktop/`，共享包位于 `packages/`。Flutter 版本以 [.fvmrc](.fvmrc) 为准，Rust 版本以各原生包的工具链文件为准，Node / pnpm 要求见[编辑器依赖配置](packages/feature_base/moodiary_editor/editor/package.json)。构建前需安装 Git LFS、FVM 和目标平台的构建工具。
 
 准备好上述环境后，在仓库根目录执行：
 
@@ -52,10 +52,12 @@ Flutter 应用位于 `mobile/`，共享包位于 `packages/`。Flutter 版本以
 git lfs pull
 fvm use
 fvm dart tool/task.dart setup
-fvm dart tool/task.dart run
+fvm dart tool/task.dart run -- --flavor production
 ```
 
-运行应用前请连接设备或启动模拟器。项目结构与验证命令见 [AGENTS.md](AGENTS.md)，编辑器开发说明见[编辑器 README](packages/feature_base/moodiary_editor/README.md)。
+运行前请连接 Android 设备或启动模拟器；独立安装的 Alpha 渠道使用 `--flavor alpha`。运行 iOS 时选择 iOS 设备并使用 `fvm dart tool/task.dart run`。Windows 环境和当前限制见 [desktop/README.md](desktop/README.md)。
+
+Android 渠道与 `SELUMN_ENVIRONMENT` 后端配置相互独立。正式渠道的 release APK 必须使用正式签名，只有 Alpha release 在缺少正式密钥时允许使用 debug 签名。签名配置见 [Android 签名说明](mobile/android/SIGNING.md)，项目结构与验证命令见 [AGENTS.md](AGENTS.md)，编辑器开发说明见[编辑器 README](packages/feature_base/moodiary_editor/README.md)。
 
 ## 致谢与许可证
 

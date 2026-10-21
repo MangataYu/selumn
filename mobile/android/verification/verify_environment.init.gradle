@@ -1,4 +1,4 @@
-// Only inspect the finalized Android variants; do not build or install an APK.
+// Inspect final variants and signing selection without exposing signing secrets.
 gradle.beforeProject { project ->
     if (project.path != ':app') return
 
@@ -14,49 +14,88 @@ gradle.beforeProject { project ->
 
         def environment = project.providers.gradleProperty('selumnVerificationEnvironment')
             .getOrElse('default')
-        def original = [
-            release: ['com.aerieyarrowy.selume', null],
-            debug: ['com.aerieyarrowy.selume.debug', 'Selume Debug'],
-            profile: ['com.aerieyarrowy.selume.profile', null],
-        ]
-        def expectations = [
-            'default': original,
-            production: original,
+        // Explicit expectations also pin the suffix order and legacy Profile name.
+        def identities = [
+            'default': [
+                productionRelease: ['', 'Selume'],
+                productionDebug: ['.debug', 'Selume Debug'],
+                productionProfile: ['.profile', 'Selume'],
+                alphaRelease: ['.alpha', 'Selume Alpha'],
+                alphaDebug: ['.alpha.debug', 'Selume Alpha Debug'],
+                alphaProfile: ['.alpha.profile', 'Selume Alpha Profile'],
+            ],
             staging: [
-                release: ['com.aerieyarrowy.selume.staging', 'Selume Staging'],
-                debug: ['com.aerieyarrowy.selume.staging.debug', 'Selume Staging Debug'],
-                profile: ['com.aerieyarrowy.selume.staging.profile', 'Selume Staging Profile'],
+                productionRelease: ['.staging', 'Selume Staging'],
+                productionDebug: ['.staging.debug', 'Selume Staging Debug'],
+                productionProfile: ['.staging.profile', 'Selume Staging Profile'],
+                alphaRelease: ['.alpha.staging', 'Selume Staging Alpha'],
+                alphaDebug: ['.alpha.staging.debug', 'Selume Staging Alpha Debug'],
+                alphaProfile: ['.alpha.staging.profile', 'Selume Staging Alpha Profile'],
             ],
             development: [
-                release: ['com.aerieyarrowy.selume.development', 'Selume Development'],
-                debug: ['com.aerieyarrowy.selume.development.debug', 'Selume Development Debug'],
-                profile: ['com.aerieyarrowy.selume.development.profile', 'Selume Development Profile'],
+                productionRelease: ['.development', 'Selume Development'],
+                productionDebug: ['.development.debug', 'Selume Development Debug'],
+                productionProfile: ['.development.profile', 'Selume Development Profile'],
+                alphaRelease: ['.alpha.development', 'Selume Development Alpha'],
+                alphaDebug: ['.alpha.development.debug', 'Selume Development Alpha Debug'],
+                alphaProfile: ['.alpha.development.profile', 'Selume Development Alpha Profile'],
             ],
         ]
+        identities.production = identities['default']
 
         project.tasks.register('verifySelumnEnvironment') {
             group = 'verification'
-            description = 'Check the final Android application IDs and test app names.'
+            description = 'Check final Android IDs, display names, and signing selection.'
             doLast {
-                def expected = expectations[environment]
+                def expected = identities[environment]
                 if (expected == null) {
                     throw new GradleException('Unknown selumnVerificationEnvironment.')
                 }
                 if (variants.keySet() != expected.keySet()) {
                     throw new GradleException("Unexpected Android variants: ${variants.keySet()}")
                 }
+                def android = project.extensions.getByName('android')
+                def releaseSigning = android.signingConfigs.getByName('config')
+                def completeSigning = releaseSigning.storeFile?.isFile() &&
+                    releaseSigning.storePassword?.trim() && releaseSigning.keyPassword?.trim()
+                def expectedSigning = project.findProperty('selumnVerificationSigning')
+                if (expectedSigning != null &&
+                    (completeSigning as boolean) != (expectedSigning == 'complete')) {
+                    throw new GradleException('Unexpected release signing availability.')
+                }
+                // Fixture-only environment values assert env > local.properties precedence.
+                def expectedStore = System.getenv('SELUME_VERIFY_STORE_PASSWORD')
+                def expectedKey = System.getenv('SELUME_VERIFY_KEY_PASSWORD')
+                if ((expectedStore != null && releaseSigning.storePassword != expectedStore) ||
+                    (expectedKey != null && releaseSigning.keyPassword != expectedKey)) {
+                    throw new GradleException('Signing password source precedence is incorrect.')
+                }
+
+                def signingByVariant = [:]
+                android.applicationVariants.all { variant ->
+                    signingByVariant[variant.name] = variant.signingConfig?.name
+                }
                 expected.each { name, identity ->
                     def variant = variants[name]
                     def actualId = variant.applicationId.get()
+                    def expectedId = 'com.aerieyarrowy.selume' + identity[0]
                     def nameResource = variant.resValues.get().find { key, value ->
                         key.type == 'string' && key.name == 'app_name'
                     }?.value?.value
-                    if (actualId != identity[0] || nameResource != identity[1]) {
+                    if (actualId != expectedId || nameResource != identity[1]) {
                         throw new GradleException(
-                            "${environment}/${name}: expected ${identity}, " +
+                            "${environment}/${name}: expected [${expectedId}, ${identity[1]}], " +
                             "got [${actualId}, ${nameResource}]")
                     }
-                    logger.lifecycle("Verified ${environment}/${name}: ${actualId}")
+                    def expectedConfig = name == 'productionRelease' ||
+                        (name == 'alphaRelease' && completeSigning) ? 'config' : 'debug'
+                    if (signingByVariant[name] != expectedConfig) {
+                        throw new GradleException(
+                            "${environment}/${name}: expected signing ${expectedConfig}, " +
+                            "got ${signingByVariant[name]}")
+                    }
+                    logger.lifecycle(
+                        "Verified ${environment}/${name}: ${actualId}; signing=${expectedConfig}")
                 }
             }
         }
