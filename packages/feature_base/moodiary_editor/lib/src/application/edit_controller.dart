@@ -22,13 +22,17 @@ class EditController extends _$EditController {
 
   bool _wasNewDraft = false;
 
-  String? _indexedContent;
-
-  String? _indexedTitle;
-
   Diary? _latest;
 
+  Diary? _saved;
+
   Future<DraftSaveResult>? _inFlight;
+
+  bool _listeningForDiaryEvents = false;
+
+  bool _deletedExternally = false;
+
+  bool _awaitingBlankDeletion = false;
 
   @override
   FutureOr<Diary> build(
@@ -37,28 +41,61 @@ class EditController extends _$EditController {
     String? defaultCategoryId,
     String? defaultTag,
   }) async {
-    final diary = await ref.watch(
-      getDiaryProvider(
-        id: diaryId,
-        defaultType: defaultType,
-        defaultCategoryId: defaultCategoryId,
-        defaultTag: defaultTag,
-      ).future,
+    final diaryProvider = getDiaryProvider(
+      id: diaryId,
+      defaultType: defaultType,
+      defaultCategoryId: defaultCategoryId,
+      defaultTag: defaultTag,
     );
+    final loading = ref.listen(diaryProvider, (_, _) {});
+    final Diary? diary;
+    try {
+      diary = await ref.read(diaryProvider.future);
+    } finally {
+      loading.close();
+    }
     if (diary == null) throw StateError('Diary not found: $diaryId');
+    _persisted = !(diaryId == null || diaryId.isEmpty);
+    _wasNewDraft = !_persisted;
+    _latest = diary;
+    _saved = diary;
+    if (_persisted) _listenForDiaryEvents();
     listenSelf((_, next) {
       final value = next.value;
       if (value != null) _latest = value;
     });
-    // Repository events from a completed write may rebuild this provider while
-    // the next write is pending. Keep the newer draft until autosave settles.
-    if (_inFlight != null && _latest != null) return _latest!;
-    _persisted = !(diaryId == null || diaryId.isEmpty);
-    _wasNewDraft = !_persisted;
-    _latest = diary;
-    _indexedContent = diary.contentText;
-    _indexedTitle = diary.title;
     return diary;
+  }
+
+  void _listenForDiaryEvents() {
+    if (_listeningForDiaryEvents || !ref.mounted) return;
+    _listeningForDiaryEvents = true;
+    final sub = _repository.diaryEvents.listen((event) {
+      switch (event) {
+        case DiaryCreated(:final diary) || DiaryUpdated(:final diary):
+          if (_deletedExternally ||
+              diary.id != _latest?.id ||
+              _inFlight != null ||
+              !identical(_latest, _saved)) {
+            return;
+          }
+          _latest = diary;
+          _saved = diary;
+          state = .data(diary);
+        case DiaryDeleted(:final id, :final fromSync):
+          if (id != _latest?.id) return;
+          if (_awaitingBlankDeletion && !fromSync) {
+            _awaitingBlankDeletion = false;
+            return;
+          }
+          _deletedExternally = true;
+          state = .error(
+            StateError('Diary not found: $id'),
+            StackTrace.current,
+          );
+      }
+    });
+    ref.onDispose(sub.cancel);
   }
 
   // time 是绝对时刻（新建为 UTC、库读为本地），取墙钟分量前必须 toLocal。
@@ -241,29 +278,47 @@ class EditController extends _$EditController {
 
   Future<DraftSaveResult> _doAutoSave() async {
     while (true) {
+      if (_deletedExternally) return .failed;
       final current = _latest;
       if (current == null) return .saved;
-      final next = touched(withDerivedMedia(current));
+      if (_persisted && identical(current, _saved)) return .saved;
+      final derived = withDerivedMedia(current);
+      final saved = _saved;
+      final rowDirty =
+          !_persisted ||
+          saved == null ||
+          derived.copyWith(lastModified: saved.lastModified) != saved;
+      final next = rowDirty ? touched(derived) : saved;
       try {
         if (_wasNewDraft && _isBlank(next)) {
           if (_persisted) {
-            await _repository.hardDeleteDiary(next.id);
+            _awaitingBlankDeletion = true;
+            try {
+              if (!await _repository.hardDeleteDiary(next.id)) {
+                _awaitingBlankDeletion = false;
+              }
+            } catch (_) {
+              _awaitingBlankDeletion = false;
+              rethrow;
+            }
             _persisted = false;
           }
-        } else {
+        } else if (rowDirty) {
           final indexMode =
-              next.contentText == _indexedContent && next.title == _indexedTitle
+              next.contentText == saved?.contentText &&
+                  next.title == saved?.title
               ? IndexMode.skip
               : IndexMode.inline;
           if (_persisted) {
             await _repository.updateADiary(newDiary: next, index: indexMode);
           } else {
+            _listenForDiaryEvents();
             await _repository.insertADiary(next);
             _persisted = true;
           }
         }
-        _indexedContent = next.contentText;
-        _indexedTitle = next.title;
+        if (_deletedExternally) return .failed;
+        _saved = next;
         // Edits made during the write belong to the next snapshot. Publishing
         // this older snapshot would overwrite them in both UI and later saves.
         if (_latest != current) continue;

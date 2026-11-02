@@ -176,6 +176,7 @@ void main() {
       categoryId: legacyCategoryId,
       legacyCategoryExcludedTags: excluded,
     );
+    getIt.registerSingleton<DiaryRepository>(_DiaryRepository(diary));
     final container = ProviderContainer.test(
       overrides: [
         getDiaryProvider(id: 'diary')

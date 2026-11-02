@@ -17,7 +17,15 @@ void main(List<String> args) async {
           'SDKROOT': _xcrunSdkPath('iphonesimulator'),
       },
       OS.macOS => {'MACOSX_DEPLOYMENT_TARGET': '${code.macOS.targetVersion}.0'},
-      OS.android => _androidCmakeEnv(code),
+      OS.android => {
+        'CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS':
+            '-C link-arg=-Wl,-z,max-page-size=16384',
+        'CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS':
+            '-C link-arg=-Wl,-z,max-page-size=16384',
+        'CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS':
+            '-C link-arg=-Wl,-z,max-page-size=16384',
+        ..._androidCmakeEnv(code),
+      },
       _ => const <String, String>{},
     };
     await FlutterRustBridgeNativeAssetsBuilder(
@@ -28,6 +36,7 @@ void main(List<String> args) async {
     output.dependencies.addAll([
       input.packageRoot.resolve('rust/Cargo.toml'),
       input.packageRoot.resolve('rust/Cargo.lock'),
+      input.packageRoot.resolve('rust/rust-toolchain.toml'),
     ]);
   });
 }

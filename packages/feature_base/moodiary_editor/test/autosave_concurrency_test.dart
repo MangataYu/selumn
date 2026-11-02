@@ -44,7 +44,7 @@ class _DiaryRepository extends Fake implements DiaryRepository {
     return writes[index];
   }
 
-  Future<void> _persist(String kind, Diary? diary) async {
+  Future<void> _persist(String kind, Diary? diary, {String? deletedId}) async {
     final write = _Write(kind, diary);
     writes.add(write);
     activeWrites++;
@@ -59,6 +59,8 @@ class _DiaryRepository extends Fake implements DiaryRepository {
         _events.add(
           kind == 'insert' ? DiaryCreated(diary) : DiaryUpdated(diary),
         );
+      } else {
+        _events.add(DiaryDeleted(deletedId!));
       }
     } finally {
       activeWrites--;
@@ -81,7 +83,7 @@ class _DiaryRepository extends Fake implements DiaryRepository {
 
   @override
   Future<bool> hardDeleteDiary(String id) async {
-    await _persist('delete', null);
+    await _persist('delete', null, deletedId: id);
     return true;
   }
 
@@ -220,6 +222,113 @@ void main() {
     expect(repository.writes, isEmpty);
   });
 
+  test('external updates do not overwrite an unsaved draft', () async {
+    final provider = await openDiary();
+    final controller = container.read(provider.notifier);
+    controller.changeTitle('local title');
+    final external = repository.stored!.copyWith(title: 'external title');
+    repository.stored = external;
+    repository._events.add(DiaryUpdated(external, fromSync: true));
+    await settleRepositoryEvent(provider, 'external title');
+
+    expect(container.read(provider).value!.title, 'local title');
+    final saving = controller.autoSave();
+    final write = await repository.writeAt(0);
+    expect(write.diary!.title, 'local title');
+    write.completed.complete();
+    expect(await saving, DraftSaveResult.saved);
+  });
+
+  test('saving unchanged content does not write again', () async {
+    final provider = await openDiary();
+    final controller = container.read(provider.notifier);
+    controller.changeTitle('saved title');
+    final saving = controller.autoSave();
+    (await repository.writeAt(0)).completed.complete();
+    expect(await saving, DraftSaveResult.saved);
+
+    controller.changeTitle('saved title');
+    expect(await controller.autoSave(), DraftSaveResult.saved);
+    expect(repository.writes, hasLength(1));
+  });
+
+  test('external deletion marks an open diary as missing', () async {
+    final provider = await openDiary();
+    repository._events.add(const DiaryDeleted('entry', fromSync: true));
+    await pumpEventQueue();
+    expect(container.read(provider).error, isA<StateError>());
+  });
+
+  test('external deletion during a write remains an error', () async {
+    final provider = await openDiary();
+    final controller = container.read(provider.notifier);
+    controller.changeTitle('local edit');
+    final saving = controller.autoSave();
+    final write = await repository.writeAt(0);
+    repository._events.add(const DiaryDeleted('entry', fromSync: true));
+    await pumpEventQueue();
+    expect(container.read(provider).error, isA<StateError>());
+
+    write.completed.complete();
+    expect(await saving, DraftSaveResult.failed);
+    expect(container.read(provider).error, isA<StateError>());
+    expect(await controller.autoSave(), DraftSaveResult.failed);
+  });
+
+  test(
+    'delayed repository events cannot restore an older saved snapshot',
+    () async {
+      repository.stored = Diary.empty(type: .tiptap).copyWith(id: 'entry');
+      final releaseFirst = Completer<void>();
+      final releaseSecond = Completer<void>();
+      final delayed = ProviderContainer(
+        overrides: [
+          getDiaryProvider(id: 'entry', defaultType: .tiptap).overrideWith((
+            ref,
+          ) async* {
+            yield repository.stored;
+            await for (final event in repository.diaryEvents) {
+              if (event case DiaryUpdated(:final diary)) {
+                await (diary.title == 'first' ? releaseFirst : releaseSecond)
+                    .future;
+                yield diary;
+              }
+            }
+          }),
+        ],
+      );
+      addTearDown(delayed.dispose);
+      final provider = editControllerProvider('entry', defaultType: .tiptap);
+      delayed.listen(provider, (_, _) {});
+      await delayed.read(provider.future);
+      await repository.subscribed.future;
+      final controller = delayed.read(provider.notifier);
+
+      controller.changeTitle('first');
+      controller.changeContent(_body('first'), contentText: 'first');
+      final firstSave = controller.autoSave();
+      (await repository.writeAt(0)).completed.complete();
+      expect(await firstSave, DraftSaveResult.saved);
+      controller.changeTitle('second');
+      controller.changeContent(_body('second'), contentText: 'second');
+      final secondSave = controller.autoSave();
+      (await repository.writeAt(1)).completed.complete();
+      expect(await secondSave, DraftSaveResult.saved);
+
+      releaseFirst.complete();
+      await pumpEventQueue();
+      controller.changeTitle('local edit');
+      releaseSecond.complete();
+      await pumpEventQueue();
+      expect(delayed.read(provider).value!.contentText, 'second');
+      final thirdSave = controller.autoSave();
+      final third = await repository.writeAt(2);
+      expect(third.diary!.contentText, 'second');
+      third.completed.complete();
+      expect(await thirdSave, DraftSaveResult.saved);
+    },
+  );
+
   test(
     'input during writes survives repository events and saves until stable',
     () async {
@@ -272,9 +381,8 @@ void main() {
     final second = await repository.writeAt(1);
     second.completed.complete();
     expect(await firstSave, DraftSaveResult.saved);
-    final third = await repository.writeAt(2);
-    third.completed.complete();
     expect(await secondSave, DraftSaveResult.saved);
+    expect(repository.writes, hasLength(2));
     await settleRepositoryEvent(provider, 'latest title');
     expect(repository.stored!.title, 'latest title');
     expect(container.read(provider).value!.title, 'latest title');
