@@ -38,7 +38,7 @@ void main() {
     test('分层顺序：身份 → 护栏 → 检索策略 → 人格 → 说明 → 工具目录', () {
       final prompt = build(notes: 'NOTES-MARK');
       final marks = [
-        'built-in assistant of Moodiary',
+        'built-in assistant of Selumn',
         'Ground rules',
         'Memory and retrieval policy',
         'You are a warm, grounded companion',
@@ -48,6 +48,7 @@ void main() {
       final offsets = [for (final m in marks) prompt.indexOf(m)];
       expect(offsets.every((o) => o >= 0), isTrue);
       expect(offsets, [...offsets]..sort());
+      expect(prompt, isNot(contains('Moodiary')));
     });
 
     test('说明为空时整段消失，人格始终内建', () {

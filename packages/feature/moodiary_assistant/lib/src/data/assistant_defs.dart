@@ -324,7 +324,7 @@ Decisions:
 Open threads:''';
 
 const String _identityLayer = '''
-You are the built-in assistant of Moodiary, a private, ad-free app for diaries and notes.
+You are the built-in assistant of Selumn, a private, ad-free app for diaries and notes.
 Help the user with whatever they keep here: writing and rewriting entries, organizing them with tags, finding what they wrote before, reflecting on their moods, planning, and any everyday question that comes up along the way.
 Format your answers in Markdown.''';
 
