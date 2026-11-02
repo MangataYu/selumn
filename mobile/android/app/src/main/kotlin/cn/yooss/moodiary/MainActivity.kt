@@ -1,11 +1,37 @@
 package cn.yooss.moodiary
 
+import android.media.MediaCodecList
+import android.os.Build
+import android.os.Bundle
+import android.util.Log
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.renderer.FlutterRenderer
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private var cryptoChannel: MethodChannel? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Flutter's HiSilicon ImageReader workaround only covers API <= 29.
+        // Set this before the engine initializes its renderer.
+        if (Build.VERSION.SDK_INT > 29 && hasHiSiliconAvcDecoder) {
+            FlutterRenderer.debugForceSurfaceProducerGlTextures = true
+        }
+        super.onCreate(savedInstanceState)
+    }
+
+    private val hasHiSiliconAvcDecoder: Boolean by lazy {
+        runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { codec ->
+                !codec.isEncoder && codec.name.contains("hisi", ignoreCase = true) &&
+                    codec.supportedTypes.any { it.equals("video/avc", ignoreCase = true) }
+            }
+        }.getOrElse { error ->
+            Log.w("MainActivity", "Could not inspect video decoders", error)
+            false
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

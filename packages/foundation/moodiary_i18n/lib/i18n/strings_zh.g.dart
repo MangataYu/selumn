@@ -470,6 +470,30 @@ class Translations$app$zh {
 	/// zh: 'AI 助手'
 	String get servicesAssistant => 'AI 助手';
 
+	/// zh: '模型下载'
+	String get servicesModelDownload => '模型下载';
+
+	/// zh: 'Hugging Face 地址'
+	String get servicesHfEndpoint => 'Hugging Face 地址';
+
+	/// zh: '镜像站'
+	String get servicesHfMirror => '镜像站';
+
+	/// zh: '官方站'
+	String get servicesHfOfficial => '官方站';
+
+	/// zh: '自定义地址'
+	String get servicesHfCustom => '自定义地址';
+
+	/// zh: '输入服务器地址'
+	String get servicesHfCustomHint => '输入服务器地址';
+
+	/// zh: '输入用于下载模型的 HTTP 或 HTTPS 基础地址。'
+	String get servicesHfHelp => '输入用于下载模型的 HTTP 或 HTTPS 基础地址。';
+
+	/// zh: '请输入有效的 HTTP 或 HTTPS 地址，且不要包含查询参数或片段。'
+	String get servicesHfInvalid => '请输入有效的 HTTP 或 HTTPS 地址，且不要包含查询参数或片段。';
+
 	/// zh: '和风天气'
 	String get servicesQweather => '和风天气';
 

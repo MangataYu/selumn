@@ -15,7 +15,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   h = setupEditor()
   toolbar = mount(EditorToolbar, {
-    props: { editor: h.editor, platform: 'mobile' },
+    props: { editor: h.editor, platform: 'desktop' },
     attachTo: document.body,
   })
 })
@@ -26,9 +26,93 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const btn = (id: string) => toolbar.get(`[data-testid="${id}"]`)
+const btn = (id: string) => toolbar.get(`[data-testid="${toolbar.find('[data-testid="mobile-toolbar"]').exists() && id === 'insert-tag' ? 'mobile-favorite-tag' : id}"]`)
 const disabled = (id: string): boolean =>
   (btn(id).element as HTMLButtonElement).disabled
+
+describe('mobile toolbar', () => {
+  function mountMobile(toolbarOrder?: string[]) {
+    toolbar.unmount()
+    toolbar = mount(EditorToolbar, {
+      props: { editor: h.editor, platform: 'mobile', toolbarOrder },
+      attachTo: document.body,
+    })
+  }
+
+  it('changes tools in the same row while keeping text selection for formatting', async () => {
+    mountMobile()
+    await h.type('前文后文')
+    h.editor.commands.setTextSelection({ from: 1, to: 3 })
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    btn('mobile-format-open').element.dispatchEvent(down)
+    expect(down.defaultPrevented).toBe(true)
+    await btn('mobile-format-open').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-main-row"]').exists()).toBe(false)
+    expect(toolbar.find('[data-testid="mobile-format-row"]').exists()).toBe(true)
+    await toolbar.get(`button[title="${i18n.global.t('toolbar.bold')}"]`).trigger('click')
+    expect(h.editor.getJSON().content?.[0]?.content?.[0]?.marks?.[0]?.type).toBe('bold')
+    await btn('mobile-format-back').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-main-row"]').exists()).toBe(true)
+  })
+
+  it('saves manual ordering and makes the first three items available immediately', async () => {
+    mountMobile()
+    await btn('mobile-insert-open').trigger('click')
+    await btn('mobile-reorder-open').trigger('click')
+    await btn('mobile-order-up-redo').trigger('click')
+    const payload = h.lastPost('toolbarOrderChange')?.payload as unknown as string[]
+    expect(payload.slice(0, 4)).toEqual(['undo', 'image', 'redo', 'tag'])
+    await btn('mobile-reorder-close').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-favorite-redo"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-tag"]').exists()).toBe(false)
+
+    mountMobile(payload)
+    expect(toolbar.find('[data-testid="mobile-favorite-redo"]').exists()).toBe(true)
+    await btn('mobile-insert-open').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-insert-tag"]').exists()).toBe(true)
+  })
+
+  it('normalizes saved order, preserves future IDs, and keeps undo available', async () => {
+    mountMobile(['image', 'tag', 'divider', 'image', 'futureTool'])
+    expect(toolbar.find('[data-testid="mobile-favorite-divider"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-undo"]').exists()).toBe(false)
+    await btn('mobile-insert-open').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-insert-undo"]').exists()).toBe(true)
+    expect(btn('mobile-insert-image').text()).toBe(i18n.global.t('toolbar.quickImage'))
+    expect(btn('mobile-insert-image').attributes('aria-label')).toBe(i18n.global.t('toolbar.insertImage'))
+    await btn('mobile-reorder-open').trigger('click')
+    expect(toolbar.findAll('[data-testid="mobile-order-image"]')).toHaveLength(1)
+    expect(toolbar.find('[data-testid="mobile-order-undo"]').exists()).toBe(true)
+    await btn('mobile-order-down-image').trigger('click')
+    const payload = h.lastPost('toolbarOrderChange')?.payload as unknown as string[]
+    expect(payload.slice(0, 3)).toEqual(['tag', 'image', 'divider'])
+    expect(payload.filter((id) => id === 'image')).toHaveLength(1)
+    expect(payload).toContain('futureTool')
+  })
+
+  it.each(['zh', 'en'])('uses readable short labels for favorites in %s', (locale) => {
+    i18n.global.locale.value = locale
+    try {
+      const cases = [
+        ['image', 'quickImage', 'insertImage'],
+        ['tag', 'quickTag', 'insertTag'],
+        ['audio', 'quickAudio', 'insertAudio'],
+        ['video', 'quickVideo', 'insertVideo'],
+        ['diaryLink', 'quickDiaryLink', 'insertDiaryLink'],
+        ['table', 'quickTable', 'insertTable'],
+        ['search', 'quickSearch', 'findReplace'],
+      ]
+      for (const [id, short, full] of cases) {
+        mountMobile([id!])
+        const favorite = btn(`mobile-favorite-${id}`)
+        expect(favorite.text()).toBe(i18n.global.t(`toolbar.${short}`))
+        expect(favorite.attributes('aria-label')).toBe(i18n.global.t(`toolbar.${full}`))
+      }
+    } finally {
+      i18n.global.locale.value = 'zh'
+    }
+  })
+})
 
 describe('bold button', () => {
   const boldButton = () => toolbar.get(`button[title="${i18n.global.t('toolbar.bold')}"]`)
@@ -124,6 +208,65 @@ describe('undo / redo buttons', () => {
     )
     await nextTick()
     expect(disabled('undo')).toBe(true)
+  })
+})
+
+describe('divider button', () => {
+  it.each(['mobile', 'desktop'] as const)('inserts and persists a divider on %s', async (platform) => {
+    await toolbar.setProps({ platform })
+    await h.type('前文后文')
+    h.editor.commands.setTextSelection(3)
+
+    if (platform === 'mobile') await btn('mobile-insert-open').trigger('click')
+    const button = btn(platform === 'mobile' ? 'mobile-insert-divider' : 'insert-divider')
+    expect(button.attributes('aria-label')).toBe(i18n.global.t(platform === 'mobile' ? 'toolbar.divider' : 'toolbar.insertDivider'))
+    expect(button.text()).toBe(i18n.global.t('toolbar.divider'))
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    button.element.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+
+    await button.trigger('click')
+    const saved = h.api.getContent()
+    expect(JSON.parse(saved).content).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: '前文' }] },
+      { type: 'horizontalRule' },
+      { type: 'paragraph', content: [{ type: 'text', text: '后文' }] },
+    ])
+    expect(h.editor.view.dom.querySelector('hr')).not.toBeNull()
+
+    h.api.reset()
+    h.api.setContent(saved)
+    expect(h.api.getContent()).toBe(saved)
+    expect(h.editor.view.dom.querySelector('hr')).not.toBeNull()
+  })
+
+  it('can undo an inserted divider', async () => {
+    h.api.setContent(JSON.stringify({ type: 'doc', content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '前文后文' }] },
+    ] }))
+    h.editor.commands.setTextSelection(3)
+    await btn('insert-divider').trigger('click')
+    await nextTick()
+    expect(h.editor.getJSON().content?.some((node) => node.type === 'horizontalRule')).toBe(true)
+
+    await btn('undo').trigger('click')
+    expect(h.editor.getJSON().content).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: '前文后文' }] },
+    ])
+  })
+
+  it('does not replace a selected image', async () => {
+    h.api.setContent(JSON.stringify({ type: 'doc', content: [
+      { type: 'image', attrs: { src: 'image-1.jpg' } },
+      { type: 'paragraph' },
+    ] }))
+    h.editor.commands.setNodeSelection(0)
+
+    await btn('insert-divider').trigger('click')
+
+    const nodes = h.editor.getJSON().content ?? []
+    expect(nodes.map((node) => node.type)).toContain('image')
+    expect(nodes.map((node) => node.type)).toContain('horizontalRule')
   })
 })
 

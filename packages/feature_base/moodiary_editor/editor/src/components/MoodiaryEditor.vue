@@ -19,6 +19,7 @@ import { wordCountOf } from '../editor/word-count'
 const props = defineProps<{
   editable: boolean
   platform: 'mobile' | 'desktop'
+  toolbarOrder?: string[]
 }>()
 
 const { t } = useI18n()
@@ -188,6 +189,7 @@ onBeforeUnmount(() => {
       v-if="editor && showToolbar && platform === 'desktop'"
       :editor="editor"
       :platform="platform"
+      :toolbar-order="toolbarOrder"
       @pick-image="onPickImage"
       @pick-audio="onPickAudio"
       @pick-video="onPickVideo"
@@ -219,6 +221,7 @@ onBeforeUnmount(() => {
       v-if="editor && showToolbar && platform === 'mobile'"
       :editor="editor"
       :platform="platform"
+      :toolbar-order="toolbarOrder"
       @pick-image="onPickImage"
       @pick-audio="onPickAudio"
       @pick-video="onPickVideo"

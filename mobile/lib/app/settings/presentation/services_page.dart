@@ -25,6 +25,7 @@ class ServicesPage extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             const _AiSection(),
+            const _ModelDownloadSection(),
             const _SemanticSection(),
             const _QweatherSection(),
             const _MapSection(),
@@ -50,6 +51,98 @@ class _AiSection extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ModelDownloadSection extends StatelessWidget {
+  const _ModelDownloadSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: MoodiaryKVs.modelDownloadEndpoint.getNotifier(),
+      builder: (context, _, _) {
+        final endpoint = HfHub.endpoint;
+        return MSliverSettingGroup(
+          title: context.l10n.app.servicesModelDownload,
+          children: [
+            SettingListTile(
+              leading: Icon(
+                LucideIcons.download,
+                color: context.theme.colors.onSurfaceVariant,
+              ),
+              title: context.l10n.app.servicesHfEndpoint,
+              subtitle: endpoint,
+              trailing: const Icon(LucideIcons.chevronRight),
+              onTap: () => _pickEndpoint(context, endpoint),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickEndpoint(BuildContext context, String endpoint) async {
+    final selection = endpoint == HfHub.mirrorEndpoint
+        ? 'mirror'
+        : endpoint == HfHub.officialEndpoint
+        ? 'official'
+        : 'custom';
+    final choice = await MSheet.picker<String>(
+      context,
+      title: context.l10n.app.servicesHfEndpoint,
+      selected: selection,
+      options: [
+        MSheetOption(
+          value: 'mirror',
+          label: context.l10n.app.servicesHfMirror,
+          subtitle: HfHub.mirrorEndpoint,
+          icon: LucideIcons.globe,
+        ),
+        MSheetOption(
+          value: 'official',
+          label: context.l10n.app.servicesHfOfficial,
+          subtitle: HfHub.officialEndpoint,
+          icon: LucideIcons.globe,
+        ),
+        MSheetOption(
+          value: 'custom',
+          label: context.l10n.app.servicesHfCustom,
+          subtitle: selection == 'custom'
+              ? endpoint
+              : context.l10n.app.servicesHfCustomHint,
+          icon: LucideIcons.server,
+        ),
+      ],
+    );
+    if (choice == null || !context.mounted) return;
+    final String endpointToSave;
+    if (choice == 'custom') {
+      final result = await MAlert.prompt(
+        context,
+        title: context.l10n.app.servicesHfCustom,
+        message: context.l10n.app.servicesHfHelp,
+        initialValue: selection == 'custom' ? endpoint : '',
+        hintText: HfHub.officialEndpoint,
+        keyboardType: TextInputType.url,
+        validator: (value) {
+          try {
+            HfHub.normalize(value);
+            return null;
+          } on FormatException {
+            return l10n.app.servicesHfInvalid;
+          }
+        },
+      );
+      if (result == null) return;
+      endpointToSave = HfHub.normalize(result);
+    } else {
+      endpointToSave = choice == 'mirror'
+          ? HfHub.mirrorEndpoint
+          : HfHub.officialEndpoint;
+    }
+    MoodiaryKVs.modelDownloadEndpoint.set(endpointToSave);
+    toast.success(message: l10n.app.servicesSaved);
   }
 }
 

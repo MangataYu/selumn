@@ -62,6 +62,7 @@ enum MoodiaryKVs<T extends Object> {
   exportSettings<String>(defaultValue: ''),
 
   searchHistory<List<String>>(),
+  editorToolbarOrder<List<String>>(defaultValue: []),
   firstLineIndent<bool>(defaultValue: false),
   showWritingTime<bool>(defaultValue: true),
   showWordCount<bool>(defaultValue: true),
@@ -103,6 +104,8 @@ enum MoodiaryKVs<T extends Object> {
   embeddingIndexStale<bool>(defaultValue: false),
 
   modelDownloadMirror<bool>(defaultValue: true),
+
+  modelDownloadEndpoint<String>(defaultValue: ''),
 
   getWeather<bool>(defaultValue: false),
 

@@ -10,6 +10,7 @@ import 'package:mui/mui.dart';
 
 import 'editor_local_server.dart';
 import 'media.dart';
+import 'toolbar_order.dart';
 import 'transport/editor_transport.dart';
 
 typedef EditorRoles = Map<String, String>;
@@ -253,6 +254,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
       'locale': LocaleSettings.currentLocale.languageCode,
       'saveStatus': widget.saveStatus,
       'theme': _themePayload(),
+      'toolbarOrder': loadEditorToolbarOrder(),
     };
     final server = getIt<EditorLocalServer>();
     server.mediaResolver ??= widget.mediaResolver;
@@ -320,6 +322,11 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
     final type = (data['type'] as String?) ?? '';
     final payload = data['payload'];
     switch (type) {
+      case 'toolbarOrderChange':
+        if (!saveEditorToolbarOrder(payload)) {
+          _log('invalid toolbar order message', level: 900);
+        }
+        return;
       case 'ready':
         if (_jsReady) return;
         _jsReady = true;

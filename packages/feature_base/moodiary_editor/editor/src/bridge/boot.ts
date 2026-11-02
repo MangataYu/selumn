@@ -9,6 +9,7 @@ export interface EditorBoot {
   mediaBase?: string
   fontBase?: string
   mediaInfoBase?: string
+  toolbarOrder?: string[]
 }
 
 let cached: EditorBoot | null = null

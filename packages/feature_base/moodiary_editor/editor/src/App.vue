@@ -66,6 +66,7 @@ onBeforeUnmount(() => shell.value?.removeEventListener('click', onClick))
     <MoodiaryEditor
       :editable="initialEditable"
       :platform="platform"
+      :toolbar-order="boot.toolbarOrder"
     />
     <DiaryLinkSuggestion />
     <TagSuggestion />
