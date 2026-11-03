@@ -120,9 +120,14 @@ jobs:
       - name: Verify stable APK identity and signature
         if: inputs.publish_release == true && inputs.prerelease != true
         run: |
-          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          # Build Tools 37 changes apksigner output; use the project's SDK 36 tools.
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          if [ ! -x "$build_tools/apksigner" ] || [ ! -x "$build_tools/aapt" ]; then
+            echo "Android Build Tools 36.0.0 are required for APK verification" >&2
+            exit 1
+          fi
           apk=mobile/build/app/outputs/flutter-apk/app-production-release.apk
-          certificate=$("$build_tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          certificate=$("$build_tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #[0-9]* certificate SHA-256 digest: //p')
           if [ "$certificate" != "$EXPECTED_CERT_SHA256" ]; then
             echo "APK signing certificate does not match the previous release: ${certificate:-<empty>}" >&2
             exit 1
