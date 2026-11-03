@@ -5,6 +5,8 @@
   "pickAudioFromFile": "File Audio",
   "unsupportedPlatform": "The editor is not supported on this platform",
   "loadFailed": "Failed to load the editor\n{error}",
+  "initializationTimeout": "The editor took too long to start. Close it and try again.",
+  "initializationFailed": "The editor could not start. Close it and try again.",
   "pickCategory": "Pick a category",
   "noCategory": "No category",
   "migrationTitle": "Upgrade data migration",

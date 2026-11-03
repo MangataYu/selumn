@@ -1,61 +1,13 @@
-import { post } from './post'
-
 export type EditorRoles = Record<string, string>
 
 export interface EditorTheme {
   roles: EditorRoles
   dark: boolean
-  font?: string
-  fontV?: string
   firstLineIndent?: boolean
   fontScale?: number
 }
 
 export let isDark = false
-
-let fontBase = ''
-
-export function setFontBase(url: string): void {
-  fontBase = url
-}
-
-const DEFAULT_SANS =
-  "system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif"
-
-let activeFontKey = ''
-let activeFontFace: FontFace | null = null
-
-function applyFont(family?: string, version?: string): void {
-  const root = document.documentElement
-  const key = family && fontBase ? `${family}@${version ?? ''}` : ''
-  if (key === activeFontKey) return
-  activeFontKey = key
-  if (activeFontFace) {
-    document.fonts.delete(activeFontFace)
-    activeFontFace = null
-  }
-  if (!family || !fontBase) {
-    root.style.removeProperty('--app-font-sans')
-    return
-  }
-  const url = `${fontBase}?v=${encodeURIComponent(version ?? family)}`
-  const face = new FontFace(family, `url('${url}')`, { display: 'swap' })
-  activeFontFace = face
-  document.fonts.add(face)
-  const esc = family.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-  root.style.setProperty('--app-font-sans', `'${esc}', ${DEFAULT_SANS}`)
-  face.load().then(
-    () => post('fontReady'),
-    () => {
-      if (activeFontFace === face) {
-        document.fonts.delete(face)
-        activeFontFace = null
-        activeFontKey = ''
-      }
-      post('fontReady')
-    },
-  )
-}
 
 export function applyTheme(theme: EditorTheme): void {
   if (!theme?.roles) return
@@ -63,7 +15,6 @@ export function applyTheme(theme: EditorTheme): void {
   for (const [key, value] of Object.entries(appVars(theme.roles, theme.dark))) {
     root.style.setProperty(key, value)
   }
-  applyFont(theme.font, theme.fontV)
   root.style.setProperty('--app-text-indent', theme.firstLineIndent ? '2em' : '0')
   root.style.setProperty('--app-font-scale', String(theme.fontScale ?? 1))
   isDark = theme.dark

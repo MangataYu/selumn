@@ -327,9 +327,6 @@ class Translations$app$zh {
 	/// zh: '主题模式'
 	String get themeMode => '主题模式';
 
-	/// zh: '字体样式'
-	String get fontStyle => '字体样式';
-
 	/// zh: '隐私'
 	String get sectionPrivacy => '隐私';
 
@@ -395,39 +392,6 @@ class Translations$app$zh {
 
 	/// zh: '反馈 / 答疑'
 	String get aboutFeedback => '反馈 / 答疑';
-
-	/// zh: '字体'
-	String get fontTitle => '字体';
-
-	/// zh: '导入 ttf / otf 字体，长按可删除'
-	String get fontImportSubtitle => '导入 ttf / otf 字体，长按可删除';
-
-	/// zh: '预览'
-	String get fontPreview => '预览';
-
-	/// zh: '字号跟随系统设置，App 内不再单独提供'
-	String get fontPreviewSubtitle => '字号跟随系统设置，App 内不再单独提供';
-
-	/// zh: '系统'
-	String get fontSystem => '系统';
-
-	/// zh: '删除字体'
-	String get fontDeleteTitle => '删除字体';
-
-	/// zh: '确认删除字体「{name}」吗？'
-	String fontDeleteMessage({required Object name}) => '确认删除字体「${name}」吗？';
-
-	/// zh: '可变'
-	String get fontVariable => '可变';
-
-	/// zh: '添加'
-	String get fontAdd => '添加';
-
-	/// zh: '八月的忧愁'
-	String get fontPreviewTitle => '八月的忧愁';
-
-	/// zh: '黄水塘里游着白鸭， 高粱梗油青的刚高过头， 这跳动的心怎样安插， 田里一窄条路，八月里这忧愁？ 天是昨夜雨洗过的，山岗 照着太阳又留一片影； 羊跟着放羊的转进村庄， 一大棵树荫下罩着井，又像是心！ 从没有人说过八月什么话， 夏天过去了，也不到秋天。 但我望着田垄，土墙上的瓜， 仍不明白生活同梦怎样的连牵。'
-	String get fontPreviewText => '黄水塘里游着白鸭，\n高粱梗油青的刚高过头，\n这跳动的心怎样安插，\n田里一窄条路，八月里这忧愁？\n天是昨夜雨洗过的，山岗\n照着太阳又留一片影；\n羊跟着放羊的转进村庄，\n一大棵树荫下罩着井，又像是心！\n从没有人说过八月什么话，\n夏天过去了，也不到秋天。\n但我望着田垄，土墙上的瓜，\n仍不明白生活同梦怎样的连牵。';
 
 	/// zh: '编辑器'
 	String get diaryPrefsEditor => '编辑器';
@@ -776,12 +740,6 @@ class Translations$app$zh {
 
 	/// zh: '清理成功'
 	String get cacheCleared => '清理成功';
-
-	/// zh: '字体名称获取失败'
-	String get fontNameFailed => '字体名称获取失败';
-
-	/// zh: '字体已存在'
-	String get fontExists => '字体已存在';
 
 	/// zh: '页面不存在'
 	String get routeErrorTitle => '页面不存在';
@@ -2526,6 +2484,12 @@ class Translations$editor$zh {
 
 	/// zh: '编辑器加载失败 {error}'
 	String loadFailed({required Object error}) => '编辑器加载失败\n${error}';
+
+	/// zh: '编辑器启动超时，请关闭后重试。'
+	String get initializationTimeout => '编辑器启动超时，请关闭后重试。';
+
+	/// zh: '编辑器初始化失败，请关闭后重试。'
+	String get initializationFailed => '编辑器初始化失败，请关闭后重试。';
 
 	/// zh: '选择分类'
 	String get pickCategory => '选择分类';

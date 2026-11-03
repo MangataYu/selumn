@@ -135,12 +135,6 @@ class _DisplaySection extends ConsumerWidget {
             );
           },
         ),
-        SettingListTile(
-          title: context.l10n.app.fontStyle,
-          leading: _lead(context, LucideIcons.type),
-          trailing: _chevron(context),
-          onTap: () => _openSetting(context, const FontRoute()),
-        ),
       ],
     );
   }

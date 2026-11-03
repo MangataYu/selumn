@@ -364,7 +364,6 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
       firstLineIndent: widget.firstLineIndent,
       fontScale: widget.fontScale,
       rolesResolver: getIt<ThemeManager>().editorRoles,
-      fontResolver: () => getIt<ThemeManager>().editorFont,
       mediaResolver: appMediaResolver,
       mediaNameResolver: (name) async =>
           (await getIt<MediaInfoRepository>().getMediaInfoByFileName(name))

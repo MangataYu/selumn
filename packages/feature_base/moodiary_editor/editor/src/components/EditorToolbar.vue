@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import type { Editor } from '@tiptap/core'
 import IconUndo from '~icons/lucide/undo-2'
 import IconRedo from '~icons/lucide/redo-2'
@@ -23,12 +23,10 @@ import IconSeparator from '~icons/lucide/separator-horizontal'
 import IconSearch from '~icons/lucide/search'
 import IconPlus from '~icons/lucide/plus'
 import IconType from '~icons/lucide/type'
-import IconArrowLeft from '~icons/lucide/arrow-left'
 import IconArrowUp from '~icons/lucide/arrow-up'
 import IconArrowDown from '~icons/lucide/arrow-down'
 import IconSliders from '~icons/lucide/sliders-horizontal'
 import IconClose from '~icons/lucide/x'
-import IconChevronRight from '~icons/lucide/chevron-right'
 import IconParagraph from '~icons/lucide/pilcrow'
 import IconH1 from '~icons/lucide/heading-1'
 import IconH2 from '~icons/lucide/heading-2'
@@ -199,8 +197,11 @@ const unknownMobileIds = Array.isArray(props.toolbarOrder)
   ? [...new Set(props.toolbarOrder.filter((id) => typeof id === 'string' && !defaultMobileOrder.includes(id as typeof defaultMobileOrder[number])))]
   : []
 const mobileOrder = ref(normalizeOrder(props.toolbarOrder))
-const mobileMode = ref<'main' | 'format'>('main')
-const mobilePanel = ref<'insert' | 'order' | null>(null)
+const mobilePanel = ref<'format' | 'insert' | 'order' | null>(null)
+const formatHeadingMenuOpen = ref(false)
+watch(mobilePanel, (panel) => {
+  if (panel !== 'format') formatHeadingMenuOpen.value = false
+})
 
 interface MobileAction {
   key: string
@@ -378,7 +379,30 @@ function moveMobileTool(index: number, delta: number): void {
   </div>
 
   <div v-else class="moodiary-toolbar relative border-t border-base-300 bg-base-100" data-testid="mobile-toolbar">
-    <div v-if="mobilePanel" class="fixed inset-0 z-[60]" @mousedown.prevent="mobilePanel = null" @touchstart.prevent="mobilePanel = null" />
+    <div v-if="mobilePanel" class="fixed inset-0 z-[60]" data-testid="mobile-panel-backdrop" @mousedown.prevent="mobilePanel = null" @touchstart.prevent="mobilePanel = null" />
+
+    <div v-if="mobilePanel === 'format'" class="mobile-format-panel absolute bottom-full left-2 right-2 z-[61] mb-2 max-h-[45vh] overflow-y-auto rounded-xl bg-base-100 p-2 shadow-lg" data-testid="mobile-format-panel">
+      <div class="grid grid-cols-3 gap-1">
+        <PopupMenu v-model="formatHeadingMenuOpen" :items="headingItems" @select="onHeadingSelect">
+          <template #trigger>
+            <button type="button" class="btn btn-ghost min-h-11 h-auto w-full flex-col gap-1 py-2 text-xs" :class="isActive('heading') ? 'btn-active text-primary' : ''" :aria-label="t('toolbar.heading')" data-testid="mobile-format-heading" @mousedown.prevent><IconH1 class="size-5" /><span>{{ t('toolbar.heading') }}</span></button>
+          </template>
+        </PopupMenu>
+        <button
+          v-for="tool in tools"
+          :key="tool.key"
+          type="button"
+          class="btn btn-ghost min-h-11 h-auto flex-col gap-1 py-2 text-xs"
+          :class="tool.active() ? 'btn-active text-primary' : ''"
+          :aria-label="tool.title"
+          :aria-pressed="tool.active()"
+          :title="tool.title"
+          :data-testid="`mobile-format-${tool.key}`"
+          @mousedown.prevent
+          @click="tool.run()"
+        ><component :is="tool.icon" v-if="tool.icon" class="size-5" /><span>{{ tool.title }}</span></button>
+      </div>
+    </div>
 
     <div v-if="mobilePanel === 'insert'" class="absolute bottom-full left-2 right-2 z-[61] mb-2 max-h-[45vh] overflow-y-auto rounded-xl bg-base-100 p-2 shadow-lg" data-testid="mobile-insert-panel">
       <div class="sticky top-0 z-10 bg-base-100">
@@ -427,7 +451,7 @@ function moveMobileTool(index: number, delta: number): void {
       </div>
     </div>
 
-    <div v-if="mobileMode === 'main'" class="flex items-stretch px-1 py-1" data-testid="mobile-main-row">
+    <div class="flex items-stretch px-1 py-1" data-testid="mobile-main-row">
       <template v-for="action in favoriteActions" :key="action.key">
         <PopupMenu v-if="action.key === 'heading'" v-model="headingMenuOpen" :items="headingItems" class="min-w-0 flex-1" @select="onHeadingSelect">
           <template #trigger>
@@ -446,31 +470,8 @@ function moveMobileTool(index: number, delta: number): void {
           @click="runMobileAction(action, $event)"
         ><component :is="action.icon" class="size-5" /><span class="max-w-full truncate">{{ action.shortTitle ?? action.title }}</span></button>
       </template>
-      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.format')" data-testid="mobile-format-open" @mousedown.prevent @click="mobileMode = 'format'; mobilePanel = null"><IconType class="size-5" /><span class="max-w-full truncate">{{ t('toolbar.format') }}</span></button>
+      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.format')" :aria-expanded="mobilePanel === 'format'" data-testid="mobile-format-open" @mousedown.prevent @click="mobilePanel = mobilePanel === 'format' ? null : 'format'"><IconType class="size-5" /><span class="max-w-full truncate">{{ t('toolbar.format') }}</span></button>
       <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.insert')" :aria-expanded="mobilePanel === 'insert'" data-testid="mobile-insert-open" @mousedown.prevent @click="mobilePanel = mobilePanel === 'insert' ? null : 'insert'"><IconPlus class="size-5" /><span class="max-w-full truncate">{{ t('toolbar.insert') }}</span></button>
-    </div>
-
-    <div v-else class="flex items-stretch px-1 py-1" data-testid="mobile-format-row">
-      <button type="button" class="btn btn-ghost h-12 shrink-0 flex-col gap-0 px-2 text-xs" :aria-label="t('toolbar.back')" data-testid="mobile-format-back" @mousedown.prevent @click="mobileMode = 'main'"><IconArrowLeft class="size-5" /><span>{{ t('toolbar.back') }}</span></button>
-      <div class="flex min-w-0 flex-1">
-        <div class="flex min-w-0 flex-1 overflow-x-auto">
-        <PopupMenu v-model="headingMenuOpen" class="shrink-0" :items="headingItems" @select="onHeadingSelect">
-          <template #trigger><button type="button" class="btn btn-ghost h-12 flex-col gap-0 whitespace-nowrap px-2 text-xs" :aria-label="t('toolbar.heading')" @mousedown.prevent><IconH1 class="size-5" /><span class="whitespace-nowrap">{{ t('toolbar.heading') }}</span></button></template>
-        </PopupMenu>
-        <button
-          v-for="tool in tools"
-          :key="tool.key"
-          type="button"
-          class="btn btn-ghost h-12 shrink-0 flex-col gap-0 whitespace-nowrap px-2 text-xs"
-          :class="tool.active() ? 'btn-active text-primary' : ''"
-          :aria-label="tool.title"
-          :title="tool.title"
-          @mousedown.prevent
-          @click="tool.run()"
-        ><component :is="tool.icon" v-if="tool.icon" class="size-5" /><span class="whitespace-nowrap">{{ tool.title }}</span></button>
-        </div>
-        <span class="pointer-events-none flex shrink-0 items-center bg-base-100" aria-hidden="true"><IconChevronRight class="size-4" /></span>
-      </div>
     </div>
 
     <template v-if="tableOpen">
@@ -479,3 +480,15 @@ function moveMobileTool(index: number, delta: number): void {
     </template>
   </div>
 </template>
+
+<style scoped>
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-format-panel {
+    animation: format-panel-in 0.18s ease-out;
+  }
+  @keyframes format-panel-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+</style>

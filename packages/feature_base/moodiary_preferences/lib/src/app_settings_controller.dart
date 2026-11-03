@@ -1,5 +1,4 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_theme/moodiary_theme.dart';
@@ -22,10 +21,7 @@ class AppSettingsController extends _$AppSettingsController {
   }
 
   Future<void> bumpTheme() async {
-    await getIt<ThemeManager>().buildTheme(
-      customFont:
-          (await getIt<FontRepository>().getActiveFont())?.themeDescriptor,
-    );
+    await getIt<ThemeManager>().buildTheme();
     final (lightTheme, darkTheme) = getIt<ThemeManager>().getThemeData();
     state = state.copyWith(
       lightTheme: lightTheme,

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:injectable/injectable.dart';
 import 'package:moodiary_models/moodiary_models.dart';
-import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_theme/moodiary_theme.dart';
 
 import 'db/database.dart';
@@ -57,15 +56,4 @@ class FontRepository {
       _db.fonts,
     )..where((f) => f.fontFamily.equals(fontFamily))).go();
   }
-
-  Future<Font?> getActiveFont() async {
-    final family = MoodiaryKVs.customFont.get();
-    if (family == null || family.isEmpty) return null;
-    return getFontByFontFamily(family);
-  }
-}
-
-extension FontThemeDescriptor on Font {
-  ActiveFontDescriptor get themeDescriptor =>
-      (family: fontFamily, fileName: fontFileName, wghtAxis: fontWghtAxisMap);
 }

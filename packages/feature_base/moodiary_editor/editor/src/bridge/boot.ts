@@ -7,7 +7,6 @@ export interface EditorBoot {
   theme?: EditorTheme | null
   saveStatus?: string
   mediaBase?: string
-  fontBase?: string
   mediaInfoBase?: string
   toolbarOrder?: string[]
 }

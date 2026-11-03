@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show gzip;
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -24,8 +23,6 @@ class EditorLocalServer {
   Future<void>? _starting;
 
   MediaResolver? mediaResolver;
-
-  ({String family, String path})? Function()? fontResolver;
 
   Future<String?> Function(String name)? mediaNameResolver;
 
@@ -100,20 +97,6 @@ class EditorLocalServer {
         return .text(500, 'mediainfo request failed');
       }
     }
-    if (seg.length == 2 && seg[0] == _token && seg[1] == 'font') {
-      try {
-        final font = fontResolver?.call();
-        if (font == null) return .notFound();
-        return .file(
-          font.path,
-          contentType: _fontMime(font.path),
-          headers: const {'cache-control': 'max-age=31536000, immutable'},
-        );
-      } catch (e) {
-        _log('font request failed: ${request.path}', error: e, level: 1000);
-        return .text(500, 'font request failed');
-      }
-    }
     return _serveAsset(request.path);
   }
 
@@ -128,8 +111,8 @@ class EditorLocalServer {
     if (compressed != null) {
       return HttpServerResponse(
         200,
-        headers: {'content-type': contentType},
-        body: .fromList(gzip.decode(compressed)),
+        headers: {'content-type': contentType, 'content-encoding': 'gzip'},
+        body: compressed,
       );
     }
     final raw = await _tryLoadAsset('$_assetBase/$rel');
@@ -180,17 +163,7 @@ class EditorLocalServer {
     return false;
   }
 
-  static String _fontMime(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.otf')) return 'font/otf';
-    if (lower.endsWith('.woff2')) return 'font/woff2';
-    if (lower.endsWith('.woff')) return 'font/woff';
-    return 'font/ttf';
-  }
-
   String get mediaBase => 'http://localhost:$_port/$_token/media/';
-
-  String get fontBase => 'http://localhost:$_port/$_token/font';
 
   String get mediaInfoBase => 'http://localhost:$_port/$_token/mediainfo/';
 

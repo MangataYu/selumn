@@ -152,7 +152,6 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get sectionDisplay => 'Display';
 	@override String get diarySettings => 'Entry preferences';
 	@override String get themeMode => 'Theme';
-	@override String get fontStyle => 'Font';
 	@override String get sectionPrivacy => 'Privacy';
 	@override String get backgroundPrivacy => 'Hide content in the app switcher';
 	@override String get backgroundPrivacySubtitle => 'Blur the screen when the app goes to the background';
@@ -175,17 +174,6 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get aboutSource => 'Source code';
 	@override String get aboutLicenses => 'Open source licenses';
 	@override String get aboutFeedback => 'Feedback and help';
-	@override String get fontTitle => 'Fonts';
-	@override String get fontImportSubtitle => 'Import a ttf / otf font; long-press to remove one';
-	@override String get fontPreview => 'Preview';
-	@override String get fontPreviewSubtitle => 'Text size follows your system setting — the app no longer has its own';
-	@override String get fontSystem => 'System';
-	@override String get fontDeleteTitle => 'Remove this font';
-	@override String fontDeleteMessage({required Object name}) => 'Remove the font “${name}”?';
-	@override String get fontVariable => 'Variable';
-	@override String get fontAdd => 'Add';
-	@override String get fontPreviewTitle => 'Pangrams';
-	@override String get fontPreviewText => 'The quick brown fox jumps over the lazy dog.\nPack my box with five dozen liquor jugs.\nHow vexingly quick daft zebras jump!\nSphinx of black quartz, judge my vow.\nWaltz, bad nymph, for quick jigs vex.\nThe five boxing wizards jump quickly.';
 	@override String get diaryPrefsEditor => 'Editor';
 	@override String get firstLineIndent => 'Indent the first line';
 	@override String get showWritingTime => 'Show writing time';
@@ -302,8 +290,6 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get imageOptimizeOk => 'OK';
 	@override String get cacheClear => 'Clear the cache';
 	@override String get cacheCleared => 'Cache cleared';
-	@override String get fontNameFailed => 'Could not read the font name';
-	@override String get fontExists => 'That font is already installed';
 	@override String get routeErrorTitle => 'Page not found';
 	@override String get routeErrorBackHome => 'Back to home';
 	@override late final _Translations$app$welcomeDiary$en welcomeDiary = _Translations$app$welcomeDiary$en._(_root);
@@ -912,6 +898,8 @@ class _Translations$editor$en extends Translations$editor$zh {
 	@override String get pickAudioFromFile => 'File Audio';
 	@override String get unsupportedPlatform => 'The editor is not supported on this platform';
 	@override String loadFailed({required Object error}) => 'Failed to load the editor\n${error}';
+	@override String get initializationTimeout => 'The editor took too long to start. Close it and try again.';
+	@override String get initializationFailed => 'The editor could not start. Close it and try again.';
 	@override String get pickCategory => 'Pick a category';
 	@override String get noCategory => 'No category';
 	@override String get migrationTitle => 'Upgrade data migration';

@@ -5,6 +5,8 @@
   "pickAudioFromFile": "音频文件",
   "unsupportedPlatform": "当前平台暂不支持编辑器",
   "loadFailed": "编辑器加载失败\n{error}",
+  "initializationTimeout": "编辑器启动超时，请关闭后重试。",
+  "initializationFailed": "编辑器初始化失败，请关闭后重试。",
   "pickCategory": "选择分类",
   "noCategory": "不分类",
   "migrationTitle": "升级数据迁移",

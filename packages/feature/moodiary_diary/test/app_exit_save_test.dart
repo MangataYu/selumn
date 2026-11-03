@@ -62,9 +62,6 @@ class _EditorServer extends Fake implements EditorLocalServer {
   MediaResolver? mediaResolver;
 
   @override
-  EditorFont? Function()? fontResolver;
-
-  @override
   Future<String?> Function(String name)? mediaNameResolver;
 
   @override

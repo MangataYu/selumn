@@ -5,7 +5,7 @@ import DiaryLinkSuggestion from './components/DiaryLinkSuggestion.vue'
 import TagSuggestion from './components/TagSuggestion.vue'
 import { installBridge } from './bridge'
 import { readBoot } from './bridge/boot'
-import { applyTheme, setFontBase } from './bridge/theme'
+import { applyTheme } from './bridge/theme'
 import { setSaveStatus } from './bridge/save-status'
 import { post } from './bridge/post'
 import { setMediaInfoPrefix, setMediaPrefix, unproxyMedia } from './editor/media'
@@ -13,8 +13,6 @@ import { setMediaInfoPrefix, setMediaPrefix, unproxyMedia } from './editor/media
 const boot = readBoot()
 if (boot.mediaBase) setMediaPrefix(boot.mediaBase)
 if (boot.mediaInfoBase) setMediaInfoPrefix(boot.mediaInfoBase)
-// 字体文件基址须先于 applyTheme 注入：applyTheme 里用它拼 @font-face 的 src。
-if (boot.fontBase) setFontBase(boot.fontBase)
 const initialEditable = boot.editable ?? true
 const platform = boot.platform ?? 'desktop'
 

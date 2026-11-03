@@ -39,7 +39,7 @@ describe('mobile toolbar', () => {
     })
   }
 
-  it('changes tools in the same row while keeping text selection for formatting', async () => {
+  it('opens the format panel and keeps the text selection while applying formats', async () => {
     mountMobile()
     await h.type('前文后文')
     h.editor.commands.setTextSelection({ from: 1, to: 3 })
@@ -47,12 +47,43 @@ describe('mobile toolbar', () => {
     btn('mobile-format-open').element.dispatchEvent(down)
     expect(down.defaultPrevented).toBe(true)
     await btn('mobile-format-open').trigger('click')
-    expect(toolbar.find('[data-testid="mobile-main-row"]').exists()).toBe(false)
-    expect(toolbar.find('[data-testid="mobile-format-row"]').exists()).toBe(true)
-    await toolbar.get(`button[title="${i18n.global.t('toolbar.bold')}"]`).trigger('click')
-    expect(h.editor.getJSON().content?.[0]?.content?.[0]?.marks?.[0]?.type).toBe('bold')
-    await btn('mobile-format-back').trigger('click')
     expect(toolbar.find('[data-testid="mobile-main-row"]').exists()).toBe(true)
+    const panel = toolbar.get('[data-testid="mobile-format-panel"]')
+    expect(panel.findAll('button')).toHaveLength(11)
+    expect(btn('mobile-format-open').attributes('aria-expanded')).toBe('true')
+    const bold = btn('mobile-format-bold')
+    const boldDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    bold.element.dispatchEvent(boldDown)
+    expect(boldDown.defaultPrevented).toBe(true)
+    await bold.trigger('click')
+    expect(h.editor.getJSON().content?.[0]?.content).toEqual([
+      { type: 'text', text: '前文', marks: [{ type: 'bold' }] },
+      { type: 'text', text: '后文' },
+    ])
+    expect(bold.attributes('aria-pressed')).toBe('true')
+    expect(toolbar.find('[data-testid="mobile-format-panel"]').exists()).toBe(true)
+    await btn('mobile-panel-backdrop').trigger('mousedown')
+    expect(toolbar.find('[data-testid="mobile-format-panel"]').exists()).toBe(false)
+    expect(btn('mobile-format-open').attributes('aria-expanded')).toBe('false')
+    await btn('mobile-insert-open').trigger('click')
+    expect(toolbar.find('[data-testid="mobile-insert-panel"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-format-panel"]').exists()).toBe(false)
+  })
+
+  it('applies a heading from the format panel', async () => {
+    mountMobile(['heading'])
+    await h.type('标题内容')
+    await btn('mobile-format-open').trigger('click')
+    await btn('mobile-format-heading').trigger('click')
+    expect(document.querySelectorAll('.popup-menu-panel')).toHaveLength(1)
+    const heading = [...document.querySelectorAll<HTMLButtonElement>('.popup-menu-item')]
+      .find((item) => item.textContent?.trim() === i18n.global.t('toolbar.heading2'))
+    expect(heading).toBeDefined()
+    heading!.click()
+    await nextTick()
+    expect(h.editor.getJSON().content?.[0]).toMatchObject({ type: 'heading', attrs: { level: 2 } })
+    expect(document.querySelector('.popup-menu-panel')).toBeNull()
+    expect(toolbar.find('[data-testid="mobile-format-panel"]').exists()).toBe(true)
   })
 
   it('saves manual ordering and makes the first five items available immediately', async () => {

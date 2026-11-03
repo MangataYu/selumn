@@ -22,7 +22,7 @@ The package does not import application code from `mobile/` or `desktop/`. Each 
 ## Web sources and builds
 
 - Web sources live in [`editor/`](editor/) and use Vue, Vite and TipTap. [`hook/build.dart`](hook/build.dart) installs locked dependencies and builds when Flutter runs the hook, including Windows host builds and tests. Other host-target code-asset builds keep the existing test skip policy; the hooks runner caches unchanged inputs. The hook tracks web sources and configuration files for rebuilds and requires `corepack` on `PATH`. Use the Node.js and pnpm versions declared in `editor/package.json`.
-- Vite writes flat gzip assets to `assets/editor/`. `EditorLocalServer` decompresses them before serving them to the webview.
+- Vite writes flat gzip assets to `assets/editor/`. `EditorLocalServer` serves them with `Content-Encoding: gzip` for the webview to decompress.
 - Web translations live in the repository's [`i18n/web/`](../../../i18n/web/) directory. `@intlify/unplugin-vue-i18n` compiles them into the bundle for vue-i18n; the Flutter bridge supplies the locale at boot. The build hook also tracks this directory. These strings do not use slang code generation; wording shared with Flutter must be maintained in both translation trees.
 - Mood icons share the monochrome [`NotoEmoji.ttf`](../../foundation/mui/assets/fonts/NotoEmoji.ttf) source with Flutter widgets. Editor CSS references that file directly, Vite emits it into the flat asset directory, and the build hook tracks font changes. The local server serves it as `font/ttf`; the development server only adds this font file to its filesystem allowlist.
 - Development preview: from this package, run `cd editor && corepack pnpm install --frozen-lockfile && corepack pnpm harness`.

@@ -5,6 +5,11 @@ import 'package:moodiary_storage/testing.dart';
 import 'package:moodiary_theme/moodiary_theme.dart';
 import 'package:mui/mui.dart';
 
+class _ThemeWithoutSystemColor extends ThemeManager {
+  @override
+  Future<void> findDynamicColor() async {}
+}
+
 void main() {
   late MemoryKVStorage storage;
   late ThemeManager theme;
@@ -39,6 +44,23 @@ void main() {
       storage.data.containsKey(MoodiaryKVs.themeAccentColor.name),
       isFalse,
     );
+  });
+
+  test('旧字体偏好不会影响应用主题，也不会被删除', () async {
+    MoodiaryKVs.customFont.set('Previously imported font');
+    final manager = _ThemeWithoutSystemColor();
+
+    await manager.buildTheme();
+
+    final expected = buildMuiTheme(
+      brightness: Brightness.light,
+      accent: manager.resolveAccent(),
+    );
+    expect(
+      manager.lightTheme.textTheme.bodyMedium,
+      expected.textTheme.bodyMedium,
+    );
+    expect(MoodiaryKVs.customFont.get(), 'Previously imported font');
   });
 
   for (final mode in ThemeAccentMode.values) {

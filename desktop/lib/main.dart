@@ -37,15 +37,14 @@ Future<void> _initSystem() async {
   await EditorMigrationService.refreshRequiresMigration();
 
   try {
-    final font = await getIt<FontRepository>().getActiveFont();
-    await getIt<ThemeManager>().buildTheme(customFont: font?.themeDescriptor);
+    await getIt<ThemeManager>().buildTheme();
   } catch (error, stack) {
     logger.e(
       'desktop theme initialization failed',
       error: error,
       stackTrace: stack,
     );
-    await getIt<ThemeManager>().buildTheme();
+    // ThemeManager's getters provide the default theme if initialization fails.
   }
   try {
     await activateSyncProvider();

@@ -67,19 +67,14 @@ Future<void> _initSystem() async {
 
   final themeFuture = () async {
     try {
-      final font = await getIt<FontRepository>().getActiveFont();
-      await getIt<ThemeManager>().buildTheme(customFont: font?.themeDescriptor);
+      await getIt<ThemeManager>().buildTheme();
     } catch (e, s) {
       logger.e(
         'theme init failed, fallback to default',
         error: e,
         stackTrace: s,
       );
-      try {
-        await getIt<ThemeManager>().buildTheme();
-      } catch (_) {
-        // 再失败就让 lightTheme / darkTheme getter 自己回落到 buildMuiTheme()
-      }
+      // lightTheme / darkTheme fall back to buildMuiTheme() on failure.
     }
   }();
 

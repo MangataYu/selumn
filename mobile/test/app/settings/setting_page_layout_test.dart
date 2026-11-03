@@ -122,7 +122,7 @@ void main() {
     expect(find.byType(DecoratedSliver), findsNWidgets(5));
     final groups = [
       (first: l10n.app.diarySettings, last: l10n.app.assistantEntry),
-      (first: l10n.app.themeMode, last: l10n.app.fontStyle),
+      (first: l10n.app.themeMode, last: l10n.app.accentTitle),
       (first: l10n.lock.title, last: l10n.app.backgroundPrivacy),
       (first: l10n.export.pageTitle, last: l10n.app.cacheClear),
       (first: l10n.app.about, last: l10n.app.services),
@@ -146,6 +146,7 @@ void main() {
     ]) {
       expect(_row(title), findsNothing);
     }
+    expect(_row('字体样式'), findsNothing);
     final dataRows = [
       l10n.export.pageTitle,
       l10n.app.syncBackup,

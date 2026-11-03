@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:mui/mui.dart';
@@ -15,9 +15,29 @@ import 'transport/editor_transport.dart';
 
 typedef EditorRoles = Map<String, String>;
 
-typedef EditorFont = ({String family, String path});
-
 typedef DiaryLinkCandidate = ({String id, String label});
+
+@visibleForTesting
+String buildEditorActivationJs({
+  required String content,
+  required String title,
+  required bool editable,
+  required Map<String, dynamic> theme,
+  required String saveStatus,
+  required String meta,
+  required String links,
+}) {
+  final calls = [
+    'setContent(${jsonEncode(content)})',
+    'setTitle(${jsonEncode(title)})',
+    'setEditable($editable)',
+    'setTheme(${jsonEncode(theme)})',
+    'setSaveStatus(${jsonEncode(saveStatus)})',
+    'setMeta(${jsonEncode(meta)})',
+    'setLinks(${jsonEncode(links)})',
+  ].map((call) => 'window.MoodiaryBridge.$call;').join('\n');
+  return '(() => {\n$calls\nreturn true;\n})()';
+}
 
 void _log(String msg, {Object? error, StackTrace? stack, int level = 0}) {
   developer.log(
@@ -107,13 +127,14 @@ class MoodiaryEditor extends StatefulWidget {
 
   final EditorRoles Function(Brightness brightness)? rolesResolver;
 
-  final EditorFont? Function()? fontResolver;
-
   final MediaResolver? mediaResolver;
 
   final Future<String?> Function(String name)? mediaNameResolver;
 
   final WidgetBuilder? loadingBuilder;
+
+  @visibleForTesting
+  final EditorTransport Function()? transportFactory;
 
   const MoodiaryEditor({
     super.key,
@@ -158,10 +179,10 @@ class MoodiaryEditor extends StatefulWidget {
     this.firstLineIndent = false,
     this.fontScale = 1.0,
     this.rolesResolver,
-    this.fontResolver,
     this.mediaResolver,
     this.mediaNameResolver,
     this.loadingBuilder,
+    @visibleForTesting this.transportFactory,
   });
 
   @override
@@ -172,9 +193,9 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   EditorTransport? _transport;
   bool _jsReady = false;
   bool _activated = false;
+  bool _activating = false;
+  bool _activationNeedsRefresh = false;
   Timer? _readyTimeout;
-
-  final Completer<void> _fontReady = Completer<void>();
 
   bool _prepareStarted = false;
 
@@ -193,6 +214,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   @override
   void didUpdateWidget(MoodiaryEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_activating) _activationNeedsRefresh = true;
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?._unbind(this);
       widget.controller?._bind(this);
@@ -219,6 +241,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_activating) _activationNeedsRefresh = true;
     if (!_prepareStarted) {
       _prepareStarted = true;
       _prepare();
@@ -236,6 +259,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   }
 
   bool get _platformSupported =>
+      widget.transportFactory != null ||
       Platform.isAndroid ||
       Platform.isIOS ||
       Platform.isMacOS ||
@@ -258,7 +282,6 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
     };
     final server = getIt<EditorLocalServer>();
     server.mediaResolver ??= widget.mediaResolver;
-    server.fontResolver ??= widget.fontResolver;
     server.mediaNameResolver ??= widget.mediaNameResolver;
     try {
       await server.ensureStarted();
@@ -269,7 +292,6 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
     }
     if (!mounted) return;
     boot['mediaBase'] = server.mediaBase;
-    boot['fontBase'] = server.fontBase;
     boot['mediaInfoBase'] = server.mediaInfoBase;
     try {
       await _buildController(server.pageUri(boot));
@@ -282,7 +304,8 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   }
 
   Future<void> _buildController(Uri pageUri) async {
-    final transport = createEditorTransport();
+    final transport =
+        widget.transportFactory?.call() ?? createEditorTransport();
     await transport.prepare(
       pageUri: pageUri,
       onMessage: _onMessage,
@@ -296,6 +319,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
       return;
     }
     setState(() => _transport = transport);
+    if (_jsReady) await _activate();
   }
 
   void _startReadyTimeout() {
@@ -307,7 +331,7 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
         '页面或脚本可能挂了，检查 console / error 日志',
         level: 1000,
       );
-      _activate();
+      setState(() => _loadError = l10n.editor.initializationTimeout);
     });
   }
 
@@ -331,10 +355,8 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
         if (_jsReady) return;
         _jsReady = true;
         _readyTimeout?.cancel();
+        if (_loadError != null && mounted) setState(() => _loadError = null);
         _activate();
-        return;
-      case 'fontReady':
-        if (!_fontReady.isCompleted) _fontReady.complete();
         return;
       case 'change':
         final content = payload is String ? payload : '';
@@ -572,43 +594,45 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
   }
 
   Future<void> _activate() async {
-    if (_activated) return;
-    await _setContent(widget.initialContent);
-    await _setTitle(widget.initialTitle);
-    await _setEditable(!widget.readOnly);
-    await _setTheme();
-    await _setSaveStatus();
-    await _setMeta();
-    await _setLinks();
-    if (_jsReady &&
-        widget.fontResolver?.call() != null &&
-        !_fontReady.isCompleted) {
-      await _fontReady.future.timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {},
-      );
-      if (!mounted) return;
-      await _setEditable(!widget.readOnly);
-      await _setTheme();
-      await _setSaveStatus();
-      await _setMeta();
-      await _setLinks();
+    if (!mounted || _activated || _activating || _transport == null) return;
+    _activating = true;
+    try {
+      do {
+        _activationNeedsRefresh = false;
+        final content = widget.initialContent;
+        final result = await _transport!.runForResult(
+          buildEditorActivationJs(
+            content: content,
+            title: widget.initialTitle,
+            editable: !widget.readOnly,
+            theme: _themePayload(),
+            saveStatus: widget.saveStatus,
+            meta: widget.metaJson ?? '',
+            links: widget.linksJson ?? '',
+          ),
+        );
+        if (!mounted) return;
+        if (result != true && result != 'true') {
+          _log('editor initialization failed', level: 1000);
+          setState(() => _loadError = l10n.editor.initializationFailed);
+          return;
+        }
+        _lastContent = content;
+      } while (_activationNeedsRefresh);
+      setState(() => _activated = true);
+      widget.onReady?.call();
+    } finally {
+      _activating = false;
     }
-    if (!mounted) return;
-    setState(() => _activated = true);
-    widget.onReady?.call();
   }
 
   Map<String, dynamic> _themePayload() {
     final brightness = context.theme.brightness;
     final roles =
         widget.rolesResolver?.call(brightness) ?? _fallbackRoles(context);
-    final font = widget.fontResolver?.call();
     return {
       'roles': roles,
       'dark': brightness == .dark,
-      if (font != null) 'font': font.family,
-      if (font != null) 'fontV': _fontVersion(font),
       'firstLineIndent': widget.firstLineIndent,
       'fontScale': widget.fontScale,
     };
@@ -633,15 +657,6 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
       'outlineVariant': _hex(scheme.outlineVariant),
       'error': _hex(scheme.error),
     };
-  }
-
-  static String _fontVersion(EditorFont font) {
-    try {
-      final mtime = File(font.path).statSync().modified.millisecondsSinceEpoch;
-      return '${font.family}-$mtime';
-    } catch (_) {
-      return font.family;
-    }
   }
 
   static String _hex(Color c) {
@@ -753,12 +768,15 @@ class _MoodiaryEditorState extends State<MoodiaryEditor> {
         children: [
           if (transport != null) transport.buildView(),
           if (loadError != null)
-            Center(
-              child: Padding(
-                padding: const .all(24),
-                child: Text(
-                  context.l10n.editor.loadFailed(error: loadError),
-                  textAlign: .center,
+            ColoredBox(
+              color: surface.withValues(alpha: 1),
+              child: Center(
+                child: Padding(
+                  padding: const .all(24),
+                  child: Text(
+                    context.l10n.editor.loadFailed(error: loadError),
+                    textAlign: .center,
+                  ),
                 ),
               ),
             )
