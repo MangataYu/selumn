@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fast_image/fast_image.dart';
+import 'package:meta/meta.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_files/moodiary_files.dart';
@@ -22,6 +23,27 @@ import 'package:pool/pool.dart';
 import 'package:synchronized/synchronized.dart';
 
 final _syncFamilyLock = Lock();
+
+class _DownloadGate {
+  final lock = Lock();
+  int users = 0;
+}
+
+// A POSIX file lock is process-scoped, so separate appliers in this isolate
+// also need a common in-process gate for each local media path.
+final _downloadGates = <String, _DownloadGate>{};
+
+const _downloadLockNamespace = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
+/// Stable lock path shared by all coordinated downloaders for the same name.
+@visibleForTesting
+String mediaDownloadLockPath(String root, String type, String filename) {
+  final name = uuidV5(
+    _downloadLockNamespace,
+    '${type.toLowerCase()}\u0000${filename.toLowerCase()}',
+  );
+  return p.join(root, '.media-locks', 'download-$name.lock');
+}
 
 Future<T> runSyncExclusive<T>(Future<T> Function() body) =>
     _syncFamilyLock.synchronized(() async {
@@ -148,7 +170,15 @@ class ArchiveApplier {
     if (_trigger != null) 'trigger': _trigger.name,
   };
 
-  Future<SyncReport> apply(SyncManifest manifest) async {
+  Future<SyncReport> apply(SyncManifest manifest) {
+    final files = _mediaFiles;
+    if (files is DiskSyncMediaFiles) {
+      return files.protectMedia(() => _apply(manifest));
+    }
+    return _apply(manifest);
+  }
+
+  Future<SyncReport> _apply(SyncManifest manifest) async {
     final restoring = _restoring;
     final sw = Stopwatch()..start();
     _mediaFailed = 0;
@@ -262,6 +292,7 @@ class ArchiveApplier {
               return;
             }
             if (local != null) {
+              await _queueLocalMedia(local);
               tombstones.add(
                 await diaryRepo.tombstoneDiary(local, fromSync: fromSync),
               );
@@ -317,6 +348,7 @@ class ArchiveApplier {
             );
             return;
           }
+          if (oldDiary != null) await _queueLocalMedia(oldDiary);
           await diaryRepo.insertADiary(
             restoring && oldDiary == null
                 ? diary.copyWith(lastModified: DateTime.timestamp())
@@ -324,7 +356,7 @@ class ArchiveApplier {
             fromSync: fromSync,
           );
           tombstones.remove(key);
-          if (oldDiary != null) {
+          if (oldDiary != null && !_usesProtectedLocalFiles) {
             await _mediaFiles.cleanUpReplaced(oldDiary, diary);
           }
           pending.completeDiary(id);
@@ -694,7 +726,54 @@ class ArchiveApplier {
 
   Future<void> _downloadMediaIfNeeded(String type, String filename) async {
     if (await _mediaFiles.exists(type, filename)) return;
-    await _mediaGate.withResource(() => _downloadMediaNow(type, filename));
+    final localPath = _mediaFiles.realPath(type, filename);
+    final String key;
+    final String? root;
+    if (localPath != null) {
+      root = p.normalize(
+        await Directory(p.dirname(p.dirname(localPath))).resolveSymbolicLinks(),
+      );
+      // Conservative on case-sensitive filesystems, necessary on Windows and
+      // common macOS volumes where differently cased names can be aliases.
+      key = 'local\u0000${p.join(root, type, filename).toLowerCase()}';
+    } else {
+      root = null;
+      key =
+          'memory\u0000${identityHashCode(_mediaFiles)}\u0000$type\u0000$filename';
+    }
+    final gate = _downloadGates.putIfAbsent(key, _DownloadGate.new);
+    gate.users++;
+    try {
+      await gate.lock.synchronized(() async {
+        if (await _mediaFiles.exists(type, filename)) return;
+        await _mediaGate.withResource(() async {
+          if (root == null) {
+            await _downloadMediaNow(type, filename);
+            return;
+          }
+          final lockFile = File(mediaDownloadLockPath(root, type, filename));
+          await lockFile.parent.create(recursive: true);
+          final handle = await lockFile.open(mode: FileMode.append);
+          try {
+            await handle.lock(FileLock.blockingExclusive);
+            try {
+              // Another process may have completed this same download while
+              // we waited. _downloadMediaNow rechecks before writing.
+              await _downloadMediaNow(type, filename);
+            } finally {
+              await handle.unlock();
+            }
+          } finally {
+            await handle.close();
+          }
+        });
+      });
+    } finally {
+      gate.users--;
+      if (gate.users == 0 && identical(_downloadGates[key], gate)) {
+        _downloadGates.remove(key);
+      }
+    }
   }
 
   Future<void> _downloadMediaNow(String type, String filename) async {
@@ -742,7 +821,17 @@ class ArchiveApplier {
       );
       _mediaDownloaded++;
       if (type == MediaType.image.value && localPath != null) {
-        unawaited(FastImageDerivatives.warm(localPath));
+        try {
+          final root = p.dirname(p.dirname(localPath));
+          final lease = await MediaGuard(supportPath: root)
+              .acquire(MediaType.image, filename);
+          unawaited(_warmImage(localPath, lease));
+        } catch (error) {
+          _logger.warn(
+            .mediaDownload,
+            payload: {'detail': 'image derivative preparation failed: $error'},
+          );
+        }
       }
     } catch (e) {
       _mediaFailed++;
@@ -753,21 +842,50 @@ class ArchiveApplier {
     }
   }
 
+  Future<void> _warmImage(String path, MediaLease lease) async {
+    try {
+      await FastImageDerivatives.warm(path);
+    } catch (error) {
+      _logger.warn(
+        .mediaDownload,
+        payload: {'detail': 'image derivative preparation failed: $error'},
+      );
+    } finally {
+      try {
+        await lease.release();
+      } catch (error) {
+        _logger.warn(
+          .mediaDownload,
+          payload: {'detail': 'image media lease release failed: $error'},
+        );
+      }
+    }
+  }
+
   Future<int?> _downloadMediaByFile(String remotePath, String localPath) async {
     final temp = await _mediaTempFile('dec');
     try {
       if (!await backend.readObjectToFile(remotePath, temp.path)) return null;
       if (await temp.length() == 0) return null;
       await File(localPath).parent.create(recursive: true);
-      final part = File('$localPath.part');
+      final part = File('$localPath.${uuidV7()}.part');
+      var created = false;
       try {
+        await part.create(exclusive: true);
+        created = true;
         await (await _cipher()).decryptFileTo(temp.path, part.path);
+        if (await File(localPath).exists()) {
+          return await File(localPath).length();
+        }
         await part.rename(localPath);
-      } catch (_) {
-        try {
-          await part.delete();
-        } catch (_) {}
-        rethrow;
+      } finally {
+        if (created) {
+          try {
+            await part.delete();
+          } on PathNotFoundException {
+            // Successful rename has already moved the part file.
+          }
+        }
       }
       return await File(localPath).length();
     } finally {
@@ -777,7 +895,18 @@ class ArchiveApplier {
     }
   }
 
+  bool get _usesProtectedLocalFiles =>
+      _mediaFiles is DiskSyncMediaFiles && _mediaFiles.usesLocalFiles;
+
+  Future<void> _queueLocalMedia(Diary diary) async {
+    if (!_usesProtectedLocalFiles) return;
+    await (_mediaFiles as DiskSyncMediaFiles).queueCleanup(
+      collectDiaryMediaEntries(diary),
+    );
+  }
+
   Future<void> _deleteLocalMedia(Diary diary) async {
+    if (_usesProtectedLocalFiles) return;
     final entries = collectDiaryMediaEntries(diary);
     await Future.wait(
       entries.map((e) async {

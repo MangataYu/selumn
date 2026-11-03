@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
@@ -5,11 +7,24 @@ import 'package:moodiary_assistant/src/data/assistant_tools.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 Future<String> _run(AssistantTool tool, Map<String, dynamic> input) =>
     AssistantToolRegistry.byId(tool.id)!.run(input);
 
 void main() {
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('moodiary_media_test_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
+  });
+
+  tearDownAll(() async {
+    await mediaRoot.delete(recursive: true);
+  });
+
   late MoodiaryDatabase db;
   late DiaryRepository repository;
 

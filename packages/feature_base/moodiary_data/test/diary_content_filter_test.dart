@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 
@@ -57,6 +59,18 @@ class _LinkScanInterceptor extends QueryInterceptor {
 }
 
 void main() {
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('moodiary_media_test_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
+  });
+
+  tearDownAll(() async {
+    await mediaRoot.delete(recursive: true);
+  });
+
   late MoodiaryDatabase db;
   late DiaryRepository repository;
   late _LinkScanInterceptor interceptor;

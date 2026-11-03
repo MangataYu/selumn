@@ -142,6 +142,10 @@ class IncrementalSyncEngine {
     return runSyncExclusive(
       () => RemoteLease.protect(backend, () async {
         try {
+          final files = _mediaFiles;
+          if (files is DiskSyncMediaFiles) {
+            return await files.protectMedia(body);
+          }
           return await body();
         } catch (e) {
           _logger.error(

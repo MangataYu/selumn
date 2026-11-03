@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_ml/moodiary_ml.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 import 'package:sqlite3_vec/sqlite3_vec.dart';
@@ -66,12 +68,16 @@ Diary makeDiary(String id, String text, {bool show = true, String? title}) =>
     );
 
 void main() {
+  late Directory mediaRoot;
   late MoodiaryDatabase db;
   late DiaryRepository repo;
   late FakeEmbedder embedder;
   late EmbedIndexService index;
 
   setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('moodiary_media_test_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
     loadSqliteVec();
     getIt.registerSingleton<IKVStorage>(MemoryKVStorage());
     db = MoodiaryDatabase.forTesting(
@@ -91,6 +97,7 @@ void main() {
 
   tearDownAll(() async {
     await db.close();
+    await mediaRoot.delete(recursive: true);
   });
 
   Future<int> queueCount() async =>

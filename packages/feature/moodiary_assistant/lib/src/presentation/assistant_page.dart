@@ -153,6 +153,7 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _canUseTools = true;
 
   String? _pendingImageName;
+  late final Future<MediaLease> _mediaLease;
 
   String? _citedDiaryId;
 
@@ -300,6 +301,10 @@ class _AssistantPageState extends State<AssistantPage> {
   @override
   void initState() {
     super.initState();
+    _mediaLease = Future.sync(
+      () => MediaGuard().acquire(MediaType.image, 'assistant-session'),
+    );
+    _mediaLease.ignore();
     _chat = AssistantChatController();
     _disclaimerAccepted =
         MoodiaryKVs.assistantDisclaimerAccepted.get() ?? false;
@@ -338,9 +343,24 @@ class _AssistantPageState extends State<AssistantPage> {
     _inputController.dispose();
     _inputFocusNode.dispose();
     _chatScroll.dispose();
-    _streamSub?.cancel();
+    final streamCancelled = _streamSub?.cancel();
     _sessionSub?.cancel();
     _chat.dispose();
+    unawaited(() async {
+      try {
+        await streamCancelled;
+      } finally {
+        try {
+          await (await _mediaLease).release();
+        } catch (error, stack) {
+          logger.e(
+            'media lease release failed',
+            error: error,
+            stackTrace: stack,
+          );
+        }
+      }
+    }());
     super.dispose();
   }
 
@@ -864,6 +884,21 @@ class _AssistantPageState extends State<AssistantPage> {
     required AssistantTurn userMessage,
     required DateTime placeholderAt,
   }) async {
+    try {
+      await _mediaLease;
+    } catch (error, stack) {
+      logger.e(
+        'media lease acquisition failed',
+        error: error,
+        stackTrace: stack,
+      );
+      if (mounted && gen == _generation) {
+        setState(() => _sending = false);
+        toast.error(message: context.l10n.common.loadFailed);
+      }
+      return;
+    }
+    if (!mounted || gen != _generation) return;
     _listKey.currentState?.pinToBottom();
     final l10n = context.l10n;
     final titleProvider = _provider;
@@ -1358,14 +1393,37 @@ class _AssistantPageState extends State<AssistantPage> {
 
   Future<void> _pickImage() async {
     if (_sending) return;
-    _inputFocusNode.unfocus();
-    final files = await getIt<IFilePicker>().pickImages(context, maxAssets: 1);
-    if (files.isEmpty || !mounted) return;
-    final first = files.first;
-    final saved = await MediaManager.saveImages(imageFileList: [first]);
-    final name = saved[first.path];
-    if (name == null || !mounted) return;
-    setState(() => _pendingImageName = name);
+    try {
+      await _mediaLease;
+      if (!mounted) return;
+      final operation = await MediaGuard().acquire(
+        MediaType.image,
+        'assistant-image-operation',
+      );
+      try {
+        if (!mounted) return;
+        _inputFocusNode.unfocus();
+        final files = await getIt<IFilePicker>().pickImages(
+          context,
+          maxAssets: 1,
+        );
+        if (files.isEmpty || !mounted) return;
+        final first = files.first;
+        final saved = await MediaManager.saveImages(imageFileList: [first]);
+        final name = saved[first.path];
+        if (name == null || !mounted) return;
+        setState(() => _pendingImageName = name);
+      } finally {
+        await operation.release();
+      }
+    } catch (error, stack) {
+      logger.e(
+        'assistant image selection failed',
+        error: error,
+        stackTrace: stack,
+      );
+      if (mounted) toast.error(message: context.l10n.common.loadFailed);
+    }
   }
 
   void _removePendingImage() {

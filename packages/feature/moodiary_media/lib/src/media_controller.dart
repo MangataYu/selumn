@@ -4,6 +4,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'media_controller.g.dart';
@@ -86,24 +87,44 @@ class MediaCleanupController extends _$MediaCleanupController {
 
   Future<MediaCleanupReport> scan() async {
     final used = await getIt<DiaryRepository>().collectReferencedMedia();
-    return AppFiles.scanOrphanMedia(
+    final report = await AppFiles.scanOrphanMedia(
       usedImages: used.images,
       usedAudios: used.audios,
       usedVideos: used.videos,
     );
-  }
-
-  Future<void> clean(MediaCleanupReport report) async {
-    await AppFiles.deleteOrphanMedia(report);
-    final used = await getIt<DiaryRepository>().collectReferencedMedia();
-    final referenced = {...used.images, ...used.audios, ...used.videos};
-    final rows = await getIt<MediaInfoRepository>().getAllMediaInfos();
-    for (final row in rows) {
-      if (referenced.contains(row.fileName)) continue;
-      final file = File(AppFiles.getRealPath(row.mediaType, row.fileName));
-      if (!await file.exists()) {
-        await getIt<MediaInfoRepository>().deleteAMediaInfo(row.fileName);
+    // Derived thumbnail files have no independent reference identity. Leave
+    // them to the original image's guarded cleanup rather than deleting an
+    // old scan result after it may have become relevant again.
+    final paths = <String>[];
+    var bytes = 0;
+    for (final path in report.paths) {
+      if (_keyForPath(path) == null) continue;
+      try {
+        bytes += await File(path).length();
+        paths.add(path);
+      } on PathNotFoundException {
+        // The filesystem changed since the scan.
       }
     }
+    return MediaCleanupReport(paths: paths, bytes: bytes);
+  }
+
+  MediaKey? _keyForPath(String path) {
+    for (final type in MediaType.values) {
+      if (p.equals(p.dirname(path), AppFiles.getRealPath(type.value, ''))) {
+        return MediaKey(type, p.basename(path));
+      }
+    }
+    return null;
+  }
+
+  Future<MediaCleanupOutcome> clean(MediaCleanupReport report) async {
+    final outcome = await getIt<DiaryRepository>().cleanMediaCandidates([
+      for (final path in report.paths) ?_keyForPath(path),
+    ]);
+    if (outcome.deferred > 0) {
+      throw StateError('Media cleanup could not safely complete');
+    }
+    return outcome;
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,10 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/presentation/detail/diary_page.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 import 'package:moodiary_theme/moodiary_theme.dart';
@@ -119,11 +122,29 @@ Future<void> _pumpDiary(WidgetTester tester, {bool throwOnSave = false}) async {
       ),
     ),
   );
+  for (var attempt = 0; attempt < 200; attempt++) {
+    if (find.byType(MoodiaryEditor).evaluate().isNotEmpty) break;
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump();
+  }
+  expect(find.byType(MoodiaryEditor), findsOneWidget);
   await tester.pumpAndSettle();
   addTearDown(() async {
     await _dismissDialogs(tester);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+    final guard = MediaGuard();
+    var released = false;
+    for (var attempt = 0; attempt < 200 && !released; attempt++) {
+      await tester.pump();
+      released = (await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        return guard.tryExclusive(MediaType.image, 'widget-test', () async {});
+      }))!;
+    }
+    expect(released, isTrue, reason: 'diary media lease must be released');
   });
 }
 
@@ -135,6 +156,13 @@ void _changeTitle(WidgetTester tester, [String title = 'unsaved title']) {
 
 void main() {
   late _DiaryRepository repository;
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('diary-page-media-guard');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+  });
+  tearDownAll(() async => mediaRoot.delete(recursive: true));
 
   setUp(() {
     repository = _DiaryRepository();
@@ -155,6 +183,38 @@ void main() {
     await _pumpDiary(tester);
     expect(await tester.binding.handleRequestAppExit(), AppExitResponse.exit);
     expect(repository.writes, 0);
+  });
+
+  testWidgets('keeps media protected while dispose waits for the final save', (
+    tester,
+  ) async {
+    await _pumpDiary(tester);
+    _changeTitle(tester);
+    repository.writeGate = Completer<void>();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    final guard = MediaGuard();
+    final duringSave = await tester.runAsync(
+      () => guard.tryExclusive(MediaType.image, 'image-test.jpg', () async {}),
+    );
+    expect(duringSave, isFalse);
+
+    repository.writeGate!.complete();
+    await tester.pump();
+    var released = false;
+    for (var attempt = 0; attempt < 200 && !released; attempt++) {
+      await tester.pump();
+      released = (await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        return guard.tryExclusive(
+          MediaType.image,
+          'image-test.jpg',
+          () async {},
+        );
+      }))!;
+    }
+    expect(released, isTrue);
   });
 
   testWidgets(

@@ -45,6 +45,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  moodiary_platform: 0.0.1
   moodiary_lint: 0.0.1
   build_runner: 2.16.1
   riverpod_generator: 4.0.9

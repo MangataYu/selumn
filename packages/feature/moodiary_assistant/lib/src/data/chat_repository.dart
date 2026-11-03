@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:moodiary_assistant/src/data/assistant_defs.dart';
 
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 
 @lazySingleton
@@ -231,12 +232,48 @@ class ChatRepository {
   }
 
   Future<void> deleteSession(String id) async {
-    await (_db.delete(_db.chatSessions)..where((s) => s.id.equals(id))).go();
+    final lease = await MediaGuard().acquire(MediaType.image, 'chat-session');
+    try {
+      await _db.transaction(() async {
+        final rows = await (_db.select(
+          _db.chatMessages,
+        )..where((m) => m.sessionId.equals(id))).get();
+        await _queueImages(rows);
+        await (_db.delete(
+          _db.chatSessions,
+        )..where((s) => s.id.equals(id))).go();
+      });
+    } finally {
+      await lease.release();
+    }
     _events.add(null);
   }
 
   Future<void> deleteMessage(String id) async {
-    await (_db.delete(_db.chatMessages)..where((m) => m.id.equals(id))).go();
+    final lease = await MediaGuard().acquire(MediaType.image, 'chat-message');
+    try {
+      await _db.transaction(() async {
+        final rows = await (_db.select(
+          _db.chatMessages,
+        )..where((m) => m.id.equals(id))).get();
+        await _queueImages(rows);
+        await (_db.delete(
+          _db.chatMessages,
+        )..where((m) => m.id.equals(id))).go();
+      });
+    } finally {
+      await lease.release();
+    }
+  }
+
+  Future<void> _queueImages(Iterable<ChatMessageRow> rows) async {
+    final names = <String>{
+      for (final row in rows)
+        if (row.imageName case final String name when name.isNotEmpty) name,
+    };
+    await MediaCleanupQueue().enqueue([
+      for (final name in names) MediaKey(MediaType.image, name),
+    ]);
   }
 
   Future<List<ChatMessage>> getMessages(String sessionId) async {
@@ -249,24 +286,35 @@ class ChatRepository {
   }
 
   Future<void> addMessage(ChatMessage message) async {
-    await _db.transaction(() async {
-      await _db
-          .into(_db.chatMessages)
-          .insertOnConflictUpdate(_toMessageCompanion(message));
-      await _syncToolCalls(message);
-      final session = await (_db.select(
-        _db.chatSessions,
-      )..where((s) => s.id.equals(message.sessionId))).getSingleOrNull();
-      if (session != null) {
-        final createdAt = dbTime(message.createdAt);
-        final updatedAt = createdAt > session.updatedAt
-            ? createdAt
-            : session.updatedAt;
-        await (_db.update(_db.chatSessions)
-              ..where((s) => s.id.equals(session.id)))
-            .write(ChatSessionsCompanion(updatedAt: Value(updatedAt)));
-      }
-    });
+    final lease = await MediaGuard().acquire(MediaType.image, 'chat-message');
+    try {
+      await _db.transaction(() async {
+        final existing = await (_db.select(
+          _db.chatMessages,
+        )..where((m) => m.id.equals(message.id))).get();
+        await _queueImages(
+          existing.where((row) => row.imageName != message.imageName),
+        );
+        await _db
+            .into(_db.chatMessages)
+            .insertOnConflictUpdate(_toMessageCompanion(message));
+        await _syncToolCalls(message);
+        final session = await (_db.select(
+          _db.chatSessions,
+        )..where((s) => s.id.equals(message.sessionId))).getSingleOrNull();
+        if (session != null) {
+          final createdAt = dbTime(message.createdAt);
+          final updatedAt = createdAt > session.updatedAt
+              ? createdAt
+              : session.updatedAt;
+          await (_db.update(_db.chatSessions)
+                ..where((s) => s.id.equals(session.id)))
+              .write(ChatSessionsCompanion(updatedAt: Value(updatedAt)));
+        }
+      });
+    } finally {
+      await lease.release();
+    }
     _events.add(null);
   }
 }

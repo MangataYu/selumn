@@ -192,6 +192,12 @@ class _DataSection extends StatelessWidget {
         ),
         const DataRepairTile(),
         const ImageOptimizeTile(),
+        SettingListTile(
+          title: context.l10n.storage.title,
+          leading: _lead(context, LucideIcons.hardDrive),
+          trailing: _chevron(context),
+          onTap: () => _openSetting(context, const StorageRoute()),
+        ),
         const CacheUsageTile(),
       ],
     );

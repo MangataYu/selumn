@@ -100,7 +100,22 @@ class MoodiaryEditorView extends StatefulWidget {
 class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
   late final _controller = widget.controller ?? MoodiaryEditorController();
 
-  Future<void> _pickImages() async {
+  Future<T> _whileUsingMedia<T>(Future<T> Function() action) async {
+    final lease = await MediaGuard().acquire(
+      MediaType.image,
+      'editor-operation',
+    );
+    try {
+      return await action();
+    } finally {
+      await lease.release();
+    }
+  }
+
+  Future<void> _pickImages() => _whileUsingMedia(_pickImagesImpl);
+
+  Future<void> _pickImagesImpl() async {
+    if (!mounted) return;
     final files = await getIt<IFilePicker>().pickImages(context);
     if (files.isEmpty) return;
     await _insertPicked(files);
@@ -114,7 +129,13 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
     }
   }
 
-  Future<String?> _saveDataUriImage(String dataUri, String fallbackName) async {
+  Future<String?> _saveDataUriImage(String dataUri, String fallbackName) =>
+      _whileUsingMedia(() => _saveDataUriImageImpl(dataUri, fallbackName));
+
+  Future<String?> _saveDataUriImageImpl(
+    String dataUri,
+    String fallbackName,
+  ) async {
     final xfile = await _dataUriToTempFile(dataUri, fallbackName);
     if (xfile == null) return null;
     final saved = await MediaManager.saveImages(imageFileList: [xfile]);
@@ -143,7 +164,10 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
     return XFile(tmpPath);
   }
 
-  Future<void> _pickVideo() async {
+  Future<void> _pickVideo() => _whileUsingMedia(_pickVideoImpl);
+
+  Future<void> _pickVideoImpl() async {
+    if (!mounted) return;
     final file = await getIt<IFilePicker>().pickVideo(context);
     if (file == null) return;
     final saved = await MediaManager.saveVideo(videoFileList: [file]);
@@ -178,7 +202,11 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
     );
   }
 
-  Future<void> _pickAudioFile(BuildContext sheetContext) async {
+  Future<void> _pickAudioFile(BuildContext sheetContext) =>
+      _whileUsingMedia(() => _pickAudioFileImpl(sheetContext));
+
+  Future<void> _pickAudioFileImpl(BuildContext sheetContext) async {
+    if (!mounted || !sheetContext.mounted) return;
     Navigator.of(sheetContext).pop();
     String? name;
     try {
@@ -210,7 +238,11 @@ class _MoodiaryEditorViewState extends State<MoodiaryEditorView> {
     }
   }
 
-  Future<void> _recordAudio(BuildContext sheetContext) async {
+  Future<void> _recordAudio(BuildContext sheetContext) =>
+      _whileUsingMedia(() => _recordAudioImpl(sheetContext));
+
+  Future<void> _recordAudioImpl(BuildContext sheetContext) async {
+    if (!mounted || !sheetContext.mounted) return;
     Navigator.of(sheetContext).pop();
     final result = await MSheet.show<RecordSaveResult>(
       context,

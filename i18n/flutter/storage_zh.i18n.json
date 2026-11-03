@@ -1,0 +1,22 @@
+{
+  "title": "存储空间",
+  "used": "应用占用",
+  "database": "日记数据",
+  "media": "图片、音频与视频",
+  "model": "AI 模型",
+  "font": "字体",
+  "logs": "日志",
+  "cache": "缓存",
+  "other": "其他",
+  "loading": "正在统计存储空间…",
+  "failed": "无法统计存储空间",
+  "retry": "重试",
+  "manageModels": "管理模型",
+  "cleanDownloads": "清理未完成的模型下载",
+  "cleanDownloadsDescription": "只删除未完成的模型下载文件，不删除已下载的模型。",
+  "cleanConfirm": "清理",
+  "cleaning": "正在清理，可能需要等待当前下载完成…",
+  "cleanDone": "已清理 {count} 个文件，释放 {size}",
+  "cleanPartial": "已清理 {count} 个文件，释放 {size}；{failed} 个文件未能清理",
+  "cleanFailed": "清理失败，请稍后重试"
+}

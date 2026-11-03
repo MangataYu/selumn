@@ -87,6 +87,7 @@ class _DiaryRepository extends Fake implements DiaryRepository {
     return true;
   }
 
+  @override
   Future<void> dispose() => _events.close();
 }
 

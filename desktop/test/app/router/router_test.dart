@@ -20,6 +20,7 @@ void main() {
         NewDiaryRoute.path,
         DiarySearchRoute.path,
         SettingRoute.path,
+        StorageRoute.path,
         AccountRoute.path,
         BackupSyncRoute.path,
         AssistantConversationRoute.path,

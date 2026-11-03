@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_assistant/src/application/chat_items.dart';
@@ -7,6 +9,7 @@ import 'package:moodiary_assistant/src/data/assistant_tools.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 AssistantToolCall _call(String name, String result, {bool done = true}) =>
     AssistantToolCall(
@@ -17,6 +20,18 @@ AssistantToolCall _call(String name, String result, {bool done = true}) =>
     );
 
 void main() {
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('moodiary_media_test_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
+  });
+
+  tearDownAll(() async {
+    await mediaRoot.delete(recursive: true);
+  });
+
   group('从真实工具输出里抠日记引用', () {
     late MoodiaryDatabase db;
     late DiaryRepository repo;

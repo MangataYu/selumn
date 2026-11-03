@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,7 @@ import 'package:moodiary_assistant/src/data/chat_repository.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 class _FakeAssistant implements AssistantService {
   final List<String> chunks;
@@ -244,6 +246,13 @@ void main() {
     late MoodiaryDatabase db;
     late ChatRepository repo;
     late ChatSession stored;
+    late Directory mediaRoot;
+
+    setUpAll(() async {
+      mediaRoot = await Directory.systemTemp.createTemp('chat-title-media');
+      PlatformService.get().applicationSupportPath = mediaRoot.path;
+    });
+    tearDownAll(() async => mediaRoot.delete(recursive: true));
 
     setUp(() async {
       db = MoodiaryDatabase.forTesting(NativeDatabase.memory());

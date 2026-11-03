@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,21 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/src/application/search_controller.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 void main() {
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('moodiary_media_test_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
+  });
+
+  tearDownAll(() async {
+    await mediaRoot.delete(recursive: true);
+  });
+
   late MoodiaryDatabase db;
   late ProviderContainer container;
 

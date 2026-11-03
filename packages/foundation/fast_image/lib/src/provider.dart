@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/widgets.dart';
 
 import 'derivatives.dart';
+import 'runtime.dart';
 
 @immutable
 class FastImage extends ImageProvider<FastImage> {
@@ -34,7 +35,9 @@ class FastImage extends ImageProvider<FastImage> {
 
   Future<ui.Codec> _load(FastImage key, ImageDecoderCallback decode) async {
     try {
-      return await _loadUnchecked(key, decode);
+      return await FastImageRuntime.withMediaRead(
+        () => _loadUnchecked(key, decode),
+      );
     } catch (_) {
       // ImageCache 失败的 pending 条目不会自动转正，需手动 evict 才能重试
       PaintingBinding.instance.imageCache.evict(key);

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/services.dart' show DeviceOrientation, HapticFeedback;
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
@@ -97,27 +98,44 @@ class MVideoPlayerPage extends StatefulWidget {
   }) async {
     if (_opening) return;
     _opening = true;
-    final double? aspect;
-    final String videoPath;
-    final String? coverPath;
+    final MediaLease lease;
     try {
-      videoPath = AppFiles.getRealPath('video', name);
-      coverPath = _coverPathOf(name);
-      aspect = await _coverAspect(coverPath);
-    } finally {
+      lease = await MediaGuard().acquire(MediaType.video, name);
+    } catch (error, stack) {
       _opening = false;
+      logger.e(
+        'video media protection unavailable',
+        error: error,
+        stackTrace: stack,
+      );
+      if (context.mounted) toast.error(message: context.l10n.common.loadFailed);
+      return;
     }
-    if (!context.mounted) return;
-    return show(
-      context,
-      videoPath: videoPath,
-      coverPath: coverPath,
-      initialAspect: aspect,
-      startAt: startAt,
-      onExitAt: onExitAt,
-      portFactory: portFactory,
-      ambientPorts: ambientPorts,
-    );
+    try {
+      final double? aspect;
+      final String videoPath;
+      final String? coverPath;
+      try {
+        videoPath = AppFiles.getRealPath('video', name);
+        coverPath = _coverPathOf(name);
+        aspect = await _coverAspect(coverPath);
+      } finally {
+        _opening = false;
+      }
+      if (!context.mounted) return;
+      await show(
+        context,
+        videoPath: videoPath,
+        coverPath: coverPath,
+        initialAspect: aspect,
+        startAt: startAt,
+        onExitAt: onExitAt,
+        portFactory: portFactory,
+        ambientPorts: ambientPorts,
+      );
+    } finally {
+      await lease.release();
+    }
   }
 
   // getRealPath 对文件名做 substring(6, 42)，长度不对会同步抛 RangeError

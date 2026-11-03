@@ -8,7 +8,7 @@
 
 [下载](https://github.com/MangataYu/selumn/releases) · [源代码](https://github.com/MangataYu/selumn) · [后续计划](TODO.md)
 
-![Flutter](https://img.shields.io/badge/Flutter-3.47.2-blue)
+![Flutter](https://img.shields.io/badge/Flutter-3.47.8-blue)
 [![许可证](https://img.shields.io/github/license/MangataYu/selumn)](LICENSE)
 
 仓库名称为 **selumn**；应用内名称及现有 APK 文件名目前使用 **Selume**。

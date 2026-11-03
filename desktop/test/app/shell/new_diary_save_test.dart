@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,8 +9,10 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_diary/moodiary_diary.dart';
 import 'package:moodiary_diary/src/presentation/detail/diary_page.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
@@ -106,6 +109,19 @@ final _place = Place(
   lastModified: DateTime(2026),
 );
 
+// The page opens and closes a real file lock. Let the OS finish that I/O
+// between frames instead of advancing only Flutter's virtual test clock.
+Future<void> _settle(WidgetTester tester) async {
+  for (var attempt = 0; attempt < 1000; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+    if (!tester.binding.hasScheduledFrame) return;
+  }
+  fail('Widget tree did not settle');
+}
+
 void _testDiary(String description, WidgetTesterCallback callback) {
   testWidgets(description, (tester) async {
     try {
@@ -113,10 +129,23 @@ void _testDiary(String description, WidgetTesterCallback callback) {
     } finally {
       final dismissed = SmartDialog.dismiss(status: SmartStatus.allCustom);
       await tester.pump(const Duration(seconds: 3));
-      await tester.pumpAndSettle();
-      await dismissed;
       await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
+      await _settle(tester);
+      await dismissed;
+      var released = false;
+      for (var attempt = 0; attempt < 1000 && !released; attempt++) {
+        released =
+            await tester.runAsync(
+              () => MediaGuard().tryExclusive(
+                MediaType.image,
+                'test',
+                () async {},
+              ),
+            ) ??
+            false;
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(released, isTrue, reason: 'page must release its media lease');
     }
   });
 }
@@ -154,7 +183,16 @@ Future<GoRouter> _pumpNewDiary(
     ),
   );
   router.pushRoute<void>(const NewDiaryRoute(tag: '生活'));
-  await tester.pumpAndSettle();
+  await tester.pump();
+  for (var attempt = 0; attempt < 200; attempt++) {
+    if (find.byType(MoodiaryEditor).evaluate().isNotEmpty) break;
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 5)),
+    );
+    await tester.pump();
+  }
+  expect(find.byType(MoodiaryEditor), findsOneWidget);
+  await _settle(tester);
   return router;
 }
 
@@ -166,6 +204,13 @@ void _changeTitle(WidgetTester tester, String title) {
 
 void main() {
   late _DiaryRepository repository;
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('desktop-page-media-guard');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+  });
+  tearDownAll(() async => mediaRoot.delete(recursive: true));
 
   setUp(() {
     repository = _DiaryRepository();
@@ -188,7 +233,7 @@ void main() {
     final router = await _pumpNewDiary(tester);
     _changeTitle(tester, '第一篇');
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     final firstId = repository.diaries.keys.single;
 
     expect(router.state.uri.path, DiaryRoute.path);
@@ -197,7 +242,7 @@ void main() {
     expect(find.byTooltip(l10n.diary.edit), findsOneWidget);
 
     openNewDiary(tester.element(find.byType(DiaryPage)), tag: '生活');
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(router.state.uri.path, NewDiaryRoute.path);
     expect(
       tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor)).initialTitle,
@@ -205,7 +250,7 @@ void main() {
     );
     _changeTitle(tester, '第二篇');
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(repository.diaries, hasLength(2));
     expect(repository.diaries[firstId]!.title, '第一篇');
@@ -221,12 +266,12 @@ void main() {
   ) async {
     final router = await _pumpNewDiary(tester);
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(repository.diaries, isEmpty);
     expect(router.state.uri.path, DiaryHomeRoute.path);
     expect(find.byType(DiaryPage), findsNothing);
     openNewDiary(tester.element(find.text('home page')), tag: '生活');
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(router.state.uri.path, NewDiaryRoute.path);
     expect(tester.widget<DiaryPage>(find.byType(DiaryPage)).diaryId, isNull);
     expect(tester.takeException(), isNull);
@@ -239,14 +284,14 @@ void main() {
     _changeTitle(tester, '还没保存');
     repository.failWrites = true;
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(repository.diaries, isEmpty);
     expect(router.state.uri.path, NewDiaryRoute.path);
     expect(find.byTooltip(l10n.common.save), findsOneWidget);
 
     repository.failWrites = false;
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(repository.diaries.values.single.title, '还没保存');
     expect(router.state.uri.path, DiaryRoute.path);
     expect(tester.takeException(), isNull);
@@ -259,14 +304,14 @@ void main() {
       _changeTitle(tester, '已经落库');
       repository.failReads = true;
       await tester.tap(find.byTooltip(l10n.common.save));
-      await tester.pumpAndSettle();
+      await _settle(tester);
       expect(repository.diaries.values.single.title, '已经落库');
       expect(router.state.uri.path, NewDiaryRoute.path);
       expect(find.byTooltip(l10n.common.save), findsOneWidget);
 
       repository.failReads = false;
       await tester.tap(find.byTooltip(l10n.common.save));
-      await tester.pumpAndSettle();
+      await _settle(tester);
       expect(router.state.uri.path, DiaryRoute.path);
       expect(tester.takeException(), isNull);
     },
@@ -281,13 +326,13 @@ void main() {
     final router = await _pumpNewDiary(tester, places: [_place]);
     _changeTitle(tester, '手动保存');
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(router.state.uri.path, DiaryRoute.path);
     expect(geo.requests, 1);
     final writesBeforeLocation = repository.writes;
 
     geo.complete();
-    await tester.pumpAndSettle();
+    await _settle(tester);
     await tester.pump(const Duration(seconds: 3));
     expect(repository.diaries.values.single.placeId, isNull);
     expect(repository.writes, writesBeforeLocation);
@@ -307,14 +352,14 @@ void main() {
     repository.delayedReadId = draft.id;
     repository.delayedRead = Completer<Diary?>();
     await tester.tap(find.byTooltip(l10n.common.save));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     DiaryRoute(diaryId: other.id)
         .replace(tester.element(find.byType(DiaryPage)));
-    await tester.pumpAndSettle();
+    await _settle(tester);
     expect(tester.widget<DiaryPage>(find.byType(DiaryPage)).diaryId, other.id);
     repository.delayedRead!.complete(draft);
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(router.state.uri.path, DiaryRoute.path);
     expect(tester.widget<DiaryPage>(find.byType(DiaryPage)).diaryId, other.id);

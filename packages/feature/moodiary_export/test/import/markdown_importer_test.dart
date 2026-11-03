@@ -7,6 +7,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_export/moodiary_export.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 import 'package:path/path.dart' as p;
@@ -32,10 +33,15 @@ void main() {
   late PlaceRepository places;
   late Directory root;
   late MarkdownImporter importer;
+  late Directory mediaSupport;
 
   setUpAll(() {
+    mediaSupport = Directory.systemTemp.createTempSync('md-importer-media');
+    PlatformService.get().applicationSupportPath = mediaSupport.path;
     getIt.registerSingleton<IKVStorage>(MemoryKVStorage());
   });
+
+  tearDownAll(() async => mediaSupport.delete(recursive: true));
 
   setUp(() {
     db = MoodiaryDatabase.forTesting(

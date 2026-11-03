@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:drift/extensions/fts5.dart';
 import 'package:drift/extensions/json1.dart';
+import 'package:fast_image/fast_image.dart';
 import 'package:injectable/injectable.dart';
 import 'package:moodiary_files/moodiary_files.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
@@ -19,6 +22,24 @@ import 'media_item.dart';
 
 enum IndexMode { inline, skip }
 
+class MediaCleanupOutcome {
+  const MediaCleanupOutcome({
+    this.deleted = 0,
+    this.retained = 0,
+    this.deferred = 0,
+  });
+
+  /// Original media and video thumbnails actually removed. Image derivatives
+  /// are implementation details and are not counted as separate selections.
+  final int deleted;
+
+  /// Candidates retained because another saved object still refers to them.
+  final int retained;
+
+  /// Candidates not checked because a media user or ambiguous data exists.
+  final int deferred;
+}
+
 typedef PlaceFootprint = ({int count, DateTime first, DateTime last});
 
 @lazySingleton
@@ -26,6 +47,82 @@ class DiaryRepository {
   DiaryRepository(this._db);
 
   final MoodiaryDatabase _db;
+
+  Timer? _mediaCleanupTimer;
+  Future<void>? _runningMediaCleanup;
+  Future<void>? _disposeFuture;
+  bool _disposed = false;
+
+  /// Replays durable cleanup requests at startup and periodically thereafter.
+  /// Repeated calls are harmless; a busy editor or another process may defer
+  /// cleanup until a later pass.
+  void startMediaCleanup() {
+    if (_disposed) throw StateError('DiaryRepository is disposed');
+    if (_mediaCleanupTimer != null) return;
+    unawaited(drainMediaCleanupQueue());
+    _mediaCleanupTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => unawaited(drainMediaCleanupQueue()),
+    );
+  }
+
+  /// Stops the retry timer when the owning application is disposed.
+  void stopMediaCleanup() {
+    _mediaCleanupTimer?.cancel();
+    _mediaCleanupTimer = null;
+  }
+
+  @disposeMethod
+  Future<void> dispose() => _disposeFuture ??= _dispose();
+
+  Future<void> _dispose() async {
+    _disposed = true;
+    stopMediaCleanup();
+    await _runningMediaCleanup;
+    await _events.close();
+  }
+
+  /// Rechecks queued candidates. Concurrent callers share one running pass.
+  Future<void> drainMediaCleanupQueue() {
+    if (_disposed) return Future.value();
+    final running = _runningMediaCleanup;
+    if (running != null) return running;
+    late final Future<void> task;
+    task = _drainMediaCleanupQueue().whenComplete(() {
+      if (identical(_runningMediaCleanup, task)) _runningMediaCleanup = null;
+    });
+    _runningMediaCleanup = task;
+    return task;
+  }
+
+  Future<void> _drainMediaCleanupQueue() async {
+    try {
+      for (final request in await MediaCleanupQueue().pending(
+        onInvalid: (error, stackTrace) => logger.e(
+          'Invalid media cleanup request; it has been retained',
+          error: error.runtimeType,
+          stackTrace: stackTrace,
+        ),
+      )) {
+        try {
+          final result = await cleanMediaCandidates(request.candidates);
+          if (result.deferred == 0) await request.complete();
+        } catch (error, stackTrace) {
+          logger.e(
+            'Media cleanup request failed; it will be retried',
+            error: error.runtimeType,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    } catch (error, stackTrace) {
+      logger.e(
+        'Unable to read media cleanup requests; they will be retried',
+        error: error.runtimeType,
+        stackTrace: stackTrace,
+      );
+    }
+  }
 
   // SQLite 变量数上限 32766，留足余量
   static const int _inChunk = 5000;
@@ -108,6 +205,45 @@ class DiaryRepository {
         ...TiptapContent.tags(diary.content),
     ]),
   );
+
+  static List<MediaKey> _mediaKeysFor(Diary diary) {
+    final derived = DiaryContent.of(diary).media;
+    return [
+      for (final name in {...diary.imageName, ...derived.images})
+        MediaKey(MediaType.image, name),
+      for (final name in {...diary.audioName, ...derived.audios})
+        MediaKey(MediaType.audio, name),
+      for (final name in {...diary.videoName, ...derived.videos})
+        MediaKey(MediaType.video, name),
+    ];
+  }
+
+  static bool _hasUncertainContent(Diary diary) {
+    if (diary.type == DiaryType.tiptap.value) {
+      return !TiptapContent.parse(diary.content).isDoc;
+    }
+    if (diary.type == DiaryType.markdown.value) return false;
+    if (diary.type != DiaryType.richText.value) return true;
+    try {
+      final value = jsonDecode(diary.content);
+      return value is! List && (value is! Map || value['ops'] is! List);
+    } on FormatException {
+      return true;
+    }
+  }
+
+  /// A global lease is also needed for malformed documents: their empty media
+  /// index cannot prove that the body has no references.
+  static List<MediaKey> _leaseKeysFor(Iterable<Diary> diaries) {
+    final keys = <MediaKey>[];
+    for (final diary in diaries) {
+      keys.addAll(_mediaKeysFor(diary));
+      if (_hasUncertainContent(diary) && keys.isEmpty) {
+        keys.add(const MediaKey(MediaType.image, ''));
+      }
+    }
+    return keys;
+  }
 
   static Diary _toDiary(
     DiaryRow r, {
@@ -276,24 +412,30 @@ class DiaryRepository {
   }) async {
     if (diaries.isEmpty) return;
     diaries = [for (final diary in diaries) _withNormalizedTags(diary)];
-    await _db.transaction(() async {
-      for (final diary in diaries) {
-        await _upsertRow(diary);
-        await _syncChildren(diary);
-        if (index == .inline) {
-          await _applyLinks(diary.id, DiaryContent.of(diary).links);
+    final keys = _leaseKeysFor(diaries);
+    final lease = keys.isEmpty ? null : await MediaGuard().acquireAll(keys);
+    try {
+      await _db.transaction(() async {
+        for (final diary in diaries) {
+          await _upsertRow(diary);
+          await _syncChildren(diary);
+          if (index == .inline) {
+            await _applyLinks(diary.id, DiaryContent.of(diary).links);
+          }
         }
-      }
-      await (_db.delete(_db.tombstones)..where(
-            (t) => t.key.isIn([
-              for (final diary in diaries) SyncTombstone.diaryKey(diary.id),
-            ]),
-          ))
-          .go();
-      if (index == .inline) {
-        await _enqueueEmbed([for (final diary in diaries) diary.id]);
-      }
-    });
+        await (_db.delete(_db.tombstones)..where(
+              (t) => t.key.isIn([
+                for (final diary in diaries) SyncTombstone.diaryKey(diary.id),
+              ]),
+            ))
+            .go();
+        if (index == .inline) {
+          await _enqueueEmbed([for (final diary in diaries) diary.id]);
+        }
+      });
+    } finally {
+      await lease?.release();
+    }
     for (final diary in diaries) {
       _notifyDiaryEvent(DiaryCreated(diary, fromSync: fromSync));
     }
@@ -304,6 +446,28 @@ class DiaryRepository {
     IndexMode index = .inline,
     bool fromSync = false,
   }) async {
+    await _updateADiary(newDiary: newDiary, index: index, fromSync: fromSync);
+  }
+
+  /// Updates only if the persisted diary still matches [expected]. This check
+  /// and the write share a database transaction, so background processing
+  /// cannot overwrite edits made after it loaded its snapshot.
+  Future<bool> updateADiaryIfUnchanged({
+    required Diary expected,
+    required Diary newDiary,
+  }) {
+    if (expected.id != newDiary.id) {
+      throw ArgumentError('Expected and replacement diary IDs must match');
+    }
+    return _updateADiary(newDiary: newDiary, expected: expected);
+  }
+
+  Future<bool> _updateADiary({
+    required Diary newDiary,
+    IndexMode index = .inline,
+    bool fromSync = false,
+    Diary? expected,
+  }) async {
     newDiary = _withNormalizedTags(newDiary);
     assert(() {
       if (index == .skip) return true;
@@ -312,42 +476,91 @@ class DiaryRepository {
           _sameNameSet(newDiary.videoName, derived.videos) &&
           _sameNameSet(newDiary.audioName, derived.audios);
     }(), '媒体三列与正文引用不一致：写入方漏了 withDerivedMedia（见 diary_derive.dart）');
-    await _db.transaction(() async {
-      if (!fromSync && newDiary.categoryId != null) {
-        final previous = await getDiaryByBusinessId(newDiary.id);
-        if (previous?.categoryId != null) {
-          final added = newDiary.tags.toSet().difference(
-            previous!.tags.toSet(),
-          );
-          newDiary = newDiary.copyWith(
-            legacyCategoryExcludedTags: TagPath.normalizeAll([
-              ...previous.legacyCategoryExcludedTags,
-              ...newDiary.legacyCategoryExcludedTags,
-              ...previous.tags.where((tag) => !newDiary.tags.contains(tag)),
-            ]).where((tag) => !added.contains(tag)).toList(),
-          );
+    final initial = await getDiaryByBusinessId(newDiary.id);
+    final leaseKeys = _leaseKeysFor([?initial, newDiary]);
+    final lease = leaseKeys.isEmpty
+        ? null
+        : await MediaGuard().acquireAll(leaseKeys);
+    var queued = false;
+    var applied = false;
+    try {
+      await _db.transaction(() async {
+        final oldDiary = await getDiaryByBusinessId(newDiary.id);
+        if (expected != null && oldDiary != expected) return;
+        final oldKeys = oldDiary == null
+            ? <MediaKey>[]
+            : _mediaKeysFor(oldDiary);
+        final newKeys = _mediaKeysFor(newDiary);
+        final next = {for (final key in newKeys) (key.type, key.name)};
+        final removed = [
+          for (final key in oldKeys)
+            if (!next.contains((key.type, key.name))) key,
+        ];
+        if (removed.isNotEmpty) {
+          if (lease == null) {
+            throw StateError('Media changed while updating the diary; retry');
+          }
+          await MediaCleanupQueue().enqueue(removed);
+          queued = true;
         }
-      }
-      await _upsertRow(newDiary);
-      await _syncChildren(newDiary);
-      if (index == .inline) {
-        await _applyLinks(newDiary.id, DiaryContent.of(newDiary).links);
-        await _enqueueEmbed([newDiary.id]);
-      }
-    });
+        if (!fromSync && newDiary.categoryId != null) {
+          final previous = oldDiary;
+          if (previous?.categoryId != null) {
+            final added = newDiary.tags.toSet().difference(
+              previous!.tags.toSet(),
+            );
+            newDiary = newDiary.copyWith(
+              legacyCategoryExcludedTags: TagPath.normalizeAll([
+                ...previous.legacyCategoryExcludedTags,
+                ...newDiary.legacyCategoryExcludedTags,
+                ...previous.tags.where((tag) => !newDiary.tags.contains(tag)),
+              ]).where((tag) => !added.contains(tag)).toList(),
+            );
+          }
+        }
+        await _upsertRow(newDiary);
+        await _syncChildren(newDiary);
+        if (index == .inline) {
+          await _applyLinks(newDiary.id, DiaryContent.of(newDiary).links);
+          await _enqueueEmbed([newDiary.id]);
+        }
+        applied = true;
+      });
+    } finally {
+      await lease?.release();
+    }
+    if (!applied) return false;
     _notifyDiaryEvent(DiaryUpdated(newDiary, fromSync: fromSync));
+    if (queued) await drainMediaCleanupQueue();
+    return true;
   }
 
-  Future<void> setVisibility(Diary diary, {required bool show}) => updateADiary(
-    newDiary: diary.copyWith(show: show, lastModified: .timestamp()),
-    index: .skip,
-  );
+  Future<void> setVisibility(Diary diary, {required bool show}) async {
+    Diary? updated;
+    await _db.transaction(() async {
+      final current = await getDiaryByBusinessId(diary.id);
+      if (current == null) return;
+      updated = current.copyWith(show: show, lastModified: .timestamp());
+      await _upsertRow(updated!);
+    });
+    if (updated != null) _notifyDiaryEvent(DiaryUpdated(updated!));
+  }
 
   Future<bool> deleteADiary(String id) async {
     final diary = await getDiaryByBusinessId(id);
     if (diary == null) return false;
-    await _tombstoneAndDelete(diary);
-    await _cleanLocalMedia(diary);
+    final keys = _leaseKeysFor([diary]);
+    final lease = keys.isEmpty ? null : await MediaGuard().acquireAll(keys);
+    try {
+      await _tombstoneAndDelete(
+        diary,
+        persistMedia: true,
+        hasLease: lease != null,
+      );
+    } finally {
+      await lease?.release();
+    }
+    if (lease != null) await drainMediaCleanupQueue();
     return true;
   }
 
@@ -359,9 +572,21 @@ class DiaryRepository {
   Future<SyncTombstone> _tombstoneAndDelete(
     Diary diary, {
     bool fromSync = false,
+    bool persistMedia = false,
+    bool hasLease = false,
   }) async {
     final tombstone = SyncTombstone.forDiary(diary.id, at: .timestamp());
     await _db.transaction(() async {
+      if (persistMedia) {
+        final current = await getDiaryByBusinessId(diary.id);
+        if (current != null) {
+          final keys = _mediaKeysFor(current);
+          if (keys.isNotEmpty && !hasLease) {
+            throw StateError('Media changed while deleting the diary; retry');
+          }
+          if (keys.isNotEmpty) await MediaCleanupQueue().enqueue(keys);
+        }
+      }
       await _deleteRow(diary.id);
       await _db
           .into(_db.tombstones)
@@ -411,31 +636,25 @@ class DiaryRepository {
   Future<bool> hardDeleteDiary(String id) async {
     final diary = await getDiaryByBusinessId(id);
     if (diary == null) return false;
-    await _cleanLocalMedia(diary);
-    await deleteDiariesByIds([id]);
-    return true;
-  }
-
-  static Future<void> _cleanLocalMedia(Diary diary) async {
-    for (final name in diary.imageName) {
-      try {
-        await AppFiles.deleteImage(name);
-      } catch (_) {}
-    }
-    for (final name in diary.audioName) {
-      try {
-        await AppFiles.deleteFile(AppFiles.getRealPath('audio', name));
-      } catch (_) {}
-    }
-    for (final name in diary.videoName) {
-      try {
-        await AppFiles.deleteFile(AppFiles.getRealPath('video', name));
-        final thumbName = AppFiles.thumbnailNameOf(name);
-        if (thumbName != null) {
-          await AppFiles.deleteFile(AppFiles.getRealPath('video', thumbName));
+    final keys = _leaseKeysFor([diary]);
+    final lease = keys.isEmpty ? null : await MediaGuard().acquireAll(keys);
+    try {
+      await _db.transaction(() async {
+        final current = await getDiaryByBusinessId(id);
+        if (current == null) return;
+        final freshKeys = _mediaKeysFor(current);
+        if (freshKeys.isNotEmpty && lease == null) {
+          throw StateError('Media changed while deleting the diary; retry');
         }
-      } catch (_) {}
+        if (freshKeys.isNotEmpty) await MediaCleanupQueue().enqueue(freshKeys);
+        await _deleteRow(id);
+      });
+    } finally {
+      await lease?.release();
     }
+    _notifyDiaryEvent(DiaryDeleted(id));
+    if (lease != null) await drainMediaCleanupQueue();
+    return true;
   }
 
   SimpleSelectStatement<Diaries, DiaryRow> _visible() =>
@@ -952,6 +1171,201 @@ class DiaryRepository {
     return (images: images, audios: audios, videos: videos);
   }
 
+  /// Rechecks and deletes only these candidates while media users are idle.
+  ///
+  /// A caller must persist candidates before removing their database references
+  /// and retry deferred work. Never call while holding a shared media lease.
+  Future<MediaCleanupOutcome> cleanMediaCandidates(
+    Iterable<MediaKey> candidates,
+  ) async {
+    final seen = <(MediaType, String)>{};
+    final keys = [
+      for (final key in candidates)
+        if (seen.add((key.type, key.name))) key,
+    ];
+    if (keys.isEmpty) return const MediaCleanupOutcome();
+    if (keys.any((key) => !MediaGuard.supportsDeletion(key))) {
+      return MediaCleanupOutcome(deferred: keys.length);
+    }
+
+    var deleted = 0;
+    var retained = 0;
+    var deferred = 0;
+    final first = keys.first;
+    final exclusive = await MediaGuard().tryExclusive(
+      first.type,
+      first.name,
+      () async {
+        final refs = await _safeMediaReferences();
+        if (refs == null) {
+          deferred = keys.length;
+          return;
+        }
+        for (final key in keys) {
+          if (_mediaIsReferenced(key, refs)) {
+            retained++;
+            continue;
+          }
+          switch (key.type) {
+            case MediaType.image:
+              if (_hasSharedImageStem(key.name, refs.images)) {
+                // Another original may share the derived thumbnails.
+                if (await AppFiles.deleteFile(
+                  AppFiles.getRealPath('image', key.name),
+                )) {
+                  deleted++;
+                }
+              } else {
+                final paths = [
+                  AppFiles.getRealPath('image', key.name),
+                  for (final name in FastImageDerivatives.derivativeNamesOf(
+                    key.name,
+                  ))
+                    '${AppFiles.imageThumbDir}${Platform.pathSeparator}$name',
+                ];
+                final existed = <String>[];
+                for (final path in paths) {
+                  if (await File(path).exists()) existed.add(path);
+                }
+                await AppFiles.deleteImage(key.name);
+                for (final path in existed) {
+                  if (await File(path).exists()) {
+                    throw const FileSystemException(
+                      'Media derivative cleanup failed',
+                    );
+                  }
+                }
+                if (existed.contains(paths.first)) deleted++;
+              }
+            case MediaType.audio:
+              if (await AppFiles.deleteFile(
+                AppFiles.getRealPath('audio', key.name),
+              )) {
+                deleted++;
+              }
+            case MediaType.video:
+              if (await AppFiles.deleteFile(
+                AppFiles.getRealPath('video', key.name),
+              )) {
+                deleted++;
+              }
+              final thumbnail = AppFiles.thumbnailNameOf(key.name);
+              if (thumbnail != null) {
+                if (await AppFiles.deleteFile(
+                  AppFiles.getRealPath('video', thumbnail),
+                )) {
+                  deleted++;
+                }
+              }
+          }
+        }
+      },
+    );
+    return MediaCleanupOutcome(
+      deleted: deleted,
+      retained: retained,
+      deferred: exclusive ? deferred : keys.length,
+    );
+  }
+
+  Future<
+    ({
+      Set<String> images,
+      Set<String> audios,
+      Set<String> videos,
+      List<String> bodies,
+    })?
+  >
+  _safeMediaReferences() async {
+    // Until legacy migration finishes, SQLite does not include all diary and
+    // chat references. Directory enumeration propagates permission failures
+    // instead of treating an inaccessible file as absent.
+    try {
+      final directory = Directory(AppFiles.getRealPath('database', ''));
+      await for (final entry in directory.list(followLinks: false)) {
+        final segments = entry.path.split(RegExp(r'[/\\]'));
+        if (segments.last.toLowerCase() == 'default.isar') return null;
+      }
+    } on PathNotFoundException {
+      // A missing database directory cannot contain a legacy database.
+    }
+    final refs = await collectReferencedMedia();
+    final bodies = <String>[];
+    for (final diary in await getAllDiaries()) {
+      // A missing or malformed document cannot prove that its index is
+      // complete; retain all candidates until the data can be repaired.
+      if (diary.type == DiaryType.tiptap.value) {
+        if (!TiptapContent.parse(diary.content).isDoc) return null;
+      } else if (diary.type == DiaryType.richText.value) {
+        try {
+          final value = jsonDecode(diary.content);
+          if (value is! List && (value is! Map || value['ops'] is! List)) {
+            return null;
+          }
+        } on FormatException {
+          return null;
+        }
+      } else if (diary.type != DiaryType.markdown.value) {
+        return null;
+      }
+      final derived = DiaryContent.of(diary).media;
+      refs.images.addAll(derived.images);
+      refs.audios.addAll(derived.audios);
+      refs.videos.addAll(derived.videos);
+      for (final name in derived.videos) {
+        final thumbnail = AppFiles.thumbnailNameOf(name);
+        if (thumbnail != null) refs.videos.add(thumbnail);
+      }
+      bodies.add(diary.content.toLowerCase());
+    }
+    for (final (type, names) in [
+      (MediaType.image, refs.images),
+      (MediaType.audio, refs.audios),
+      (MediaType.video, refs.videos),
+    ]) {
+      if (names.any(
+        (name) => !MediaGuard.supportsDeletion(MediaKey(type, name)),
+      )) {
+        return null;
+      }
+    }
+    return (
+      images: refs.images,
+      audios: refs.audios,
+      videos: refs.videos,
+      bodies: bodies,
+    );
+  }
+
+  bool _mediaIsReferenced(
+    MediaKey key,
+    ({
+      Set<String> images,
+      Set<String> audios,
+      Set<String> videos,
+      List<String> bodies,
+    })
+    refs,
+  ) {
+    final name = key.name.toLowerCase();
+    final names = switch (key.type) {
+      MediaType.image => refs.images,
+      MediaType.audio => refs.audios,
+      MediaType.video => refs.videos,
+    };
+    if (names.any((value) => value.toLowerCase() == name)) return true;
+    return refs.bodies.any((body) => body.contains(name));
+  }
+
+  bool _hasSharedImageStem(String name, Set<String> references) {
+    String stem(String value) {
+      final dot = value.lastIndexOf('.');
+      return (dot < 0 ? value : value.substring(0, dot)).toLowerCase();
+    }
+
+    return references.any((value) => stem(value) == stem(name));
+  }
+
   static const _ftsRowId = CustomExpression<int>('${DiaryFts.$name}.rowid');
 
   /// 汉字切成词短语、拉丁串展开成拼音候选，多个词之间是 AND。
@@ -1260,12 +1674,31 @@ class DiaryRepository {
   }
 
   Future<DiaryRepairReport> repairData() async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'repair-data');
+    try {
+      return await _repairData();
+    } finally {
+      await lease.release();
+      await drainMediaCleanupQueue();
+    }
+  }
+
+  Future<DiaryRepairReport> _repairData() async {
     final diaries = await getAllDiaries();
     final categoryIds = {
       for (final row in await _db.select(_db.categories).get()) row.id,
     };
 
-    final updates = <Diary>[];
+    final updates =
+        <
+          ({
+            Diary original,
+            Diary next,
+            bool contentTextFixed,
+            bool mediaFixed,
+            bool orphanCategoryFixed,
+          })
+        >[];
     var contentTextFixed = 0;
     var mediaFixed = 0;
     var orphanCategoryFixed = 0;
@@ -1273,13 +1706,16 @@ class DiaryRepository {
     for (final diary in diaries) {
       var next = diary;
       var changed = false;
+      var fixedText = false;
+      var fixedMedia = false;
+      var fixedCategory = false;
       final derived = DiaryContent.of(diary);
 
       final plain = derived.plainText;
       if (plain != diary.contentText) {
         next = next.copyWith(contentText: plain);
         changed = true;
-        contentTextFixed++;
+        fixedText = true;
       }
       final media = derived.media;
       if (!_sameNameSet(media.images, diary.imageName) ||
@@ -1291,7 +1727,7 @@ class DiaryRepository {
           audioName: media.audios,
         );
         changed = true;
-        mediaFixed++;
+        fixedMedia = true;
       }
       final categoryId = diary.categoryId;
       if (categoryId != null &&
@@ -1299,19 +1735,42 @@ class DiaryRepository {
           !categoryIds.contains(categoryId)) {
         next = next.copyWith(categoryId: null);
         changed = true;
-        orphanCategoryFixed++;
+        fixedCategory = true;
       }
-      if (changed) updates.add(next);
+      if (changed) {
+        updates.add((
+          original: diary,
+          next: next,
+          contentTextFixed: fixedText,
+          mediaFixed: fixedMedia,
+          orphanCategoryFixed: fixedCategory,
+        ));
+      }
     }
 
+    final applied = <Diary>[];
     if (updates.isNotEmpty) {
       await _db.transaction(() async {
-        for (final diary in updates) {
-          await _upsertRow(diary);
-          await _syncChildren(diary);
+        for (final update in updates) {
+          final current = await getDiaryByBusinessId(update.original.id);
+          if (current != update.original) continue;
+          final remaining = {
+            for (final key in _mediaKeysFor(update.next)) (key.type, key.name),
+          };
+          final removed = [
+            for (final key in _mediaKeysFor(update.original))
+              if (!remaining.contains((key.type, key.name))) key,
+          ];
+          if (removed.isNotEmpty) await MediaCleanupQueue().enqueue(removed);
+          await _upsertRow(update.next);
+          await _syncChildren(update.next);
+          applied.add(update.next);
+          if (update.contentTextFixed) contentTextFixed++;
+          if (update.mediaFixed) mediaFixed++;
+          if (update.orphanCategoryFixed) orphanCategoryFixed++;
         }
       });
-      for (final diary in updates) {
+      for (final diary in applied) {
         _notifyDiaryEvent(DiaryUpdated(diary));
       }
     }
@@ -1319,7 +1778,7 @@ class DiaryRepository {
     final reindexed = await rebuildAllIndexes();
     return DiaryRepairReport(
       scanned: diaries.length,
-      changed: updates.length,
+      changed: applied.length,
       contentTextFixed: contentTextFixed,
       mediaFixed: mediaFixed,
       orphanCategoryFixed: orphanCategoryFixed,

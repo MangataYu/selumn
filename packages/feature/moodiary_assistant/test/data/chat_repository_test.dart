@@ -1,20 +1,83 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_assistant/src/data/chat_repository.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 void main() {
   late MoodiaryDatabase db;
   late ChatRepository repo;
+  late Directory mediaRoot;
+
+  setUpAll(() {
+    mediaRoot = Directory.systemTemp.createTempSync('chat-media-guard');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+  });
+
+  tearDownAll(() async => mediaRoot.delete(recursive: true));
 
   setUp(() {
     db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
     repo = ChatRepository(db);
   });
 
-  tearDown(() => db.close());
+  tearDown(() async {
+    await db.close();
+    for (final request in await MediaCleanupQueue().pending()) {
+      await request.complete();
+    }
+  });
+
+  test(
+    'queues an image when its chat message is removed or replaced',
+    () async {
+      final session = ChatSession.create(providerId: 'a', model: 'm');
+      await repo.upsertSession(session);
+      final message = ChatMessage.create(
+        sessionId: session.id,
+        role: 'user',
+        content: 'image',
+      ).copyWith(imageName: 'image-old.jpg');
+      await repo.addMessage(message);
+      expect(await MediaCleanupQueue().pending(), isEmpty);
+
+      await repo.addMessage(message.copyWith(imageName: 'image-new.jpg'));
+      var pending = await MediaCleanupQueue().pending();
+      expect(pending.single.candidates.single.name, 'image-old.jpg');
+      await pending.single.complete();
+
+      await repo.deleteMessage(message.id);
+      pending = await MediaCleanupQueue().pending();
+      expect(pending.single.candidates.single.name, 'image-new.jpg');
+    },
+  );
+
+  test('queues all unique images before deleting a chat session', () async {
+    final session = ChatSession.create(providerId: 'a', model: 'm');
+    await repo.upsertSession(session);
+    for (final name in ['image-one.jpg', 'image-two.jpg', 'image-one.jpg']) {
+      await repo.addMessage(
+        ChatMessage.create(
+          sessionId: session.id,
+          role: 'user',
+          content: 'image',
+        ).copyWith(imageName: name),
+      );
+    }
+
+    await repo.deleteSession(session.id);
+    final pending = await MediaCleanupQueue().pending();
+    expect(pending.single.candidates.map((key) => key.name).toSet(), {
+      'image-one.jpg',
+      'image-two.jpg',
+    });
+    expect(await repo.getSession(session.id), isNull);
+  });
 
   test('countSessionsByProvider 只数钉住该供应商的会话', () async {
     for (final p in ['a', 'a', 'b']) {

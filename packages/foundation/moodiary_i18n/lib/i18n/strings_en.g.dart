@@ -45,6 +45,7 @@ class TranslationsEn extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$media$en media = _Translations$media$en._(_root);
 	@override late final _Translations$picker$en picker = _Translations$picker$en._(_root);
 	@override late final _Translations$share$en share = _Translations$share$en._(_root);
+	@override late final _Translations$storage$en storage = _Translations$storage$en._(_root);
 	@override late final _Translations$sync$en sync = _Translations$sync$en._(_root);
 	@override late final _Translations$ui$en ui = _Translations$ui$en._(_root);
 }
@@ -1209,6 +1210,35 @@ class _Translations$share$en extends Translations$share$zh {
 	@override String get saveToAlbumFailed => 'Could not save — check Photos permission';
 	@override String get subject => 'Shared from Selume';
 	@override String generating({required Object format}) => 'Generating ${format}…';
+}
+
+// Path: storage
+class _Translations$storage$en extends Translations$storage$zh {
+	_Translations$storage$en._(TranslationsEn root) : this._root = root, super.internal(root);
+
+	final TranslationsEn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Storage';
+	@override String get used => 'App storage used';
+	@override String get database => 'Diary data';
+	@override String get media => 'Images, audio and video';
+	@override String get model => 'AI models';
+	@override String get font => 'Fonts';
+	@override String get logs => 'Logs';
+	@override String get cache => 'Cache';
+	@override String get other => 'Other';
+	@override String get loading => 'Counting storage…';
+	@override String get failed => 'Could not count storage';
+	@override String get retry => 'Retry';
+	@override String get manageModels => 'Manage models';
+	@override String get cleanDownloads => 'Clear incomplete model downloads';
+	@override String get cleanDownloadsDescription => 'Only incomplete model download files are removed. Downloaded models are kept.';
+	@override String get cleanConfirm => 'Clear';
+	@override String get cleaning => 'Cleaning; waiting for an active download if needed…';
+	@override String cleanDone({required Object count, required Object size}) => 'Cleared ${count} files, freeing ${size}';
+	@override String cleanPartial({required Object count, required Object size, required Object failed}) => 'Cleared ${count} files, freeing ${size}; ${failed} files could not be cleared';
+	@override String get cleanFailed => 'Could not clear downloads. Please try again.';
 }
 
 // Path: sync

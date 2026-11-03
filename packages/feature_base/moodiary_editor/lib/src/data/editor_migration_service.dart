@@ -73,6 +73,25 @@ class EditorMigrationService {
 
   static Future<bool> migrate(Diary diary) async {
     if (DiaryType.fromValue(diary.type) == .tiptap) return false;
+    // The list of pending diaries is a snapshot. Keep media protected from the
+    // fresh read through the update, and do not recreate a deleted diary.
+    final lease = await MediaGuard().acquire(
+      MediaType.image,
+      'editor-migration',
+    );
+    try {
+      final current = await getIt<DiaryRepository>().getDiaryByBusinessId(
+        diary.id,
+      );
+      if (current == null) return false;
+      return await _migrateCurrent(current);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  static Future<bool> _migrateCurrent(Diary diary) async {
+    if (DiaryType.fromValue(diary.type) == .tiptap) return false;
     final json = TiptapContent.ensureMedia(
       _toJson(diary),
       images: diary.imageName,

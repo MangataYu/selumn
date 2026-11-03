@@ -5,7 +5,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_lint/testing.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_sync/src/data/archive_apply.dart';
 import 'package:moodiary_sync/src/data/codec.dart';
@@ -13,6 +15,7 @@ import 'package:moodiary_sync/src/data/impl/local_archive.dart';
 import 'package:moodiary_sync/src/data/incremental_engine.dart';
 import 'package:moodiary_sync/src/data/model/manifest.dart';
 import 'package:moodiary_sync/src/data/sync.dart';
+import 'package:moodiary_sync/src/data/sync_stores.dart';
 import 'package:path/path.dart' as p;
 
 import '../sync_test_harness.dart';
@@ -65,8 +68,46 @@ final class DirArchiveSink implements ArchiveSink {
   Future<void> finish() async {}
 }
 
+final class _GatedArchiveBackend extends Fake implements RemoteObjectStore {
+  _GatedArchiveBackend(String root) : _delegate = LocalArchiveBackend(root);
+
+  final LocalArchiveBackend _delegate;
+  final mediaStarted = Completer<void>();
+  final allowMedia = Completer<void>();
+  int mediaReads = 0;
+
+  @override
+  String get displayName => 'test archive';
+
+  @override
+  String? get persistentBackendId => null;
+
+  @override
+  bool get supportsFileObjects => true;
+
+  @override
+  Future<Uint8List?> readObject(String key) => _delegate.readObject(key);
+
+  @override
+  Future<bool> readObjectToFile(String key, String filePath) async {
+    if (key == 'media/audio/audio-shared.m4a') {
+      mediaReads++;
+      if (!mediaStarted.isCompleted) mediaStarted.complete();
+      await allowMedia.future;
+    }
+    return _delegate.readObjectToFile(key, filePath);
+  }
+}
+
 void main() {
   late Directory tmp;
+  late Directory cacheRoot;
+
+  setUpAll(() async {
+    cacheRoot = await Directory.systemTemp.createTemp('archive-sync-cache-');
+    PlatformService.get().applicationCachePath = cacheRoot.path;
+  });
+  tearDownAll(() async => cacheRoot.delete(recursive: true));
 
   setUp(() async {
     await setUpSyncEnv();
@@ -300,6 +341,114 @@ void main() {
       );
       return dir;
     }
+
+    test('shared media downloads once and waits for another process', () async {
+      await putMedia('audio', 'audio-shared.m4a');
+      final dir = await buildArchiveDir(
+        diaries: [
+          buildDiary(id: 'a', audios: ['audio-shared.m4a']),
+          buildDiary(id: 'b', audios: ['audio-shared.m4a']),
+        ],
+      );
+      final target = Directory(p.join(tmp.path, 'target'));
+      await target.create();
+      final canonicalRoot = await target.resolveSymbolicLinks();
+      final lockPath = mediaDownloadLockPath(
+        canonicalRoot,
+        'audio',
+        'audio-shared.m4a',
+      );
+      await File(lockPath).parent.create(recursive: true);
+      final executable = Platform.isWindows ? 'dart.exe' : 'dart';
+      final cache = File(Platform.resolvedExecutable)
+          .parent
+          .parent
+          .parent
+          .parent;
+      final sdkDart = File(p.join(cache.path, 'dart-sdk', 'bin', executable));
+      final holder = await Process.start(
+        await sdkDart.exists() ? sdkDart.path : executable,
+        [
+          p.join(
+            repoRoot,
+            'packages',
+            'feature_base',
+            'moodiary_ml',
+            'test',
+            'fixtures',
+            'model_lock_holder.dart',
+          ),
+          lockPath,
+        ],
+      );
+      addTearDown(() async {
+        holder.kill();
+        await holder.exitCode;
+      });
+      expect(
+        await holder.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .first,
+        'locked',
+      );
+
+      final backend = _GatedArchiveBackend(dir);
+      final diaries = FakeDiaryStore();
+      final manifest = SyncManifest.fromJson(
+        jsonDecode(await File(p.join(dir, 'manifest.json')).readAsString())
+            as Map<String, dynamic>,
+      );
+      final applying = ArchiveApplier(
+        backend,
+        policy: const RestorePolicy(),
+        diaryStore: diaries,
+        categoryStore: FakeCategoryStore(),
+        placeStore: FakePlaceStore(),
+        mediaInfoStore: FakeMediaInfoStore(),
+        tombstoneStore: diaries.tombstones,
+        mediaFiles: DiskSyncMediaFiles(baseDir: target.path),
+        cipherProvider: () async => SyncCipher.plaintext,
+      ).apply(manifest);
+
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(
+        backend.mediaReads,
+        0,
+        reason: 'the other process holds the media lock',
+      );
+      expect(
+        await File(p.join(target.path, 'audio', 'audio-shared.m4a')).exists(),
+        isFalse,
+      );
+      holder.stdin.writeln('release');
+      await holder.stdin.flush();
+      expect(await holder.exitCode, 0);
+
+      await backend.mediaStarted.future.timeout(const Duration(seconds: 5));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(
+        backend.mediaReads,
+        1,
+        reason: 'both diaries share one in-flight download',
+      );
+      backend.allowMedia.complete();
+      final report = await applying;
+      expect(report.failed, 0);
+      expect(diaries.diaries.keys.toSet(), {'a', 'b'});
+      expect(
+        await File(p.join(target.path, 'audio', 'audio-shared.m4a'))
+            .readAsString(),
+        'audio-shared.m4a',
+      );
+      expect(
+        await Directory(p.join(target.path, 'audio'))
+            .list()
+            .where((entry) => entry.path.endsWith('.part'))
+            .isEmpty,
+        isTrue,
+      );
+    });
 
     test('缺 manifest.json 且非旧包 → errNotBackup', () async {
       final dir = p.join(tmp.path, 'empty');

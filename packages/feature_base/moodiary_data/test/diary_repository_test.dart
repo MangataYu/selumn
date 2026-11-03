@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 
@@ -74,8 +76,16 @@ void main() {
   late MoodiaryDatabase db;
   late DiaryRepository repo;
 
-  setUpAll(() {
+  late Directory mediaRoot;
+  setUpAll(() async {
+    mediaRoot = await Directory.systemTemp.createTemp('diary_repository_');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+    PlatformService.get().applicationCachePath = mediaRoot.path;
     getIt.registerSingleton<IKVStorage>(MemoryKVStorage());
+  });
+  tearDownAll(() async {
+    await getIt.reset();
+    await mediaRoot.delete(recursive: true);
   });
 
   MoodiaryDatabase openDb() => MoodiaryDatabase.forTesting(

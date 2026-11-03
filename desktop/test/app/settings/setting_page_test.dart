@@ -46,6 +46,10 @@ Future<GoRouter> _pumpSettings(WidgetTester tester) async {
             path: AccountRoute.path,
             builder: (_, _) => const Scaffold(body: Text('optional account')),
           ),
+          GoRoute(
+            path: StorageRoute.path,
+            builder: (_, _) => const Scaffold(body: Text('storage page')),
+          ),
         ],
       ),
     ],
@@ -102,6 +106,13 @@ void main() {
     expect(find.byType(DesktopSettingPage), findsOneWidget);
     expect(find.text(l10n.app.syncBackup), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('storage settings open from the settings page', (tester) async {
+    await _pumpSettings(tester);
+    await tester.tap(find.text(l10n.storage.title));
+    await tester.pumpAndSettle();
+    expect(find.text('storage page'), findsOneWidget);
   });
 
   testWidgets('language selection closes its dialog and keeps settings open', (

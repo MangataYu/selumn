@@ -4,6 +4,7 @@ import 'package:moodiary_mobile/app/settings/presentation/diary_setting_page.dar
 import 'package:moodiary_mobile/app/settings/presentation/font_page.dart';
 import 'package:moodiary_mobile/app/settings/presentation/services_page.dart';
 import 'package:moodiary_mobile/app/settings/presentation/setting_page.dart';
+import 'package:moodiary_preferences/moodiary_preferences.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 
 class FontRoute extends MoodiaryRouteBase {
@@ -38,6 +39,11 @@ class DiarySettingRoute extends MoodiaryRouteBase {
 
 List<RouteBase> settingRoutes() => [
   GoRoute(path: SettingRoute.path, builder: (_, _) => const SettingPage()),
+  GoRoute(
+    path: StorageRoute.path,
+    builder: (context, _) =>
+        StoragePage(onManageModels: () => const ServicesRoute().push(context)),
+  ),
   GoRoute(
     path: DiarySettingRoute.path,
     builder: (_, _) => const DiarySettingPage(),

@@ -8,6 +8,7 @@ import 'package:moodiary_components/moodiary_components.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_editor/moodiary_editor.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -74,6 +75,7 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
   Timer? _writingTimer;
 
   late EditController _notifier;
+  late final Future<MediaLease> _mediaLease;
 
   String? _guardId;
 
@@ -126,6 +128,10 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
   @override
   void initState() {
     super.initState();
+    _mediaLease = Future.sync(
+      () => MediaGuard().acquire(MediaType.image, 'diary-editor-session'),
+    );
+    _mediaLease.ignore();
     WidgetsBinding.instance.addObserver(this);
     _writingTimer = .periodic(
       const Duration(seconds: 1),
@@ -266,6 +272,15 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
       } finally {
         guardSub?.close();
         if (guardId != null) getIt<OpenDiaryRegistry>().close(guardId);
+        try {
+          await (await _mediaLease).release();
+        } catch (error, stack) {
+          logger.e(
+            'media lease release failed',
+            error: error,
+            stackTrace: stack,
+          );
+        }
       }
     }();
     super.dispose();
@@ -567,6 +582,21 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<MediaLease>(
+      future: _mediaLease,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text(context.l10n.common.loadFailed)),
+          );
+        }
+        if (!snapshot.hasData) return const Scaffold(body: MLoading());
+        return _buildReady(context);
+      },
+    );
+  }
+
+  Widget _buildReady(BuildContext context) {
     final editAsync = ref.watch(_provider);
     if (editAsync.hasValue && _hopTarget?.id == widget.diaryId) {
       _hopTarget = null;

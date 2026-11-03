@@ -32,8 +32,25 @@ class MediaManager {
     XFile imageFile, {
     bool reuseExisting = true,
   }) async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'save-image');
+    try {
+      return await _saveImage(imageFile, reuseExisting: reuseExisting);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  static Future<String?> _saveImage(
+    XFile imageFile, {
+    required bool reuseExisting,
+  }) async {
     final srcName = basename(imageFile.path);
-    if (reuseExisting && srcName.startsWith('image-')) return srcName;
+    if (reuseExisting && srcName.startsWith('image-')) {
+      final localPath = AppFiles.getRealPath('image', srcName);
+      if (equals(absolute(imageFile.path), absolute(localPath))) {
+        return await File(localPath).exists() ? srcName : null;
+      }
+    }
     try {
       final mime = await _sniffMime(imageFile.path);
       final String name;
@@ -48,11 +65,34 @@ class MediaManager {
         name = 'image-${uuidV7()}${_extensionFor(mime, imageFile.path)}';
         await imageFile.saveTo(AppFiles.getRealPath('image', name));
       }
-      unawaited(FastImageDerivatives.warm(AppFiles.getRealPath('image', name)));
+      final warmLease = await MediaGuard().acquire(MediaType.image, name);
+      unawaited(_warmImage(name, warmLease));
       return name;
     } catch (e) {
       logger.d('saveImage failed: ${imageFile.path} ($e)');
       return null;
+    }
+  }
+
+  static Future<void> _warmImage(String name, MediaLease lease) async {
+    try {
+      await FastImageDerivatives.warm(AppFiles.getRealPath('image', name));
+    } catch (error, stack) {
+      logger.e(
+        'image derivative preparation failed',
+        error: error,
+        stackTrace: stack,
+      );
+    } finally {
+      try {
+        await lease.release();
+      } catch (error, stack) {
+        logger.e(
+          'image media lease release failed',
+          error: error,
+          stackTrace: stack,
+        );
+      }
     }
   }
 
@@ -84,13 +124,31 @@ class MediaManager {
     required List<XFile> videoFileList,
     bool reuseExisting = true,
   }) async {
+    final lease = await MediaGuard().acquire(MediaType.video, 'save-video');
+    try {
+      return await _saveVideo(videoFileList, reuseExisting: reuseExisting);
+    } finally {
+      await lease.release();
+    }
+  }
+
+  static Future<Map<String, String>> _saveVideo(
+    List<XFile> videoFileList, {
+    required bool reuseExisting,
+  }) async {
     final Map<String, String> videoNameMap = {};
 
     await Future.wait(
       videoFileList.map((videoFile) async {
-        if (reuseExisting && basename(videoFile.path).startsWith('video-')) {
-          videoNameMap[videoFile.path] = basename(videoFile.path);
-          return;
+        final srcName = basename(videoFile.path);
+        if (reuseExisting && srcName.startsWith('video-')) {
+          final localPath = AppFiles.getRealPath('video', srcName);
+          if (equals(absolute(videoFile.path), absolute(localPath))) {
+            if (await File(localPath).exists()) {
+              videoNameMap[videoFile.path] = srcName;
+            }
+            return;
+          }
         }
         final uuid = uuidV7();
         final videoName = 'video-$uuid.mp4';

@@ -1,0 +1,7 @@
+"NSCameraUsageDescription" = "Selume 使用相机拍摄照片和视频，以便添加到日记或向助手发送照片。";
+"NSMicrophoneUsageDescription" = "Selume 使用麦克风录制语音和视频声音，以便添加到日记中。";
+"NSLocationWhenInUseUsageDescription" = "Selume 在你使用应用时获取位置，用于为日记添加地点和天气。";
+"NSPhotoLibraryUsageDescription" = "Selume 读取照片图库，以便你将照片和视频添加到日记或向助手发送照片。";
+"NSPhotoLibraryAddUsageDescription" = "Selume 将照片和视频保存到照片图库。";
+"NSFaceIDUsageDescription" = "开启应用锁后，Selume 使用面容 ID 解锁应用。";
+"NSLocalNetworkUsageDescription" = "Selume 使用本地网络，在同一 Wi-Fi 下与其他设备互传日记数据。";

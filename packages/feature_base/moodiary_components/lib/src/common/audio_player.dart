@@ -142,13 +142,15 @@ class AudioPlaybackController {
     await _player.setVolume(next ? 0 : 1);
   }
 
-  void dispose() {
+  Future<void> dispose() async {
     _seekGuard?.cancel();
-    _posSub.cancel();
-    _durSub.cancel();
-    _stateSub.cancel();
-    _completeSub.cancel();
-    _player.dispose();
+    await Future.wait([
+      _posSub.cancel(),
+      _durSub.cancel(),
+      _stateSub.cancel(),
+      _completeSub.cancel(),
+    ]);
+    await _player.dispose();
     activePath.dispose();
     progress.dispose();
   }

@@ -183,6 +183,27 @@ class DiskSyncMediaFiles implements SyncMediaFiles {
   final FileSystem _fs;
   final String _baseDir;
 
+  /// Coordinates local file use with media cleanup. In-memory test stores do
+  /// not share the app's filesystem and do not need a platform file lock.
+  Future<T> protectMedia<T>(Future<T> Function() action) async {
+    if (_fs is! LocalFileSystem) return action();
+    final lease = await MediaGuard(supportPath: _baseDir)
+        .acquire(MediaType.image, 'sync-operation');
+    try {
+      return await action();
+    } finally {
+      await lease.release();
+    }
+  }
+
+  bool get usesLocalFiles => _fs is LocalFileSystem;
+
+  Future<void> queueCleanup(Iterable<(String, String)> entries) =>
+      MediaCleanupQueue(supportPath: _baseDir).enqueue([
+        for (final (type, name) in entries)
+          MediaKey(MediaType.getTypeFromValue(type), name),
+      ]);
+
   File _file(String type, String filename) {
     _rejectPathEscape(type);
     _rejectPathEscape(filename);

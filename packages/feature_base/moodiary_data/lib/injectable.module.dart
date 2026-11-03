@@ -38,6 +38,7 @@ class MoodiaryDataPackageModule extends _i526.MicroPackageModule {
     );
     gh.lazySingleton<_i1068.DiaryRepository>(
       () => _i1068.DiaryRepository(gh<_i527.MoodiaryDatabase>()),
+      dispose: (i) => i.dispose(),
     );
     gh.lazySingleton<_i377.FontRepository>(
       () => _i377.FontRepository(gh<_i527.MoodiaryDatabase>()),

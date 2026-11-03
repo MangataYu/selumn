@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:photo_view/photo_view.dart';
 
 import 'derivatives.dart';
+import 'runtime.dart';
 import 'rust/api/image.dart';
 import 'tile_view.dart';
 
@@ -14,7 +15,10 @@ class FastTileSource {
 
   const FastTileSource({required this.size, required this.decodePath});
 
-  static Future<FastTileSource?> resolve(String path) async {
+  static Future<FastTileSource?> resolve(String path) =>
+      FastImageRuntime.withMediaRead(() => _resolve(path));
+
+  static Future<FastTileSource?> _resolve(String path) async {
     final probe = await FastImageCodec.probe(filePath: path);
     final size = Size(probe.width.toDouble(), probe.height.toDouble());
     if (probe.regionDecodable) {

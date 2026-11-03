@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$media$zh media = Translations$media$zh.internal(_root);
 	late final Translations$picker$zh picker = Translations$picker$zh.internal(_root);
 	late final Translations$share$zh share = Translations$share$zh.internal(_root);
+	late final Translations$storage$zh storage = Translations$storage$zh.internal(_root);
 	late final Translations$sync$zh sync = Translations$sync$zh.internal(_root);
 	late final Translations$ui$zh ui = Translations$ui$zh.internal(_root);
 }
@@ -3308,6 +3309,75 @@ class Translations$share$zh {
 
 	/// zh: '正在生成 {format}…'
 	String generating({required Object format}) => '正在生成 ${format}…';
+}
+
+// Path: storage
+class Translations$storage$zh {
+	Translations$storage$zh.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// zh: '存储空间'
+	String get title => '存储空间';
+
+	/// zh: '应用占用'
+	String get used => '应用占用';
+
+	/// zh: '日记数据'
+	String get database => '日记数据';
+
+	/// zh: '图片、音频与视频'
+	String get media => '图片、音频与视频';
+
+	/// zh: 'AI 模型'
+	String get model => 'AI 模型';
+
+	/// zh: '字体'
+	String get font => '字体';
+
+	/// zh: '日志'
+	String get logs => '日志';
+
+	/// zh: '缓存'
+	String get cache => '缓存';
+
+	/// zh: '其他'
+	String get other => '其他';
+
+	/// zh: '正在统计存储空间…'
+	String get loading => '正在统计存储空间…';
+
+	/// zh: '无法统计存储空间'
+	String get failed => '无法统计存储空间';
+
+	/// zh: '重试'
+	String get retry => '重试';
+
+	/// zh: '管理模型'
+	String get manageModels => '管理模型';
+
+	/// zh: '清理未完成的模型下载'
+	String get cleanDownloads => '清理未完成的模型下载';
+
+	/// zh: '只删除未完成的模型下载文件，不删除已下载的模型。'
+	String get cleanDownloadsDescription => '只删除未完成的模型下载文件，不删除已下载的模型。';
+
+	/// zh: '清理'
+	String get cleanConfirm => '清理';
+
+	/// zh: '正在清理，可能需要等待当前下载完成…'
+	String get cleaning => '正在清理，可能需要等待当前下载完成…';
+
+	/// zh: '已清理 {count} 个文件，释放 {size}'
+	String cleanDone({required Object count, required Object size}) => '已清理 ${count} 个文件，释放 ${size}';
+
+	/// zh: '已清理 {count} 个文件，释放 {size}；{failed} 个文件未能清理'
+	String cleanPartial({required Object count, required Object size, required Object failed}) => '已清理 ${count} 个文件，释放 ${size}；${failed} 个文件未能清理';
+
+	/// zh: '清理失败，请稍后重试'
+	String get cleanFailed => '清理失败，请稍后重试';
 }
 
 // Path: sync

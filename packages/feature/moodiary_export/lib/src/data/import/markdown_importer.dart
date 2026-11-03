@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
@@ -51,6 +52,26 @@ class MarkdownImporter {
   static const int _batchSize = 100;
 
   Future<MarkdownImportReport> run(
+    MarkdownImportSource source, {
+    void Function(int done, int total)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final lease = await MediaGuard().acquire(
+      MediaType.image,
+      'markdown-import',
+    );
+    try {
+      return await _run(
+        source,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      );
+    } finally {
+      await lease.release();
+    }
+  }
+
+  Future<MarkdownImportReport> _run(
     MarkdownImportSource source, {
     void Function(int done, int total)? onProgress,
     bool Function()? isCancelled,

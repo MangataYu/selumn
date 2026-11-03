@@ -168,6 +168,12 @@ class SettingRoute extends MoodiaryRouteBase {
   const SettingRoute() : super(path);
 }
 
+class StorageRoute extends MoodiaryRouteBase {
+  static const String path = '/setting/storage';
+
+  const StorageRoute() : super(path);
+}
+
 class EditorMigrationRoute extends MoodiaryRouteBase {
   static const String path = '/migration';
 

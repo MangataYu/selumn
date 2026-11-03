@@ -19,40 +19,42 @@ class LocalArchive {
   LocalArchive._();
 
   static Future<String> export() {
-    return IncrementalSyncEngine.runExclusive(() async {
-      final diaries = await RepoSyncDiaryStore().getAllDiaries();
-      final categories = await RepoSyncCategoryStore()
-          .getAllCategoriesForSync();
-      final places = await RepoSyncPlaceStore().getAllPlacesForSync();
-      final mediaInfos = await RepoSyncMediaInfoStore()
-          .getAllMediaInfosForSync();
-      final tombstones = await RepoSyncTombstoneStore().getAll();
-      final zipPath = p.join(
-        PlatformService.get().applicationCachePath,
-        _fileName(.now()),
-      );
-      await archive.FastZip.ensureInitialized();
-      final zip = await archive.Zip.newInstance(filePath: zipPath);
-      try {
-        await writeArchive(
-          sink: _RustZipSink(zip),
-          diaries: diaries,
-          categories: categories,
-          places: places,
-          mediaInfos: mediaInfos,
-          tombstones: tombstones,
-          mediaBaseDir: PlatformService.get().applicationSupportPath,
+    return IncrementalSyncEngine.runExclusive(
+      () => DiskSyncMediaFiles().protectMedia(() async {
+        final diaries = await RepoSyncDiaryStore().getAllDiaries();
+        final categories = await RepoSyncCategoryStore()
+            .getAllCategoriesForSync();
+        final places = await RepoSyncPlaceStore().getAllPlacesForSync();
+        final mediaInfos = await RepoSyncMediaInfoStore()
+            .getAllMediaInfosForSync();
+        final tombstones = await RepoSyncTombstoneStore().getAll();
+        final zipPath = p.join(
+          PlatformService.get().applicationCachePath,
+          _fileName(.now()),
         );
-      } catch (_) {
-        zip.dispose();
+        await archive.FastZip.ensureInitialized();
+        final zip = await archive.Zip.newInstance(filePath: zipPath);
         try {
-          await File(zipPath).delete();
-        } catch (_) {}
-        rethrow;
-      }
-      zip.dispose();
-      return zipPath;
-    });
+          await writeArchive(
+            sink: _RustZipSink(zip),
+            diaries: diaries,
+            categories: categories,
+            places: places,
+            mediaInfos: mediaInfos,
+            tombstones: tombstones,
+            mediaBaseDir: PlatformService.get().applicationSupportPath,
+          );
+        } catch (_) {
+          zip.dispose();
+          try {
+            await File(zipPath).delete();
+          } catch (_) {}
+          rethrow;
+        }
+        zip.dispose();
+        return zipPath;
+      }),
+    );
   }
 
   static String _fileName(DateTime now) {
@@ -65,42 +67,44 @@ class LocalArchive {
     required SyncManifest remote,
     required String zipPassword,
   }) {
-    return IncrementalSyncEngine.runExclusive(() async {
-      final diaries = await RepoSyncDiaryStore().getAllDiaries();
-      final categories = await RepoSyncCategoryStore()
-          .getAllCategoriesForSync();
-      final places = await RepoSyncPlaceStore().getAllPlacesForSync();
-      final mediaInfos = await RepoSyncMediaInfoStore()
-          .getAllMediaInfosForSync();
-      final tombstones = await RepoSyncTombstoneStore().getAll();
-      final zipPath = p.join(
-        PlatformService.get().applicationCachePath,
-        _fileName(.now()),
-      );
-      await archive.FastZip.ensureInitialized();
-      final zip = await archive.Zip.newInstance(filePath: zipPath);
-      final int count;
-      try {
-        count = await writeArchive(
-          sink: _RustZipSink(zip, zipPassword),
-          diaries: diaries,
-          categories: categories,
-          places: places,
-          mediaInfos: mediaInfos,
-          tombstones: tombstones,
-          mediaBaseDir: PlatformService.get().applicationSupportPath,
-          remote: remote,
+    return IncrementalSyncEngine.runExclusive(
+      () => DiskSyncMediaFiles().protectMedia(() async {
+        final diaries = await RepoSyncDiaryStore().getAllDiaries();
+        final categories = await RepoSyncCategoryStore()
+            .getAllCategoriesForSync();
+        final places = await RepoSyncPlaceStore().getAllPlacesForSync();
+        final mediaInfos = await RepoSyncMediaInfoStore()
+            .getAllMediaInfosForSync();
+        final tombstones = await RepoSyncTombstoneStore().getAll();
+        final zipPath = p.join(
+          PlatformService.get().applicationCachePath,
+          _fileName(.now()),
         );
-      } catch (_) {
-        zip.dispose();
+        await archive.FastZip.ensureInitialized();
+        final zip = await archive.Zip.newInstance(filePath: zipPath);
+        final int count;
         try {
-          await File(zipPath).delete();
-        } catch (_) {}
-        rethrow;
-      }
-      zip.dispose();
-      return (zipPath, count);
-    });
+          count = await writeArchive(
+            sink: _RustZipSink(zip, zipPassword),
+            diaries: diaries,
+            categories: categories,
+            places: places,
+            mediaInfos: mediaInfos,
+            tombstones: tombstones,
+            mediaBaseDir: PlatformService.get().applicationSupportPath,
+            remote: remote,
+          );
+        } catch (_) {
+          zip.dispose();
+          try {
+            await File(zipPath).delete();
+          } catch (_) {}
+          rethrow;
+        }
+        zip.dispose();
+        return (zipPath, count);
+      }),
+    );
   }
 
   static Future<SyncManifest> buildLocalManifest() async => buildManifest(

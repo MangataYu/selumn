@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_data/moodiary_data.dart';
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_mobile/app/welcome/welcome_diary_seeder.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -13,6 +14,8 @@ class _DiaryRepository extends Fake implements DiaryRepository {
   final List<Diary> diaries = [];
   int insertCalls = 0;
   bool failInsert = false;
+  bool failAfterInsert = false;
+  Future<void> Function()? onInsert;
 
   @override
   Future<int> countAllDiaries() async => diaries.length;
@@ -24,8 +27,18 @@ class _DiaryRepository extends Fake implements DiaryRepository {
     IndexMode index = IndexMode.inline,
   }) async {
     insertCalls++;
+    await onInsert?.call();
     if (failInsert) throw StateError('database unavailable');
     diaries.add(diary);
+    if (failAfterInsert) throw StateError('notification unavailable');
+  }
+
+  @override
+  Future<Diary?> getDiaryByBusinessId(String id) async {
+    for (final diary in diaries) {
+      if (diary.id == id) return diary;
+    }
+    return null;
   }
 }
 
@@ -93,6 +106,8 @@ void main() {
   late _DiaryRepository repository;
   late MemoryKVStorage storage;
   late Directory imageDirectory;
+  late Directory supportDirectory;
+  late MediaGuard mediaGuard;
   late _Assets assets;
   late WelcomeDiarySeeder seeder;
 
@@ -100,18 +115,21 @@ void main() {
     await LocaleSettings.setLocale(AppLocale.zh);
     repository = _DiaryRepository();
     storage = MemoryKVStorage();
-    imageDirectory = await Directory.systemTemp.createTemp('welcome-diary-');
+    supportDirectory = await Directory.systemTemp.createTemp('welcome-diary-');
+    imageDirectory = await Directory('${supportDirectory.path}/image').create();
+    mediaGuard = MediaGuard(supportPath: supportDirectory.path);
     assets = _Assets();
     seeder = WelcomeDiarySeeder(
       repository: repository,
       storage: storage,
       imageDirectory: imageDirectory,
       assets: assets,
+      mediaGuard: mediaGuard,
     );
   });
 
   tearDown(() async {
-    await imageDirectory.delete(recursive: true);
+    await supportDirectory.delete(recursive: true);
   });
 
   void prepare({
@@ -150,6 +168,29 @@ void main() {
     expect(storage.get<bool>(MoodiaryKVs.syncPendingLocal.name), isTrue);
     expect(repository.insertCalls, 1);
     expect(assets.loads, 1);
+  });
+
+  test('样例图片写入和日记提交期间禁止并发媒体清理', () async {
+    repository.onInsert = () async {
+      expect(
+        await mediaGuard.tryExclusive(
+          MediaType.image,
+          'candidate.jpg',
+          () async {},
+        ),
+        isFalse,
+      );
+    };
+    prepare();
+    await seeder.seed(migrationReady: true);
+    expect(
+      await mediaGuard.tryExclusive(
+        MediaType.image,
+        'candidate.jpg',
+        () async {},
+      ),
+      isTrue,
+    );
   });
 
   test('重复启动不创建副本，删除样例后也不恢复', () async {
@@ -287,6 +328,7 @@ void main() {
       storage: storage,
       imageDirectory: imageDirectory,
       assets: assets,
+      mediaGuard: mediaGuard,
     );
     prepare(hadDatabase: true);
     await seeder.seed(migrationReady: true);
@@ -297,6 +339,16 @@ void main() {
     expect(state(), 'completed');
   });
 
+  test('提交完成后的通知失败不删除已被日记引用的图片', () async {
+    prepare();
+    repository.failAfterInsert = true;
+    await expectLater(seeder.seed(migrationReady: true), throwsStateError);
+    final image = File(
+      '${imageDirectory.path}/${repository.diaries.single.imageName.single}',
+    );
+    expect(await image.exists(), isTrue);
+  });
+
   test('插入后的完成标记失败不会删除引用图片或重复创建日记', () async {
     final failingStorage = _FailingCompletionStorage();
     seeder = WelcomeDiarySeeder(
@@ -304,6 +356,7 @@ void main() {
       storage: failingStorage,
       imageDirectory: imageDirectory,
       assets: assets,
+      mediaGuard: mediaGuard,
     );
     prepare();
     await expectLater(
@@ -325,6 +378,7 @@ void main() {
       storage: failingStorage,
       imageDirectory: imageDirectory,
       assets: assets,
+      mediaGuard: mediaGuard,
     );
     prepare(hadDatabase: true);
     await seeder.seed(migrationReady: true);

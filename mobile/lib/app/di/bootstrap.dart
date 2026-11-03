@@ -17,6 +17,10 @@ import 'package:moodiary_sync/moodiary_sync.dart';
 Future<void> bootstrapPlatform() async {
   await PlatformService.get().init();
   await AppFiles.initCreateDir();
+  FastImageRuntime.mediaReadLeaseFactory = () async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'fast-image');
+    return lease.release;
+  };
   FastImageRuntime.configure(
     imageDir: AppFiles.imageDir,
     thumbDir: AppFiles.imageThumbDir,
@@ -37,6 +41,7 @@ void initializeUsageStartTime() {
 }
 
 void runStartupMaintenance() {
+  getIt<DiaryRepository>().startMediaCleanup();
   unawaited(purgeExpiredTombstones());
   unawaited(purgeSyncMediaTemp());
   unawaited(getIt<EmbedIndexService>().drain());
@@ -44,6 +49,15 @@ void runStartupMaintenance() {
 }
 
 Future<void> resetAllData() async {
+  final reset = await MediaGuard().tryExclusive(
+    MediaType.image,
+    'reset-data',
+    _resetAllDataWhileMediaIdle,
+  );
+  if (!reset) throw StateError('Media is currently in use');
+}
+
+Future<void> _resetAllDataWhileMediaIdle() async {
   final failed = <String>[];
   Future<void> step(String name, Future<void> Function() run) async {
     try {
@@ -85,10 +99,7 @@ Future<void> resetAllData() async {
       'editorBackups.delete',
       () => AppFiles.deleteDir(EditorMigrationService.backupDirPath),
     ),
-    step(
-      'models.delete',
-      () => AppFiles.deleteDir(EmbeddingModelManager.modelsDirPath),
-    ),
+    step('models.delete', EmbeddingModelManager.clearModelFiles),
     step(
       'isarBackup.delete',
       () => AppFiles.deleteFile(

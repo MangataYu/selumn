@@ -119,6 +119,10 @@ class _FastTileImageViewState extends State<FastTileImageView> {
   void _bump() => _repaint.value++;
 
   Future<void> _open() async {
+    await FastImageRuntime.withMediaRead(_openProtected);
+  }
+
+  Future<void> _openProtected() async {
     if (_decoder != null || _fallback) return;
     final generation = _generation;
     try {
@@ -282,6 +286,10 @@ class _FastTileImageViewState extends State<FastTileImageView> {
   }
 
   Future<void> _decodeBatch(List<FastTileSpec> batch) async {
+    await FastImageRuntime.withMediaRead(() => _decodeBatchProtected(batch));
+  }
+
+  Future<void> _decodeBatchProtected(List<FastTileSpec> batch) async {
     final generation = _generation;
     var failed = false;
     try {

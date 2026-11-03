@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
@@ -77,6 +79,8 @@ class MAudioPlayerPage extends StatefulWidget {
 
 class _MAudioPlayerPageState extends State<MAudioPlayerPage>
     with SingleTickerProviderStateMixin {
+  late final Future<MediaLease> _mediaLease;
+  late final Future<void> _starting;
   final AudioPlaybackController _controller = AudioPlaybackController();
 
   final _draftFraction = ValueNotifier<double?>(null);
@@ -89,8 +93,18 @@ class _MAudioPlayerPageState extends State<MAudioPlayerPage>
   @override
   void initState() {
     super.initState();
+    _mediaLease = Future.sync(
+      () => MediaGuard().acquire(MediaType.audio, 'audio-player'),
+    );
+    _mediaLease.ignore();
     _controller.progress.addListener(_syncSpin);
-    _controller.toggle(widget.audioPath);
+    _starting = _start();
+    _starting.ignore();
+  }
+
+  Future<void> _start() async {
+    await _mediaLease;
+    if (mounted) await _controller.toggle(widget.audioPath);
   }
 
   @override
@@ -98,7 +112,32 @@ class _MAudioPlayerPageState extends State<MAudioPlayerPage>
     _controller.progress.removeListener(_syncSpin);
     _spin.dispose();
     _draftFraction.dispose();
-    _controller.dispose();
+    unawaited(() async {
+      try {
+        await _starting;
+      } catch (_) {
+        // The FutureBuilder displays a failed lease; still dispose the player.
+      }
+      try {
+        await _controller.dispose();
+      } catch (error, stack) {
+        logger.e(
+          'audio player release failed; media remains protected',
+          error: error,
+          stackTrace: stack,
+        );
+        return;
+      }
+      try {
+        await (await _mediaLease).release();
+      } catch (error, stack) {
+        logger.e(
+          'audio media lease release failed',
+          error: error,
+          stackTrace: stack,
+        );
+      }
+    }());
     super.dispose();
   }
 
@@ -150,6 +189,25 @@ class _MAudioPlayerPageState extends State<MAudioPlayerPage>
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<MediaLease>(
+      future: _mediaLease,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text(context.l10n.common.loadFailed)),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return _buildReady(context);
+      },
+    );
+  }
+
+  Widget _buildReady(BuildContext context) {
     final l10n = context.l10n;
     final scheme = context.theme.colors;
     return Scaffold(

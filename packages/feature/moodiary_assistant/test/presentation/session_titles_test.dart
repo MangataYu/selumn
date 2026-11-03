@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_assistant/src/application/diary_citation.dart';
@@ -8,10 +10,18 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 
 void main() {
   late MoodiaryDatabase db;
   late ChatRepository repo;
+  late Directory mediaRoot;
+
+  setUpAll(() async {
+    mediaRoot = await Directory.systemTemp.createTemp('chat-title-media');
+    PlatformService.get().applicationSupportPath = mediaRoot.path;
+  });
+  tearDownAll(() async => mediaRoot.delete(recursive: true));
 
   setUp(() async {
     db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
@@ -50,11 +60,12 @@ void main() {
     );
   }
 
-  Future<ChatSession> seed({
+  Future<ChatSession> seed(
+    WidgetTester tester, {
     required String text,
     String title = '',
     String? imageName,
-  }) async {
+  }) async => (await tester.runAsync(() async {
     final session = ChatSession.create(
       providerId: 'provider',
       model: 'model',
@@ -68,10 +79,10 @@ void main() {
       ).copyWith(imageName: imageName),
     );
     return session;
-  }
+  }))!;
 
   testWidgets('未命名会话显示首条用户消息的本地标题', (tester) async {
-    final session = await seed(text: '周末去哪散步？想找安静的路线。');
+    final session = await seed(tester, text: '周末去哪散步？想找安静的路线。');
 
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
@@ -83,7 +94,7 @@ void main() {
   });
 
   testWidgets('已保存的正式标题优先于首条消息', (tester) async {
-    await seed(text: '原始问题', title: 'AI 已概括的标题');
+    await seed(tester, text: '原始问题', title: 'AI 已概括的标题');
 
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
@@ -94,7 +105,7 @@ void main() {
   });
 
   testWidgets('纯图片会话显示本地化图片标签', (tester) async {
-    await seed(text: '', imageName: 'private-image.png');
+    await seed(tester, text: '', imageName: 'private-image.png');
 
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
@@ -108,8 +119,8 @@ void main() {
   testWidgets('引用日记的标题不泄露原始引用 ID', (tester) async {
     const diaryId = '01912345-1234-7123-8123-123456789abc';
     const emptyCitationId = '01912345-5678-7123-8123-123456789abc';
-    await seed(text: citeDiary('帮我回顾这一天。还有哪些值得记录？', diaryId));
-    await seed(text: citeDiary('', emptyCitationId));
+    await seed(tester, text: citeDiary('帮我回顾这一天。还有哪些值得记录？', diaryId));
+    await seed(tester, text: citeDiary('', emptyCitationId));
 
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
@@ -124,7 +135,7 @@ void main() {
   });
 
   testWidgets('后台标题保存事件将列表中的本地标题刷新为 AI 标题', (tester) async {
-    final session = await seed(text: '今天如何安排时间？');
+    final session = await seed(tester, text: '今天如何安排时间？');
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
     expect(find.text('今天如何安排时间'), findsOneWidget);
@@ -138,7 +149,7 @@ void main() {
   });
 
   testWidgets('列表关闭后保存的标题在重新打开时仍然显示', (tester) async {
-    final session = await seed(text: '帮我规划周末。');
+    final session = await seed(tester, text: '帮我规划周末。');
     await tester.pumpWidget(host());
     await tester.pumpAndSettle();
     expect(find.text('帮我规划周末'), findsOneWidget);

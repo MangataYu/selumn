@@ -8,7 +8,7 @@ Based on [Moodiary by ZhuJHua](https://github.com/ZhuJHua/moodiary). This is an 
 
 [Downloads](https://github.com/MangataYu/selumn/releases) · [Source code](https://github.com/MangataYu/selumn) · [Roadmap (Chinese)](TODO.md)
 
-![Flutter](https://img.shields.io/badge/Flutter-3.47.2-blue)
+![Flutter](https://img.shields.io/badge/Flutter-3.47.8-blue)
 [![License](https://img.shields.io/github/license/MangataYu/selumn)](LICENSE)
 
 The repository is named **selumn**. The app and existing APK filenames currently use **Selume**.

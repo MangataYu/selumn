@@ -18,6 +18,19 @@ class ImageOptimizer {
     void Function(int done, int total)? onProgress,
   }) async {
     final repo = getIt<DiaryRepository>();
+    final lease = await MediaGuard().acquire(MediaType.image, '');
+    try {
+      return await _run(repo, onProgress);
+    } finally {
+      await lease.release();
+      await repo.drainMediaCleanupQueue();
+    }
+  }
+
+  static Future<ImageOptimizeReport> _run(
+    DiaryRepository repo,
+    void Function(int done, int total)? onProgress,
+  ) async {
     final heicDiaries = await repo.getDiariesReferencingMedia(
       kind: .image,
       suffixes: _heifSuffixes,
@@ -37,9 +50,14 @@ class ImageOptimizer {
       final renamed = <String, String>{};
       for (final old in diary.imageName.where(_isHeif)) {
         final next = '${old.substring(0, old.lastIndexOf('.'))}.jpg';
+        // Record files created by this attempt before writing them. If the
+        // diary changes during conversion, a later safe retry can recover the
+        // new file; an already existing file is never claimed by this attempt.
+        if (!await File(AppFiles.getRealPath('image', next)).exists()) {
+          await MediaCleanupQueue().enqueue([MediaKey(MediaType.image, next)]);
+        }
         if (await _convert(old, next)) {
           renamed[old] = next;
-          converted++;
         } else {
           failed++;
         }
@@ -48,12 +66,14 @@ class ImageOptimizer {
       if (renamed.isEmpty) continue;
       var content = diary.content;
       renamed.forEach((old, next) => content = content.replaceAll(old, next));
-      await repo.updateADiary(
+      final updated = await repo.updateADiaryIfUnchanged(
+        expected: diary,
         newDiary: withDerivedMedia(touched(diary.copyWith(content: content))),
       );
-      for (final old in renamed.keys) {
-        final file = File(AppFiles.getRealPath('image', old));
-        if (await file.exists()) await file.delete();
+      if (updated) {
+        converted += renamed.length;
+      } else {
+        failed += renamed.length;
       }
     }
 

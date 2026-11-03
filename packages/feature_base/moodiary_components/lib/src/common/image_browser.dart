@@ -51,6 +51,7 @@ class MImageBrowser extends StatefulWidget {
 }
 
 class _MImageBrowserState extends State<MImageBrowser> {
+  late final Future<MediaLease> _mediaLease;
   late final PageController _pageController = PageController(
     initialPage: widget.initialIndex,
   );
@@ -75,8 +76,28 @@ class _MImageBrowserState extends State<MImageBrowser> {
       : FastImage(image) as ImageProvider;
 
   @override
+  void initState() {
+    super.initState();
+    _mediaLease = Future.sync(
+      () => MediaGuard().acquire(MediaType.image, 'image-browser'),
+    );
+    _mediaLease.ignore();
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
+    unawaited(() async {
+      try {
+        await (await _mediaLease).release();
+      } catch (error, stack) {
+        logger.e(
+          'image browser media lease release failed',
+          error: error,
+          stackTrace: stack,
+        );
+      }
+    }());
     super.dispose();
   }
 
@@ -97,6 +118,25 @@ class _MImageBrowserState extends State<MImageBrowser> {
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<MediaLease>(
+      future: _mediaLease,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(child: Text(context.l10n.common.loadFailed)),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return _buildReady(context);
+      },
+    );
+  }
+
+  Widget _buildReady(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
     return Stack(
       children: [
@@ -283,6 +323,24 @@ class _MImageBrowserState extends State<MImageBrowser> {
   }
 
   Future<void> _save() async {
+    try {
+      final lease = await MediaGuard().acquire(
+        MediaType.image,
+        'image-browser-save',
+      );
+      try {
+        if (!mounted) return;
+        await _saveProtected();
+      } finally {
+        await lease.release();
+      }
+    } catch (error, stack) {
+      logger.e('image save lease failed', error: error, stackTrace: stack);
+      if (mounted) toast.error(message: context.l10n.ui.imageBrowserSaveFailed);
+    }
+  }
+
+  Future<void> _saveProtected() async {
     if (_saving) return;
     _saving = true;
     final l10n = context.l10n;
@@ -331,6 +389,24 @@ class _MImageBrowserState extends State<MImageBrowser> {
   }
 
   Future<void> _showInfo() async {
+    try {
+      final lease = await MediaGuard().acquire(
+        MediaType.image,
+        'image-browser-info',
+      );
+      try {
+        if (!mounted) return;
+        await _showInfoProtected();
+      } finally {
+        await lease.release();
+      }
+    } catch (error, stack) {
+      logger.e('image info lease failed', error: error, stackTrace: stack);
+      if (mounted) toast.error(message: context.l10n.common.loadFailed);
+    }
+  }
+
+  Future<void> _showInfoProtected() async {
     final info = await _loadInfo(widget.images[_current]);
     if (!mounted) return;
     await MSheet.show<void>(

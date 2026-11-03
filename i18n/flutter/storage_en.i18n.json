@@ -1,0 +1,22 @@
+{
+  "title": "Storage",
+  "used": "App storage used",
+  "database": "Diary data",
+  "media": "Images, audio and video",
+  "model": "AI models",
+  "font": "Fonts",
+  "logs": "Logs",
+  "cache": "Cache",
+  "other": "Other",
+  "loading": "Counting storage…",
+  "failed": "Could not count storage",
+  "retry": "Retry",
+  "manageModels": "Manage models",
+  "cleanDownloads": "Clear incomplete model downloads",
+  "cleanDownloadsDescription": "Only incomplete model download files are removed. Downloaded models are kept.",
+  "cleanConfirm": "Clear",
+  "cleaning": "Cleaning; waiting for an active download if needed…",
+  "cleanDone": "Cleared {count} files, freeing {size}",
+  "cleanPartial": "Cleared {count} files, freeing {size}; {failed} files could not be cleared",
+  "cleanFailed": "Could not clear downloads. Please try again."
+}

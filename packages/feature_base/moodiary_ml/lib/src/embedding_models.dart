@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:injectable/injectable.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_http/moodiary_http.dart';
 import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
+import 'package:synchronized/synchronized.dart';
 
 import 'hf_hub.dart';
 import 'onnx_embedding_backend.dart';
@@ -62,6 +64,84 @@ const embeddingModelCatalog = <EmbeddingModelSpec>[
   ),
 ];
 
+typedef ModelPartialCleanup = ({
+  int deletedFiles,
+  int deletedBytes,
+  int failedFiles,
+});
+
+// Dart's process-level file locks do not serialize isolates within a process
+// on every platform, so retain the in-isolate lock as well.
+final _modelDownloadLock = Lock();
+
+Future<T> _withModelDownloadLock<T>(Future<T> Function() operation) =>
+    _modelDownloadLock.synchronized(() async {
+      final dir = Directory(EmbeddingModelManager.modelsDirPath);
+      await dir.parent.create(recursive: true);
+      final lock = await File('${dir.parent.path}/.embedding-download.lock')
+          .open(mode: FileMode.append);
+      try {
+        await lock.lock(FileLock.blockingExclusive);
+        final type = await FileSystemEntity.type(dir.path, followLinks: false);
+        if (type != FileSystemEntityType.notFound &&
+            type != FileSystemEntityType.directory) {
+          throw FileSystemException(
+            'Model directory is not a directory',
+            dir.path,
+          );
+        }
+        await dir.create(recursive: true);
+        return await operation();
+      } finally {
+        await lock.close();
+      }
+    });
+
+@visibleForTesting
+Future<ModelPartialCleanup> cleanModelPartEntries(
+  Stream<FileSystemEntity> entries,
+) async {
+  final names = <String>{
+    for (final spec in embeddingModelCatalog) ...[
+      '${spec.modelFileName}.part',
+      '${spec.tokenizerFileName}.part',
+    ],
+  };
+  var deletedFiles = 0;
+  var deletedBytes = 0;
+  var failedFiles = 0;
+  try {
+    await for (final entry in entries) {
+      var name = Uri.file(entry.path).pathSegments.last;
+      if (Platform.isWindows) name = name.toLowerCase();
+      if (!names.contains(name)) continue;
+      if (entry is! File) {
+        failedFiles++;
+        continue;
+      }
+      try {
+        final bytes = await entry.length();
+        await entry.delete();
+        deletedFiles++;
+        deletedBytes += bytes;
+      } on PathNotFoundException {
+        // A concurrent external cleanup already removed this file.
+      } on FileSystemException catch (e, s) {
+        failedFiles++;
+        logger.e('incomplete model cleanup failed', error: e, stackTrace: s);
+      }
+    }
+  } on FileSystemException catch (e, s) {
+    failedFiles++;
+    logger.e('incomplete model listing failed', error: e, stackTrace: s);
+  }
+  return (
+    deletedFiles: deletedFiles,
+    deletedBytes: deletedBytes,
+    failedFiles: failedFiles,
+  );
+}
+
 @LazySingleton()
 class EmbeddingModelManager {
   final IHttpClient _http;
@@ -95,7 +175,7 @@ class EmbeddingModelManager {
     EmbeddingModelSpec spec, {
     void Function(int received, int total)? onProgress,
     CancelToken? cancel,
-  }) async {
+  }) => _withModelDownloadLock(() async {
     if (isDownloaded(spec)) return;
     final modelPath = modelPathOf(spec);
     final tokenizerPath = tokenizerPathOf(spec);
@@ -126,7 +206,21 @@ class EmbeddingModelManager {
       rethrow;
     }
     await File(modelPart).rename(modelPath);
-  }
+  });
+
+  /// Deletes only known incomplete model downloads after active downloads end.
+  /// Completed models and unknown files are never candidates.
+  Future<ModelPartialCleanup> cleanIncompleteDownloads() =>
+      _withModelDownloadLock(() async {
+        return cleanModelPartEntries(
+          Directory(modelsDirPath).list(followLinks: false),
+        );
+      });
+
+  /// Clears model files during the startup recovery reset while holding the
+  /// same cross-process lock used by downloads and cleanup.
+  static Future<void> clearModelFiles() =>
+      _withModelDownloadLock(() => AppFiles.deleteDir(modelsDirPath));
 
   Future<void> activate(EmbeddingModelSpec spec) async {
     if (!isDownloaded(spec)) {
@@ -144,11 +238,12 @@ class EmbeddingModelManager {
     MoodiaryKVs.embeddingIndexStale.set(false);
   }
 
-  Future<void> delete(EmbeddingModelSpec spec) async {
-    if (active?.id == spec.id) deactivate();
-    await AppFiles.deleteFile(modelPathOf(spec));
-    await AppFiles.deleteFile(tokenizerPathOf(spec));
-  }
+  Future<void> delete(EmbeddingModelSpec spec) =>
+      _withModelDownloadLock(() async {
+        if (active?.id == spec.id) deactivate();
+        await AppFiles.deleteFile(modelPathOf(spec));
+        await AppFiles.deleteFile(tokenizerPathOf(spec));
+      });
 
   Future<void> _probe(
     EmbeddingModelSpec spec,

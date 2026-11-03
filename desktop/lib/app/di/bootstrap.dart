@@ -12,6 +12,10 @@ import 'package:moodiary_sync/moodiary_sync.dart';
 Future<void> bootstrapPlatform() async {
   await PlatformService.get().init();
   await AppFiles.initCreateDir();
+  FastImageRuntime.mediaReadLeaseFactory = () async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'fast-image');
+    return lease.release;
+  };
   FastImageRuntime.configure(
     imageDir: AppFiles.imageDir,
     thumbDir: AppFiles.imageThumbDir,
@@ -32,6 +36,7 @@ void initializeUsageStartTime() {
 }
 
 void runStartupMaintenance() {
+  getIt<DiaryRepository>().startMediaCleanup();
   unawaited(purgeExpiredTombstones());
   unawaited(purgeSyncMediaTemp());
   unawaited(getIt<EmbedIndexService>().drain());

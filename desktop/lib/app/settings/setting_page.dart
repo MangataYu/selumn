@@ -86,6 +86,12 @@ class DesktopSettingPage extends ConsumerWidget {
           ),
         ),
         SettingListTile(
+          title: context.l10n.storage.title,
+          leading: const Icon(LucideIcons.hardDrive),
+          trailing: const Icon(LucideIcons.chevronRight),
+          onTap: () => const StorageRoute().push(context),
+        ),
+        SettingListTile(
           title: context.l10n.app.syncBackup,
           leading: const Icon(LucideIcons.refreshCw),
           trailing: const Icon(LucideIcons.chevronRight),

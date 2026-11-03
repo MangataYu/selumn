@@ -12,6 +12,8 @@ import 'package:moodiary_lock/moodiary_lock.dart' show lockRoutes;
 import 'package:moodiary_media/moodiary_media.dart' show mediaRoutes;
 import 'package:moodiary_migration/moodiary_migration.dart'
     show EngineMigrationService;
+import 'package:moodiary_preferences/moodiary_preferences.dart'
+    show StoragePage;
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_sync/moodiary_sync.dart' show syncRoutes;
 import 'package:mui/mui.dart';
@@ -59,6 +61,7 @@ List<RouteBase> buildDesktopRoutes() => [
         path: SettingRoute.path,
         builder: (_, _) => const DesktopSettingPage(),
       ),
+      GoRoute(path: StorageRoute.path, builder: (_, _) => const StoragePage()),
       ...syncRoutes(),
       ...accountRoutes(),
       ...exportRoutes(),

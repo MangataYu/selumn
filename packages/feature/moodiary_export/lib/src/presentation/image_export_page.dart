@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -6,6 +7,7 @@ import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_router/moodiary_router.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
@@ -40,6 +42,7 @@ class ImageExportPage extends StatefulWidget {
 }
 
 class _ImageExportPageState extends State<ImageExportPage> {
+  late final Future<MediaLease> _mediaLease;
   late final ExportSettings _settings = .decode(
     MoodiaryKVs.exportSettings.get() ?? '',
   );
@@ -57,12 +60,27 @@ class _ImageExportPageState extends State<ImageExportPage> {
   @override
   void initState() {
     super.initState();
+    _mediaLease = Future.sync(
+      () => MediaGuard().acquire(MediaType.image, 'image-export-page'),
+    );
+    _mediaLease.ignore();
     WidgetsBinding.instance.addPostFrameCallback((_) => _render());
   }
 
   @override
   void dispose() {
     _disposeBands();
+    unawaited(() async {
+      try {
+        await (await _mediaLease).release();
+      } catch (error, stack) {
+        logger.e(
+          'image export media lease release failed',
+          error: error,
+          stackTrace: stack,
+        );
+      }
+    }());
     super.dispose();
   }
 
@@ -91,6 +109,23 @@ class _ImageExportPageState extends State<ImageExportPage> {
   }
 
   Future<void> _render() async {
+    // The operation has its own lease so disposal cannot release the page's
+    // lease while image decoding is still in flight.
+    try {
+      final lease = await MediaGuard().acquire(MediaType.image, 'image-render');
+      try {
+        await _mediaLease;
+        if (!mounted) return;
+        await _renderProtected();
+      } finally {
+        await lease.release();
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  Future<void> _renderProtected() async {
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final style = _style();
     try {
@@ -135,6 +170,17 @@ class _ImageExportPageState extends State<ImageExportPage> {
   }
 
   Future<String?> _composeFile() async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'image-compose');
+    try {
+      await _mediaLease;
+      if (!mounted) return null;
+      return await _composeFileProtected();
+    } finally {
+      await lease.release();
+    }
+  }
+
+  Future<String?> _composeFileProtected() async {
     final docs = _docs;
     if (docs == null || docs.isEmpty) return null;
     final dir = Directory(

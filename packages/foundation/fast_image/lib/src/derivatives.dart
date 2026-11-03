@@ -83,6 +83,11 @@ class FastImageDerivatives {
   static Future<String> resolve(
     String imagePath, {
     required FastImageTier tier,
+  }) => FastImageRuntime.withMediaRead(() => _resolve(imagePath, tier: tier));
+
+  static Future<String> _resolve(
+    String imagePath, {
+    required FastImageTier tier,
   }) async {
     if (!_eligible(imagePath)) return imagePath;
     final warming = _inflight[imagePath];
@@ -94,7 +99,22 @@ class FastImageDerivatives {
       return imagePath;
     }
     await _dedup(imagePath, () => _generate(imagePath, only: tier, jpeg: true));
-    unawaited(warm(imagePath));
+    // Reserve a separate lease before detaching the background work, so there
+    // is no gap between this read and its asynchronous thumbnail generation.
+    final release = await FastImageRuntime.acquireMediaRead();
+    unawaited(() async {
+      try {
+        await warm(imagePath);
+      } catch (error) {
+        FastImageRuntime.log('background thumbnail preparation failed: $error');
+      } finally {
+        try {
+          await release();
+        } catch (error) {
+          FastImageRuntime.log('background media lease release failed: $error');
+        }
+      }
+    }());
     return await _find(imagePath, tier) ?? imagePath;
   }
 
@@ -108,7 +128,10 @@ class FastImageDerivatives {
     return null;
   }
 
-  static Future<void> warm(String imagePath) {
+  static Future<void> warm(String imagePath) =>
+      FastImageRuntime.withMediaRead(() => _warm(imagePath));
+
+  static Future<void> _warm(String imagePath) {
     if (!_eligible(imagePath)) return Future.value();
     return _dedup(imagePath, () async {
       final jpeg = await _sniffJpeg(imagePath);
@@ -145,7 +168,10 @@ class FastImageDerivatives {
     }
   }
 
-  static Future<String?> ensureBaseline(String imagePath) async {
+  static Future<String?> ensureBaseline(String imagePath) =>
+      FastImageRuntime.withMediaRead(() => _ensureBaseline(imagePath));
+
+  static Future<String?> _ensureBaseline(String imagePath) async {
     if (!_eligible(imagePath)) return null;
     final path = baselinePath(imagePath);
     if (await File(path).exists()) return path;
@@ -182,7 +208,24 @@ class FastImageDerivatives {
     required bool jpeg,
   }) async {
     if (only == null && jpeg) {
-      unawaited(_generateBaseline(src));
+      final release = await FastImageRuntime.acquireMediaRead();
+      unawaited(() async {
+        try {
+          await _generateBaseline(src);
+        } catch (error) {
+          FastImageRuntime.log(
+            'background baseline preparation failed: $error',
+          );
+        } finally {
+          try {
+            await release();
+          } catch (error) {
+            FastImageRuntime.log(
+              'background media lease release failed: $error',
+            );
+          }
+        }
+      }());
     }
     final gate = only != null
         ? _onDemandGate

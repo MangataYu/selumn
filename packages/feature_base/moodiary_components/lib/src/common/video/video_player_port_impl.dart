@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:moodiary_files/moodiary_files.dart';
 import 'package:mui/mui.dart';
 import 'package:video_player/video_player.dart';
 
@@ -17,6 +18,7 @@ class VideoPlayerPluginPort implements VideoPlaybackPort {
   final _out = StreamController<VideoPortSnapshot>.broadcast();
 
   bool _closed = false;
+  Future<MediaLease>? _mediaLease;
 
   Widget buildSurface() => VideoPlayer(_controller);
 
@@ -49,7 +51,15 @@ class VideoPlayerPluginPort implements VideoPlaybackPort {
   }
 
   @override
-  Future<void> initialize() => _controller.initialize();
+  Future<void> initialize() async {
+    if (_closed) return;
+    await (_mediaLease ??= MediaGuard().acquire(
+      MediaType.video,
+      'video-player',
+    ));
+    if (_closed) return;
+    await _controller.initialize();
+  }
 
   @override
   Future<void> play() => _controller.play();
@@ -77,6 +87,8 @@ class VideoPlayerPluginPort implements VideoPlaybackPort {
     _controller.removeListener(_emit);
     await _out.close();
     await _controller.dispose();
+    final lease = _mediaLease;
+    if (lease != null) await (await lease).release();
   }
 }
 

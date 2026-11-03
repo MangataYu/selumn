@@ -81,6 +81,35 @@ class ExportService {
 
     ImageCardStyle? imageStyle,
   }) async {
+    final lease = await MediaGuard().acquire(MediaType.image, 'export');
+    try {
+      return await _run(
+        format: format,
+        scope: scope,
+        settings: settings,
+        untitledLabel: untitledLabel,
+        videoLabel: videoLabel,
+        audioLabel: audioLabel,
+        onProgress: onProgress,
+        cancel: cancel,
+        imageStyle: imageStyle,
+      );
+    } finally {
+      await lease.release();
+    }
+  }
+
+  static Future<ExportOutcome> _run({
+    required ExportFormat format,
+    required ExportScope scope,
+    required ExportSettings settings,
+    required String untitledLabel,
+    required String videoLabel,
+    required String audioLabel,
+    void Function(ExportProgress progress)? onProgress,
+    press.CancelToken? cancel,
+    ImageCardStyle? imageStyle,
+  }) async {
     await press.FastPress.ensureInitialized();
     final token = cancel ?? press.CancelToken();
     final diaries = await scope.resolve();

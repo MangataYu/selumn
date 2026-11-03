@@ -129,8 +129,9 @@ Future<void> runMediaCleanup(BuildContext context, WidgetRef ref) async {
   if (!confirmed) return;
 
   toast.loading();
+  final MediaCleanupOutcome outcome;
   try {
-    await notifier.clean(report);
+    outcome = await notifier.clean(report);
   } catch (_) {
     await toast.dismiss();
     toast.error();
@@ -138,7 +139,7 @@ Future<void> runMediaCleanup(BuildContext context, WidgetRef ref) async {
   }
   if (context.mounted) ref.invalidate(mediaItemsProvider);
   await toast.dismiss();
-  toast.success(message: l10n.media.cleanupDone(count: report.count));
+  toast.success(message: l10n.media.cleanupDone(count: outcome.deleted));
 }
 
 const double _kGridPadding = 12;
