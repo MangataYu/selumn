@@ -12,6 +12,7 @@ import EditorToolbar from './EditorToolbar.vue'
 import EditorSearchBar from './EditorSearchBar.vue'
 import EditorMetaHeader from './EditorMetaHeader.vue'
 import EditorLinksPanel from './EditorLinksPanel.vue'
+import MobileSelectionToolbar from './MobileSelectionToolbar.vue'
 import { openSearch } from '../editor/search'
 import { useI18n } from 'vue-i18n'
 import { wordCountOf } from '../editor/word-count'
@@ -217,6 +218,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <EditorSearchBar v-if="platform === 'mobile'" :platform="platform" />
+    <MobileSelectionToolbar v-if="editor && editable && platform === 'mobile'" :editor="editor" :viewport="viewportEl ?? null" />
     <EditorToolbar
       v-if="editor && showToolbar && platform === 'mobile'"
       :editor="editor"

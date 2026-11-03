@@ -11,6 +11,7 @@ Diary buildWelcomeDiary({required String imageName}) {
       _paragraph(l10n.app.welcomeDiary.intro),
       _heading(l10n.app.welcomeDiary.writingHeading),
       _paragraph(l10n.app.welcomeDiary.writingInstructions),
+      _paragraph(l10n.app.welcomeDiary.toolbarInstructions),
       {
         'type': 'paragraph',
         'content': [

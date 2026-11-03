@@ -1626,9 +1626,10 @@ class _Translations$app$welcomeDiary$en extends Translations$app$welcomeDiary$zh
 
 	// Translations
 	@override String get title => 'Welcome to Selume · Your first entry';
-	@override String get intro => 'Hello! This entry is a short guide and a space you can freely edit. You do not need to write a lot every day: a small moment, a feeling, or a photo is worth keeping. The text and image below are real examples of what the editor can do.';
+	@override String get intro => 'Hello! This entry is a short guide and a space you can freely edit. You do not need to write a lot every day: a small moment, a feeling, or a photo is worth keeping. This entry is created in the app\'s current language; changing languages later will not alter its saved contents.';
 	@override String get writingHeading => '1. Give your words some rhythm';
-	@override String get writingInstructions => 'Tap the edit button at the top right to change this entry. Select text and use the toolbar to make it bold or italic. The heading button offers normal text and three heading levels. Scroll the toolbar sideways to find lists, block quotes, and tables.';
+	@override String get writingInstructions => 'Tap the edit button at the top right to change this entry. Select text to find quick actions nearby, including bold and italic. Tap Format at the bottom for headings, lists, quotes, and code blocks.';
+	@override String get toolbarInstructions => 'The bottom toolbar shows five shortcuts. Tap Insert to add images, audio, video, tables, and diary links, or to find and replace text. Choose Reorder tools inside Insert to pick your five shortcuts.';
 	@override String get boldExample => 'Make a moment worth remembering stand out.';
 	@override String get italicExample => 'Leave a little room for quieter feelings, too.';
 	@override String get quoteExample => 'Every day does not have to be remarkable. An honest record is enough.';
@@ -1644,11 +1645,11 @@ class _Translations$app$welcomeDiary$en extends Translations$app$welcomeDiary$zh
 	@override String get imageCaption => 'A peaceful afternoon with a cup of tea and a blank notebook beside a window. This is an artificially generated example image; you can replace it with your own photo.';
 	@override String get linksHeading => '4. Refer to another entry';
 	@override String get linksCreate => 'First, create another entry about a moment from today. Then return here and start editing.';
-	@override String get linksInsert => 'Tap the diary link button in the toolbar, or type [[, then enter a keyword from that entry\'s title or body and choose a result.';
+	@override String get linksInsert => 'Tap Insert, then Link, or type [[. Enter a keyword from that entry\'s title or body and choose a result.';
 	@override String get linksExplore => 'Tap the inserted link to open the entry. Outgoing links and backlinks appear below the body, making it easy to revisit connected memories.';
 	@override String get detailsHeading => '5. Add the day\'s details';
 	@override String get detailsMood => 'While editing, adjust the date, time, and mood below the title to capture how the day felt.';
-	@override String get detailsTools => 'The toolbar also supports task lists, audio, and video. For longer entries, use the outline button to jump between headings.';
+	@override String get detailsTools => 'Create task lists in Format, or add audio and video from Insert. For longer entries, use the outline button to jump between headings.';
 	@override String get tryHeading => '6. Now it is your turn';
 	@override String get taskRead => 'Read this introductory example';
 	@override String get taskWrite => 'Write down one thing you want to remember about today';

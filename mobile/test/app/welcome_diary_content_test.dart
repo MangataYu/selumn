@@ -89,8 +89,22 @@ void main() {
       expect(nodes.where((node) => node['type'] == 'diaryLink'), isEmpty);
       expect(diary.contentText, parsed.plainText);
       expect(diary.contentText, contains(l10n.app.welcomeDiary.intro));
+      expect(
+        diary.contentText,
+        contains(l10n.app.welcomeDiary.toolbarInstructions),
+      );
       expect(diary.contentText, contains(l10n.app.welcomeDiary.linksInsert));
       expect(diary.contentText, contains('#$tag'));
+      if (locale == AppLocale.en) {
+        expect(diary.contentText, contains('Select text'));
+        expect(diary.contentText, contains('Reorder tools'));
+        expect(diary.contentText, contains('Tap Insert, then Link'));
+        expect(diary.contentText, isNot(contains(RegExp(r'[\u4e00-\u9fff]'))));
+      } else {
+        expect(diary.contentText, contains('快捷栏'));
+        expect(diary.contentText, contains('调整工具顺序'));
+        expect(diary.contentText, contains('「插入」中的「双链」'));
+      }
     });
   }
 

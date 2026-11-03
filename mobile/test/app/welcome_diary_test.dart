@@ -170,6 +170,47 @@ void main() {
     expect(assets.loads, 1);
   });
 
+  for (final locale in [AppLocale.zh, AppLocale.en]) {
+    test('首次创建时使用已解析的 ${locale.languageCode} 文案', () async {
+      // Eligibility is captured before the application's language is resolved.
+      prepare();
+      await LocaleSettings.setLocale(locale);
+
+      await seeder.seed(migrationReady: true);
+
+      final diary = repository.diaries.single;
+      expect(diary.title, l10n.app.welcomeDiary.title);
+      expect(diary.contentText, contains(l10n.app.welcomeDiary.intro));
+      expect(diary.tags, [l10n.app.welcomeDiary.exampleTag]);
+      expect(diary.imageName, hasLength(1));
+      expect(state(), 'completed');
+    });
+  }
+
+  test('切换语言后保留用户修改过的欢迎日记', () async {
+    prepare();
+    await seeder.seed(migrationReady: true);
+    const editedTitle = 'My own title';
+    const editedContent = '{"type":"doc","content":[]}';
+    final edited = repository.diaries.single.copyWith(
+      title: editedTitle,
+      content: editedContent,
+      contentText: '',
+    );
+    repository.diaries[0] = edited;
+
+    await LocaleSettings.setLocale(AppLocale.en);
+    prepare(hadDatabase: true);
+    await seeder.seed(migrationReady: true);
+
+    expect(repository.diaries.single.id, edited.id);
+    expect(repository.diaries.single.title, editedTitle);
+    expect(repository.diaries.single.content, editedContent);
+    expect(repository.insertCalls, 1);
+    expect(assets.loads, 1);
+    expect(state(), 'completed');
+  });
+
   test('样例图片写入和日记提交期间禁止并发媒体清理', () async {
     repository.onInsert = () async {
       expect(
