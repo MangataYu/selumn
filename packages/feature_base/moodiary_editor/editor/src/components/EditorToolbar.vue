@@ -227,7 +227,7 @@ const mobileActions = computed<MobileAction[]>(() => [
   { key: 'search', title: t('toolbar.findReplace'), shortTitle: t('toolbar.quickSearch'), icon: IconSearch, run: openSearch },
 ])
 const actionFor = (id: string): MobileAction => mobileActions.value.find((action) => action.key === id)!
-const favoriteActions = computed(() => mobileOrder.value.slice(0, 3).map(actionFor))
+const favoriteActions = computed(() => mobileOrder.value.slice(0, 5).map(actionFor))
 const insertActions = computed(() => ['undo', 'redo', 'image', 'tag', 'audio', 'video', 'diaryLink', 'divider', 'table', 'search'].map(actionFor))
 
 function runMobileAction(action: MobileAction, event: MouseEvent): void {
@@ -446,8 +446,8 @@ function moveMobileTool(index: number, delta: number): void {
           @click="runMobileAction(action, $event)"
         ><component :is="action.icon" class="size-5" /><span class="max-w-full truncate">{{ action.shortTitle ?? action.title }}</span></button>
       </template>
-      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.format')" data-testid="mobile-format-open" @mousedown.prevent @click="mobileMode = 'format'; mobilePanel = null"><IconType class="size-5" /><span>{{ t('toolbar.format') }}</span></button>
-      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.insert')" :aria-expanded="mobilePanel === 'insert'" data-testid="mobile-insert-open" @mousedown.prevent @click="mobilePanel = mobilePanel === 'insert' ? null : 'insert'"><IconPlus class="size-5" /><span>{{ t('toolbar.insert') }}</span></button>
+      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.format')" data-testid="mobile-format-open" @mousedown.prevent @click="mobileMode = 'format'; mobilePanel = null"><IconType class="size-5" /><span class="max-w-full truncate">{{ t('toolbar.format') }}</span></button>
+      <button type="button" class="btn btn-ghost h-12 min-w-0 flex-1 flex-col gap-0 px-1 text-xs" :aria-label="t('toolbar.insert')" :aria-expanded="mobilePanel === 'insert'" data-testid="mobile-insert-open" @mousedown.prevent @click="mobilePanel = mobilePanel === 'insert' ? null : 'insert'"><IconPlus class="size-5" /><span class="max-w-full truncate">{{ t('toolbar.insert') }}</span></button>
     </div>
 
     <div v-else class="flex items-stretch px-1 py-1" data-testid="mobile-format-row">

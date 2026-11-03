@@ -55,25 +55,29 @@ describe('mobile toolbar', () => {
     expect(toolbar.find('[data-testid="mobile-main-row"]').exists()).toBe(true)
   })
 
-  it('saves manual ordering and makes the first three items available immediately', async () => {
+  it('saves manual ordering and makes the first five items available immediately', async () => {
     mountMobile()
+    expect(toolbar.findAll('[data-testid^="mobile-favorite-"]')).toHaveLength(5)
+    expect(toolbar.find('[data-testid="mobile-favorite-audio"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-video"]').exists()).toBe(false)
     await btn('mobile-insert-open').trigger('click')
     await btn('mobile-reorder-open').trigger('click')
-    await btn('mobile-order-up-redo').trigger('click')
+    await btn('mobile-order-up-video').trigger('click')
     const payload = h.lastPost('toolbarOrderChange')?.payload as unknown as string[]
-    expect(payload.slice(0, 4)).toEqual(['undo', 'image', 'redo', 'tag'])
+    expect(payload.slice(0, 6)).toEqual(['undo', 'image', 'tag', 'redo', 'video', 'audio'])
     await btn('mobile-reorder-close').trigger('click')
-    expect(toolbar.find('[data-testid="mobile-favorite-redo"]').exists()).toBe(true)
-    expect(toolbar.find('[data-testid="mobile-favorite-tag"]').exists()).toBe(false)
+    expect(toolbar.find('[data-testid="mobile-favorite-video"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-audio"]').exists()).toBe(false)
 
     mountMobile(payload)
-    expect(toolbar.find('[data-testid="mobile-favorite-redo"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-video"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-favorite-audio"]').exists()).toBe(false)
     await btn('mobile-insert-open').trigger('click')
-    expect(toolbar.find('[data-testid="mobile-insert-tag"]').exists()).toBe(true)
+    expect(toolbar.find('[data-testid="mobile-insert-audio"]').exists()).toBe(true)
   })
 
   it('normalizes saved order, preserves future IDs, and keeps undo available', async () => {
-    mountMobile(['image', 'tag', 'divider', 'image', 'futureTool'])
+    mountMobile(['image', 'tag', 'divider', 'audio', 'video', 'image', 'futureTool'])
     expect(toolbar.find('[data-testid="mobile-favorite-divider"]').exists()).toBe(true)
     expect(toolbar.find('[data-testid="mobile-favorite-undo"]').exists()).toBe(false)
     await btn('mobile-insert-open').trigger('click')
