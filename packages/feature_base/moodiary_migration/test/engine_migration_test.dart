@@ -10,6 +10,7 @@ import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_migration/moodiary_migration.dart';
 import 'package:moodiary_migration/src/legacy/legacy_models.dart' as legacy;
 import 'package:moodiary_models/moodiary_models.dart';
+import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:moodiary_storage/moodiary_storage.dart';
 import 'package:moodiary_storage/testing.dart';
 
@@ -72,12 +73,19 @@ void main() {
   }
 
   late Directory dir;
+  late Directory supportDir;
   late MoodiaryDatabase db;
 
   setUpAll(() async {
     await Isar.initialize(dylib);
+    supportDir = await Directory.systemTemp.createTemp(
+      'engine_migration_support',
+    );
+    PlatformService.get().applicationSupportPath = supportDir.path;
     getIt.registerSingleton<IKVStorage>(MemoryKVStorage());
   });
+
+  tearDownAll(() async => supportDir.delete(recursive: true));
 
   setUp(() {
     dir = Directory.systemTemp.createTempSync('engine_migration_test');

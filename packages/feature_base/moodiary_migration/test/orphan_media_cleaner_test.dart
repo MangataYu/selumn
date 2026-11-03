@@ -54,7 +54,7 @@ void main() {
       await Isar.initialize(dylib!);
       final dir = p.join(root.path, 'database');
       var isar = Isar.open(
-        schemas: legacyMigrationSchemas,
+        schemas: moodiarySchemas,
         directory: dir,
         inspector: false,
       );
@@ -78,7 +78,7 @@ void main() {
 
       expect(await image.readAsString(), 'chat photo');
       isar = Isar.open(
-        schemas: legacyMigrationSchemas,
+        schemas: moodiarySchemas,
         directory: dir,
         inspector: false,
       );
