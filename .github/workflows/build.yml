@@ -11,6 +11,10 @@ on:
         description: Publish a test pre-release after building (takes priority over create_release)
         type: boolean
         default: false
+      publish_release:
+        description: Publish a new stable release after building and uploading its APK
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*.*.*'
@@ -30,7 +34,7 @@ jobs:
           lfs: true
 
       - name: Set Up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -102,13 +106,34 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --flavor production --release --target-platform android-arm64 --obfuscate --split-debug-info=splitMap
 
+      - name: Verify stable APK identity and signature
+        if: inputs.publish_release == true && inputs.prerelease != true
+        env:
+          EXPECTED_CERT_SHA256: 5ea24c807f714aa6701ec4106756198b7a0e76627e51448829dc3a5585ce131e
+        run: |
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          apk=mobile/build/app/outputs/flutter-apk/app-production-release.apk
+          certificate=$("$build_tools/apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          if [ "$certificate" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "APK signing certificate does not match the previous release" >&2
+            exit 1
+          fi
+          version=$(sed -n 's/^version: \([0-9.]*\)+.*/\1/p' mobile/pubspec.yaml)
+          version_code=$(sed -n 's/^version: [0-9.]*+\([0-9]*\).*/\1/p' mobile/pubspec.yaml)
+          badging=$("$build_tools/aapt" dump badging "$apk")
+          if ! grep -F "package: name='com.aerieyarrowy.selume' versionCode='$version_code' versionName='$version'" <<< "$badging" > /dev/null ||
+             ! grep -Fx "native-code: 'arm64-v8a'" <<< "$badging" > /dev/null; then
+            echo "APK package, version, or native architecture is not the expected release" >&2
+            exit 1
+          fi
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: mobile/build/app/outputs/flutter-apk/app-production-release.apk
   release:
-    if: startsWith(github.ref, 'refs/tags/') || inputs.create_release == true || inputs.prerelease == true
+    if: startsWith(github.ref, 'refs/tags/') || inputs.create_release == true || inputs.prerelease == true || inputs.publish_release == true
     runs-on: ubuntu-latest
     name: Publish Release
     needs: [ build-apk ]
@@ -153,6 +178,24 @@ jobs:
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
           echo "artifact_version=$artifact_version" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure stable release tag is new
+        if: inputs.publish_release == true && inputs.prerelease != true
+        env:
+          RELEASE_TAG: ${{ steps.release_metadata.outputs.tag }}
+        run: |
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" > /dev/null
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "Release tag $RELEASE_TAG already exists; refusing to overwrite it" >&2
+            exit 1
+          fi
+          if [ "$status" -ne 2 ]; then
+            echo "Could not check remote release tag $RELEASE_TAG" >&2
+            exit "$status"
+          fi
+
       - name: Rename Artifacts
         env:
           ARTIFACT_VERSION: ${{ steps.release_metadata.outputs.artifact_version }}
@@ -188,6 +231,7 @@ jobs:
           } > release-notes.md
 
       - name: Create Release
+        id: create_release
         uses: ncipollo/release-action@v1
         with:
           artifacts: renamed-artifacts/*
@@ -199,6 +243,32 @@ jobs:
           prerelease: ${{ inputs.prerelease == true }}
           makeLatest: ${{ inputs.prerelease == true && 'false' || 'legacy' }}
           immutableCreate: ${{ inputs.prerelease == true }}
-          artifactErrorsFailBuild: ${{ inputs.prerelease == true }}
-          allowUpdates: ${{ inputs.prerelease != true }}
+          artifactErrorsFailBuild: ${{ inputs.prerelease == true || inputs.publish_release == true }}
+          allowUpdates: ${{ inputs.prerelease != true && inputs.publish_release != true }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish stable release
+        if: inputs.publish_release == true && inputs.prerelease != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_metadata.outputs.tag }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_ID: ${{ steps.create_release.outputs.id }}
+        run: |
+          if [[ ! "$RELEASE_ID" =~ ^[0-9]+$ ]]; then
+            echo "Release action did not return a valid release ID" >&2
+            exit 1
+          fi
+          release=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
+          if ! jq -e --arg sha "$RELEASE_SHA" --arg tag "$RELEASE_TAG" --arg asset "selume-$VERSION-android-arm64.apk" '
+            .draft == true and .prerelease == false and .target_commitish == $sha and .tag_name == $tag and
+            any(.assets[]; .name == $asset and .state == "uploaded" and .size > 0)
+          ' <<< "$release" > /dev/null; then
+            echo "Draft release does not have the expected commit and uploaded APK" >&2
+            exit 1
+          fi
+          # Create the ref atomically: a competing tag must never redirect the release.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$RELEASE_SHA" --silent
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=false -f make_latest=true --silent

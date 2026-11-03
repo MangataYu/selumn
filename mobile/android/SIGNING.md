@@ -79,6 +79,7 @@ Set-Clipboard -Value ([Convert]::ToBase64String([IO.File]::ReadAllBytes($keystor
 - 推送到 `main`，或提交目标为 `develop` / `main` 的 PR，会运行 **Quality & Tests**；该流程不需要正式签名。
 - 在 **Build & Release → Run workflow** 中选择 `main`，默认只构建并上传 **production release** APK。工作流必须提供全部签名 Secrets，缺失即失败，不回退 Debug 签名，也不自动生成 Alpha 包。下载运行结果中的 `android-apk` artifact，其中的文件名为 `app-production-release.apk`。
 - 手动勾选 `prerelease`，会在 APK 构建成功并上传附件后公开一个 **Pre-release**，不会设为 Latest。测试标签自动生成为 `v<版本>-selume-test.<运行编号>.<重跑次数>`，指向本次构建的提交；APK 文件名含完整测试标签。每次运行或重跑使用独立标签，不覆盖已有发布。预发布说明包含提交与构建链接，不要求修改 `CHANGELOG.md`。
+- 手动勾选 `publish_release`，会先构建 ARM64 APK，核对包名、版本和上一版正式签名证书，再创建草稿并核对目标提交和附件，最后公开为 Latest。该路径要求版本标签不存在，不覆盖已有发布；发布说明来自 `CHANGELOG.md` 对应版本段。更换正式签名时，需有意更新该校验并处理已有用户的升级兼容性。`prerelease` 同时勾选时仍优先生成测试预发布。
 - `prerelease` 未勾选时，手动勾选 `create_release` 或推送版本标签会进入原有草稿发布流程；创建草稿要求 `CHANGELOG.md` 含对应版本说明，推送的标签必须严格等于 `mobile/pubspec.yaml` 中版本对应的 `v<版本>`。测试版请使用手动 `prerelease`，不要手动推测试标签。
 - `prerelease` 优先于 `create_release`，只勾选前者即可发布测试版。这仍是 `com.aerieyarrowy.selume` 的正式签名 APK，可以与 Debug 共存；GitHub 上的预发布标记不会改变应用 ID 或签名。
 - 现有 `tool/release.dart` 和合并发布流程仍面向 `develop`。个人分支日常打包使用手动工作流，无需执行发布脚本。
