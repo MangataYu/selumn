@@ -37,6 +37,25 @@ class ServicesPage extends ConsumerWidget {
   }
 }
 
+/// Opens the existing semantic-model controls directly from storage settings.
+class ModelManagementPage extends StatelessWidget {
+  const ModelManagementPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.storage.manageModels)),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
+        child: _ModelPickerSheet(
+          manager: getIt<EmbeddingModelManager>(),
+          showAsPage: true,
+        ),
+      ),
+    );
+  }
+}
+
 class _AiSection extends StatelessWidget {
   const _AiSection();
 
@@ -225,21 +244,27 @@ class _SemanticSectionState extends State<_SemanticSection> {
 
 class _ModelPickerSheet extends StatefulWidget {
   final EmbeddingModelManager manager;
+  final bool showAsPage;
 
-  const _ModelPickerSheet({required this.manager});
+  const _ModelPickerSheet({required this.manager, this.showAsPage = false});
 
   @override
   State<_ModelPickerSheet> createState() => _ModelPickerSheetState();
 }
 
 class _ModelPickerSheetState extends State<_ModelPickerSheet> {
-  String? _downloadingId;
-  double _progress = 0;
-
   EmbeddingModelManager get _manager => widget.manager;
+  EmbeddingModelOperation? get _operation => _manager.operation.value;
+  bool get _busy => _operation != null;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<EmbeddingModelOperation?>(
+        valueListenable: _manager.operation,
+        builder: (context, _, _) => _buildContent(context),
+      );
+
+  Widget _buildContent(BuildContext context) {
     final scheme = context.theme.colors;
     final active = _manager.active;
     return SafeArea(
@@ -258,23 +283,72 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
             ),
           ),
           for (final (i, spec) in embeddingModelCatalog.indexed)
-            _modelTile(
-              context,
-              spec,
-              isFirst: i == 0,
-              isLast: i == embeddingModelCatalog.length - 1 && active == null,
-              isActive: spec.id == active?.id,
-            ),
+            if (widget.showAsPage)
+              _pageModelTile(context, spec, isActive: spec.id == active?.id)
+            else
+              _modelTile(
+                context,
+                spec,
+                isFirst: i == 0,
+                isLast: i == embeddingModelCatalog.length - 1 && active == null,
+                isActive: spec.id == active?.id,
+              ),
           if (active != null)
             SettingListTile(
               isLast: true,
               leading: Icon(LucideIcons.circleOff, color: scheme.error),
               title: context.l10n.app.semanticDisableTitle,
-              onTap: _downloadingId != null ? null : _disable,
+              onTap: _busy ? null : _disable,
             ),
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  Widget _pageModelTile(
+    BuildContext context,
+    EmbeddingModelSpec spec, {
+    required bool isActive,
+  }) {
+    final downloaded = _manager.isDownloaded(spec);
+    final downloading =
+        _operation?.kind == EmbeddingModelOperationKind.activate &&
+        _operation?.modelId == spec.id;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _modelTile(
+          context,
+          spec,
+          isFirst: true,
+          isLast: true,
+          isActive: isActive,
+        ),
+        if (!isActive)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.spacing.sm),
+            child: Wrap(
+              spacing: context.spacing.sm,
+              children: [
+                TextButton(
+                  onPressed: _busy ? null : () => _activate(spec),
+                  child: Text(
+                    downloaded
+                        ? context.l10n.app.semanticEnableTitle
+                        : context.l10n.app.semanticEnableConfirm,
+                  ),
+                ),
+                if (downloaded)
+                  TextButton(
+                    onPressed: _busy ? null : () => _delete(spec),
+                    child: Text(context.l10n.app.semanticDeleteConfirm),
+                  ),
+              ],
+            ),
+          ),
+        if (downloading) const SizedBox(height: 8),
+      ],
     );
   }
 
@@ -286,15 +360,25 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
     required bool isActive,
   }) {
     final scheme = context.theme.colors;
-    final downloading = _downloadingId == spec.id;
+    final operation = _operation;
+    final downloading =
+        operation?.kind == EmbeddingModelOperationKind.activate &&
+        operation?.modelId == spec.id;
     final downloaded = _manager.isDownloaded(spec);
     final sizeMb = (spec.sizeBytes / (1024 * 1024)).round();
+    final status = isActive
+        ? context.l10n.app.semanticModelActive
+        : downloaded
+        ? context.l10n.app.semanticModelDownloaded
+        : context.l10n.app.semanticModelNotDownloaded;
     final subtitle = downloading
-        ? (_progress < 0
+        ? (operation!.progress < 0
               ? context.l10n.app.semanticVerifying
               : context.l10n.app.semanticDownloading(
-                  percent: (_progress * 100).toStringAsFixed(0),
+                  percent: (operation.progress * 100).toStringAsFixed(0),
                 ))
+        : widget.showAsPage
+        ? '$sizeMb MB · ${_descOf(context, spec)} · $status'
         : '$sizeMb MB · ${_descOf(context, spec)}';
     return SettingListTile(
       isFirst: isFirst,
@@ -311,13 +395,13 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : (downloaded && !isActive)
+          : (downloaded && !isActive && !widget.showAsPage)
           ? IconButton(
               icon: Icon(LucideIcons.trash2, color: scheme.onSurfaceVariant),
-              onPressed: () => _delete(spec),
+              onPressed: _busy ? null : () => _delete(spec),
             )
           : null,
-      onTap: (isActive || _downloadingId != null)
+      onTap: (widget.showAsPage || isActive || _busy)
           ? null
           : () => _activate(spec),
     );
@@ -331,6 +415,7 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
   }
 
   Future<void> _activate(EmbeddingModelSpec spec) async {
+    if (_busy) return;
     final downloaded = _manager.isDownloaded(spec);
     final sizeMb = (spec.sizeBytes / (1024 * 1024)).round();
     final confirmed = await MAlert.confirm(
@@ -339,37 +424,39 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
       message: downloaded
           ? l10n.app.semanticActivateLocalMessage
           : l10n.app.semanticActivateDownloadMessage(size: '$sizeMb MB'),
-      confirmLabel: l10n.app.semanticEnableConfirm,
+      confirmLabel: downloaded && widget.showAsPage
+          ? l10n.app.semanticEnableTitle
+          : l10n.app.semanticEnableConfirm,
     );
     if (!confirmed || !mounted) return;
-    setState(() {
-      _downloadingId = spec.id;
-      _progress = 0;
-    });
     try {
-      if (!downloaded) {
-        await _manager.download(
-          spec,
-          onProgress: (received, total) {
-            if (!mounted) return;
-            setState(() => _progress = total > 0 ? received / total : 0);
-          },
-        );
-      }
-      if (mounted) setState(() => _progress = -1);
-      await _manager.activate(spec);
-      unawaited(getIt<EmbedIndexService>().drain());
+      final started = await _manager.runOperation(
+        kind: EmbeddingModelOperationKind.activate,
+        modelId: spec.id,
+        action: (progress) async {
+          if (!downloaded) {
+            await _manager.download(
+              spec,
+              onProgress: (received, total) =>
+                  progress(total > 0 ? received / total : 0),
+            );
+          }
+          progress(-1);
+          await _manager.activate(spec);
+          unawaited(getIt<EmbedIndexService>().drain());
+        },
+      );
+      if (!started) return;
       toast.success(message: l10n.app.semanticEnabled);
-      if (mounted) Navigator.of(context).pop();
+      if (mounted && !widget.showAsPage) Navigator.of(context).pop();
     } catch (e, s) {
       logger.e('activate embedding model failed', error: e, stackTrace: s);
       toast.error(message: l10n.app.semanticEnableFailed);
-    } finally {
-      if (mounted) setState(() => _downloadingId = null);
     }
   }
 
   Future<void> _delete(EmbeddingModelSpec spec) async {
+    if (_busy) return;
     final confirmed = await MAlert.confirm(
       context,
       title: l10n.app.semanticDeleteTitle,
@@ -377,12 +464,21 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
       confirmLabel: l10n.app.semanticDeleteConfirm,
       isDestructive: true,
     );
-    if (!confirmed) return;
-    await _manager.delete(spec);
-    if (mounted) setState(() {});
+    if (!confirmed || !mounted) return;
+    try {
+      await _manager.runOperation(
+        kind: EmbeddingModelOperationKind.delete,
+        modelId: spec.id,
+        action: (_) => _manager.delete(spec),
+      );
+    } catch (e, s) {
+      logger.e('delete embedding model failed', error: e, stackTrace: s);
+      toast.error();
+    }
   }
 
   Future<void> _disable() async {
+    if (_busy) return;
     final confirmed = await MAlert.confirm(
       context,
       title: l10n.app.semanticDisableTitle,
@@ -392,11 +488,22 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
     );
     if (!confirmed || !mounted) return;
     try {
-      _manager.deactivate();
-      await getIt<EmbedIndexService>().clearAll();
-      if (mounted) Navigator.of(context).pop();
+      final started = await _manager.runOperation(
+        kind: EmbeddingModelOperationKind.disable,
+        modelId: _manager.active?.id ?? '',
+        action: (_) async {
+          _manager.deactivate();
+          await getIt<EmbedIndexService>().clearAll();
+        },
+      );
+      if (!started) return;
+      if (!mounted) return;
+      if (!widget.showAsPage) {
+        Navigator.of(context).pop();
+      }
     } catch (e, s) {
       logger.e('disable semantic search failed', error: e, stackTrace: s);
+      toast.error();
     }
   }
 }

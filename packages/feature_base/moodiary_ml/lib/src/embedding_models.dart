@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, ValueNotifier, visibleForTesting;
 import 'package:injectable/injectable.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_http/moodiary_http.dart';
@@ -69,6 +70,22 @@ typedef ModelPartialCleanup = ({
   int deletedBytes,
   int failedFiles,
 });
+
+enum EmbeddingModelOperationKind { activate, disable, delete }
+
+class EmbeddingModelOperation {
+  const EmbeddingModelOperation({
+    required this.kind,
+    required this.modelId,
+    this.progress = 0,
+  });
+
+  final EmbeddingModelOperationKind kind;
+  final String modelId;
+
+  /// Download fraction; a negative value means the model is being verified.
+  final double progress;
+}
 
 // Dart's process-level file locks do not serialize isolates within a process
 // on every platform, so retain the in-isolate lock as well.
@@ -147,6 +164,42 @@ class EmbeddingModelManager {
   final IHttpClient _http;
 
   EmbeddingModelManager(this._http);
+
+  final _operation = ValueNotifier<EmbeddingModelOperation?>(null);
+  Object? _operationToken;
+
+  /// Shared state for model-management screens that may be opened or closed
+  /// while a download or another operation is still running.
+  ValueListenable<EmbeddingModelOperation?> get operation => _operation;
+
+  /// Starts one management operation atomically. Returns false when another
+  /// operation is already active; the operation always clears on completion.
+  Future<bool> runOperation({
+    required EmbeddingModelOperationKind kind,
+    required String modelId,
+    required Future<void> Function(void Function(double) progress) action,
+  }) async {
+    if (_operationToken != null) return false;
+    final token = Object();
+    _operationToken = token;
+    _operation.value = EmbeddingModelOperation(kind: kind, modelId: modelId);
+    try {
+      await action((progress) {
+        if (!identical(_operationToken, token)) return;
+        _operation.value = EmbeddingModelOperation(
+          kind: kind,
+          modelId: modelId,
+          progress: progress,
+        );
+      });
+      return true;
+    } finally {
+      if (identical(_operationToken, token)) {
+        _operationToken = null;
+        _operation.value = null;
+      }
+    }
+  }
 
   static EmbeddingModelSpec? byId(String id) {
     for (final spec in embeddingModelCatalog) {

@@ -25,6 +25,12 @@ class ServicesRoute extends MoodiaryRouteBase {
   const ServicesRoute() : super(path);
 }
 
+class ModelManagementRoute extends MoodiaryRouteBase {
+  static const String path = '/setting/models';
+
+  const ModelManagementRoute() : super(path);
+}
+
 class AboutRoute extends MoodiaryRouteBase {
   static const String path = '/setting/about';
 
@@ -41,8 +47,13 @@ List<RouteBase> settingRoutes() => [
   GoRoute(path: SettingRoute.path, builder: (_, _) => const SettingPage()),
   GoRoute(
     path: StorageRoute.path,
-    builder: (context, _) =>
-        StoragePage(onManageModels: () => const ServicesRoute().push(context)),
+    builder: (context, _) => StoragePage(
+      onManageModels: () => const ModelManagementRoute().push(context),
+    ),
+  ),
+  GoRoute(
+    path: ModelManagementRoute.path,
+    builder: (_, _) => const ModelManagementPage(),
   ),
   GoRoute(
     path: DiarySettingRoute.path,

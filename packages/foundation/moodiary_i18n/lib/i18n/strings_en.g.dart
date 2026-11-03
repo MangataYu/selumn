@@ -216,6 +216,9 @@ class _Translations$app$en extends Translations$app$zh {
 	@override String get semanticTitle => 'Semantic search';
 	@override String get semanticModelTitle => 'Embedding model';
 	@override String get semanticStateOff => 'Not enabled';
+	@override String get semanticModelActive => 'Enabled';
+	@override String get semanticModelDownloaded => 'Downloaded';
+	@override String get semanticModelNotDownloaded => 'Not downloaded';
 	@override String semanticDownloading({required Object percent}) => 'Downloading ${percent}%';
 	@override String get semanticVerifying => 'Verifying model…';
 	@override String get semanticEnableTitle => 'Enable semantic search';

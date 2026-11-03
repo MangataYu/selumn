@@ -519,6 +519,15 @@ class Translations$app$zh {
 	/// zh: '未启用'
 	String get semanticStateOff => '未启用';
 
+	/// zh: '已启用'
+	String get semanticModelActive => '已启用';
+
+	/// zh: '已下载'
+	String get semanticModelDownloaded => '已下载';
+
+	/// zh: '未下载'
+	String get semanticModelNotDownloaded => '未下载';
+
 	/// zh: '下载中 {percent}%'
 	String semanticDownloading({required Object percent}) => '下载中 ${percent}%';
 
