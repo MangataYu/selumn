@@ -17,11 +17,12 @@ Rust's `llm/siwc.rs` adapts Rig's Responses request to the public subscription e
 
 ## Tools and approval
 
-- Keep the 10 active batch tools in `AssistantToolRegistry`; the four retired category tools retain their ids and summaries for history but are excluded from model registration, settings and execution.
+- Keep active batch tools in `AssistantToolRegistry`; the four retired category tools retain their ids and summaries for history but are excluded from model registration, settings and execution.
 - A tag filter uses the repository's keyword/date path, including descendants, and explicitly reports that semantic search was not run because the vector index has no tag metadata.
 - Tool renames need entries in `renamedAssistantToolIds` so persisted chat history remains readable.
 - Follow the UI's write paths: recycle-bin deletion uses `show: false`, content changes re-extract media, and replacing tags removes corresponding inline marks so deleted tags cannot return. Retired `categoryId` inputs fail instead of silently changing categories.
-- Determine permission tiers from call arguments, including all batch items. Diary content replacement is destructive; moving an entry to the recycle bin is reversible. Preserve the confirmation behavior of `AssistantPermissionMode`.
+- Use `renameDiary` for title changes and pass only ids and titles. Its repository write must not touch body fields. `updateDiary` rejects title arguments.
+- Determine permission tiers from call arguments, including all batch items. Diary content replacement is destructive and requires confirmation in every mode. Moving an entry to the recycle bin is reversible.
 - Only the exact bridge verdict `run` authorizes execution. Declines and bridge errors must skip the tool and return a skipped result to the model.
 - Resolve pending `ToolApprovalGate` requests as declined on stop, disposal or timeout. A reply entered while approval is pending declines that call and queues the reply until the run ends.
 - Keep tool execution sequential while the approval UI supports only one pending card; do not enable `tool_concurrency` without changing that contract.

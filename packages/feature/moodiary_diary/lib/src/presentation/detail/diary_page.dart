@@ -19,6 +19,7 @@ import 'package:moodiary_utils/moodiary_utils.dart';
 import '../../application/diary_filter.dart';
 import '../../application/diary_selection.dart';
 import '../place/place_editor.dart';
+import 'diary_version_history_page.dart';
 import 'hop_history.dart';
 
 enum _Mode { read, edit }
@@ -245,6 +246,8 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     if (diary.content == _shownContent && diary.title == _shownTitle) return;
     _shownContent = diary.content;
     _shownTitle = diary.title;
+    // Legacy rich text is converted when EditorBody mounts.
+    if (DiaryType.fromValue(diary.type) == .richText) return;
     unawaited(
       _editorController.swapDocument(
         content: diary.content,
@@ -605,6 +608,8 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     final headings = diary == null
         ? const <({int level, String text})>[]
         : _headingsOf(diary.content);
+    final compactActions =
+        _hops.length > 1 && MediaQuery.sizeOf(context).width < 400;
     return PopScope(
       canPop: _hops.atRoot,
       onPopInvokedWithResult: (didPop, _) {
@@ -662,11 +667,43 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
                     AssistantConversationRoute(citedDiaryId: diary.id)
                         .push(context),
               ),
-              IconButton(
-                tooltip: context.l10n.diary.share,
-                icon: const Icon(LucideIcons.share),
-                onPressed: () => DiaryShare.open(context, diary.id),
-              ),
+              if (compactActions)
+                MMenuButton<VoidCallback>(
+                  tooltip: context.l10n.common.more,
+                  entries: [
+                    MMenuEntry(
+                      value: () => DiaryShare.open(context, diary.id),
+                      label: context.l10n.diary.share,
+                      icon: LucideIcons.share,
+                    ),
+                    MMenuEntry(
+                      value: () =>
+                          DiaryVersionHistoryPage.open(context, diary.id),
+                      label: context.l10n.diary.versionHistory,
+                      icon: LucideIcons.history,
+                    ),
+                  ],
+                  onSelected: (action) {
+                    if (mounted) action();
+                  },
+                  child: const SizedBox.square(
+                    dimension: 48,
+                    child: Icon(LucideIcons.ellipsis),
+                  ),
+                )
+              else ...[
+                IconButton(
+                  tooltip: context.l10n.diary.share,
+                  icon: const Icon(LucideIcons.share),
+                  onPressed: () => DiaryShare.open(context, diary.id),
+                ),
+                IconButton(
+                  tooltip: context.l10n.diary.versionHistory,
+                  icon: const Icon(LucideIcons.history),
+                  onPressed: () =>
+                      DiaryVersionHistoryPage.open(context, diary.id),
+                ),
+              ],
             ],
             if (headings.isNotEmpty)
               IconButton(
@@ -857,9 +894,13 @@ class _DiaryPageState extends ConsumerState<DiaryPage>
     _ensureLinksLoaded(diary.id);
     _shownContent ??= diary.content;
     _shownTitle ??= diary.title;
+    final type = DiaryType.fromValue(diary.type);
     return EditorBody(
-      key: const ValueKey('diary-editor'),
-      type: .fromValue(diary.type),
+      key: ValueKey((
+        type,
+        type == .richText ? (diary.content, diary.title) : null,
+      )),
+      type: type,
       initialContent: diary.content,
       initialTitle: diary.title,
       editable: _mode == .edit,

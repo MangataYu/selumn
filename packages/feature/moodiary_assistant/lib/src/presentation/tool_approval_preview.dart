@@ -33,7 +33,7 @@ Future<ToolApprovalPreview> buildToolApprovalPreview(
   final ids = assistantToolIds(request.args);
   return switch (request.tool) {
     .createDiary => _createDiary(l10n, items),
-    .updateDiary => _updateDiary(l10n, items),
+    .updateDiary || .renameDiary => _updateDiary(l10n, items),
     .deleteDiary => _diaries(
       l10n,
       ids,
@@ -134,6 +134,17 @@ Future<ToolApprovalPreview> _updateDiary(
         key;
   }
 
+  String titleLabel(Object? title) {
+    final text = _str(title);
+    return text.isEmpty ? l10n.common.untitled : text;
+  }
+
+  String contentRewrite(Diary? diary, Object? content) =>
+      l10n.assistant.approvalContentRewrite(
+        from: _chars(diary?.contentText ?? ''),
+        to: _chars(_str(content)),
+      );
+
   if (items.length == 1) {
     final item = items.single;
     final diary = await diaries.getDiaryByBusinessId(_str(item['id']));
@@ -141,9 +152,7 @@ Future<ToolApprovalPreview> _updateDiary(
     if (item['title'] != null) {
       lines.add((
         label: l10n.assistant.approvalFieldTitle,
-        value:
-            '${diary?.title.trim().isEmpty ?? true ? l10n.common.untitled : diary!.title.trim()}'
-            ' → ${_str(item['title'])}',
+        value: '${titleLabel(diary?.title)} → ${titleLabel(item['title'])}',
       ));
     }
     if (item['categoryId'] != null) {
@@ -164,10 +173,7 @@ Future<ToolApprovalPreview> _updateDiary(
     if (item['content'] != null) {
       lines.add((
         label: l10n.assistant.approvalFieldContent,
-        value: l10n.assistant.approvalContentRewrite(
-          from: _chars(diary?.contentText ?? ''),
-          to: _chars(_str(item['content'])),
-        ),
+        value: contentRewrite(diary, item['content']),
       ));
     }
     return ToolApprovalPreview(
@@ -194,11 +200,17 @@ Future<ToolApprovalPreview> _updateDiary(
   final lines = <ToolApprovalLine>[];
   for (final item in items.take(_kPreviewRows)) {
     final diary = await diaries.getDiaryByBusinessId(_str(item['id']));
+    final label = diary == null ? _str(item['id']) : _diaryLabel(diary, l10n);
     lines.add((
       label: '',
-      value:
-          '${diary == null ? _str(item['id']) : _diaryLabel(diary, l10n)}'
-          '${item.containsKey('tags') ? ' · ${l10n.common.tag}: ${_tagNames(item['tags'], l10n)}' : ''}',
+      value: [
+        item['title'] == null ? label : '$label → ${titleLabel(item['title'])}',
+        if (item.containsKey('tags'))
+          '${l10n.common.tag}: ${_tagNames(item['tags'], l10n)}',
+        if (item['content'] != null)
+          '${l10n.assistant.approvalFieldContent}: '
+              '${contentRewrite(diary, item['content'])}',
+      ].join(' · '),
     ));
   }
   if (items.length > _kPreviewRows) {

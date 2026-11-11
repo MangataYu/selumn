@@ -18,9 +18,12 @@ import 'package:moodiary_utils/moodiary_utils.dart';
 import 'db/database.dart';
 import 'db/db_codec.dart';
 import 'diary_content.dart';
+import 'diary_derive.dart';
 import 'media_item.dart';
 
 enum IndexMode { inline, skip }
+
+typedef DiaryVersion = ({int id, Diary diary});
 
 class MediaCleanupOutcome {
   const MediaCleanupOutcome({
@@ -48,10 +51,46 @@ class DiaryRepository {
 
   final MoodiaryDatabase _db;
 
+  static const _versionRetention = Duration(days: 30);
+
+  static DateTime _versionCutoff() =>
+      DateTime.timestamp().subtract(_versionRetention);
+
   Timer? _mediaCleanupTimer;
+  Timer? _versionCleanupTimer;
   Future<void>? _runningMediaCleanup;
+  Future<void>? _runningVersionCleanup;
   Future<void>? _disposeFuture;
   bool _disposed = false;
+
+  /// Prunes expired history at startup and while the application is running.
+  void startVersionCleanup() {
+    if (_disposed) throw StateError('DiaryRepository is disposed');
+    if (_versionCleanupTimer != null) return;
+    _scheduleVersionCleanup();
+    _versionCleanupTimer = Timer.periodic(
+      const Duration(hours: 1),
+      (_) => _scheduleVersionCleanup(),
+    );
+  }
+
+  void _scheduleVersionCleanup() {
+    _runningVersionCleanup ??= _pruneExpiredVersions().whenComplete(() {
+      _runningVersionCleanup = null;
+    });
+  }
+
+  Future<void> _pruneExpiredVersions() async {
+    try {
+      await _db.pruneDiaryVersions(before: _versionCutoff());
+    } catch (error, stackTrace) {
+      logger.e(
+        'Unable to prune expired diary versions',
+        error: error.runtimeType,
+        stackTrace: stackTrace,
+      );
+    }
+  }
 
   /// Replays durable cleanup requests at startup and periodically thereafter.
   /// Repeated calls are harmless; a busy editor or another process may defer
@@ -78,6 +117,8 @@ class DiaryRepository {
   Future<void> _dispose() async {
     _disposed = true;
     stopMediaCleanup();
+    _versionCleanupTimer?.cancel();
+    await _runningVersionCleanup;
     await _runningMediaCleanup;
     await _events.close();
   }
@@ -399,6 +440,86 @@ class DiaryRepository {
     });
   }
 
+  /// Previous saved states, ordered from the most recently superseded state.
+  Future<List<DiaryVersion>> getDiaryVersions(
+    String id, {
+    int? limit,
+    int? beforeId,
+  }) async {
+    final cutoff = dbTime(_versionCutoff());
+    final query = _db.select(_db.diaryVersions)
+      ..where(
+        (v) => v.diaryId.equals(id) & v.archivedAt.isBiggerOrEqualValue(cutoff),
+      )
+      ..orderBy([(v) => OrderingTerm.desc(v.id)]);
+    if (beforeId != null) query.where((v) => v.id.isSmallerThanValue(beforeId));
+    if (limit != null) query.limit(limit);
+    return [
+      for (final row in await query.get())
+        (id: row.id, diary: _versionDiary(row)),
+    ];
+  }
+
+  static Diary _versionDiary(DiaryVersionRow row) =>
+      Diary.fromJson(jsonDecode(row.snapshotJson) as Map<String, dynamic>);
+
+  Future<void> deleteDiaryVersion(String diaryId, DiaryVersion version) async {
+    final versions = _db.diaryVersions;
+    Expression<bool> matches(DiaryVersions v) =>
+        v.diaryId.equals(diaryId) & v.id.equals(version.id);
+
+    await _db.transaction(() async {
+      final row = await (_db.select(
+        versions,
+      )..where(matches)).getSingleOrNull();
+      // SQLite can reuse a deleted row ID while the confirmation is open.
+      if (row == null || _versionDiary(row) != version.diary) return;
+      await (_db.delete(versions)..where(matches)).go();
+    });
+  }
+
+  Future<void> clearDiaryVersions(String diaryId) async {
+    await (_db.delete(
+      _db.diaryVersions,
+    )..where((v) => v.diaryId.equals(diaryId))).go();
+  }
+
+  /// Restores an available version as a local edit. A concurrent change to the
+  /// current diary or selected snapshot requires a fresh selection.
+  Future<bool> restoreDiaryVersion(String diaryId, DiaryVersion version) async {
+    if (version.diary.id != diaryId) return false;
+    final current = await getDiaryByBusinessId(diaryId);
+    if (current == null || !current.show) return false;
+    return _updateADiary(
+      newDiary: touched(
+        withDerivedMedia(version.diary.copyWith(show: current.show)),
+      ),
+      expected: current,
+      restoreVersion: version,
+    );
+  }
+
+  static bool _sameSavedState(Diary previous, Diary next) =>
+      previous.copyWith(
+        lastModified: next.lastModified,
+        show: next.show,
+        time: previous.time.toUtc(),
+      ) ==
+      next.copyWith(time: next.time.toUtc());
+
+  Future<void> _archiveIfChanged(Diary? previous, Diary next) async {
+    if (previous == null || _sameSavedState(previous, next)) return;
+    await _db
+        .into(_db.diaryVersions)
+        .insert(
+          DiaryVersionsCompanion.insert(
+            diaryId: previous.id,
+            snapshotJson: jsonEncode(previous.toJson()),
+            archivedAt: Value(dbTime(.timestamp())),
+          ),
+        );
+  }
+
   Future<void> insertADiary(
     Diary diary, {
     bool fromSync = false,
@@ -417,6 +538,7 @@ class DiaryRepository {
     try {
       await _db.transaction(() async {
         for (final diary in diaries) {
+          await _archiveIfChanged(await getDiaryByBusinessId(diary.id), diary);
           await _upsertRow(diary);
           await _syncChildren(diary);
           if (index == .inline) {
@@ -449,6 +571,30 @@ class DiaryRepository {
     await _updateADiary(newDiary: newDiary, index: index, fromSync: fromSync);
   }
 
+  /// Renames a visible diary without rewriting its body or related records.
+  Future<bool> updateDiaryTitle(String id, {required String title}) async {
+    Diary? renamed;
+    final found = await _db.transaction(() async {
+      final current = await getDiaryByBusinessId(id);
+      if (current == null || !current.show) return false;
+      if (current.title == title) return true;
+
+      final next = current.copyWith(title: title, lastModified: .timestamp());
+      await _archiveIfChanged(current, next);
+      await (_db.update(_db.diaries)..where((d) => d.id.equals(id))).write(
+        DiariesCompanion(
+          title: Value(next.title),
+          lastModified: Value(dbTime(next.lastModified)),
+        ),
+      );
+      await _enqueueEmbed([id]);
+      renamed = next;
+      return true;
+    });
+    if (renamed != null) _notifyDiaryEvent(DiaryUpdated(renamed!));
+    return found;
+  }
+
   /// Updates only if the persisted diary still matches [expected]. This check
   /// and the write share a database transaction, so background processing
   /// cannot overwrite edits made after it loaded its snapshot.
@@ -467,6 +613,7 @@ class DiaryRepository {
     IndexMode index = .inline,
     bool fromSync = false,
     Diary? expected,
+    DiaryVersion? restoreVersion,
   }) async {
     newDiary = _withNormalizedTags(newDiary);
     assert(() {
@@ -482,11 +629,26 @@ class DiaryRepository {
         ? null
         : await MediaGuard().acquireAll(leaseKeys);
     var queued = false;
-    var applied = false;
+    Diary? saved;
     try {
-      await _db.transaction(() async {
+      final applied = await _db.transaction(() async {
         final oldDiary = await getDiaryByBusinessId(newDiary.id);
-        if (expected != null && oldDiary != expected) return;
+        if (expected != null && oldDiary != expected) return false;
+        if (restoreVersion != null) {
+          final cutoff = dbTime(_versionCutoff());
+          final row =
+              await (_db.select(_db.diaryVersions)..where(
+                    (v) =>
+                        v.diaryId.equals(newDiary.id) &
+                        v.id.equals(restoreVersion.id) &
+                        v.archivedAt.isBiggerOrEqualValue(cutoff),
+                  ))
+                  .getSingleOrNull();
+          if (row == null || _versionDiary(row) != restoreVersion.diary) {
+            return false;
+          }
+          if (_sameSavedState(oldDiary!, newDiary)) return true;
+        }
         final oldKeys = oldDiary == null
             ? <MediaKey>[]
             : _mediaKeysFor(oldDiary);
@@ -518,19 +680,25 @@ class DiaryRepository {
             );
           }
         }
+        if (!fromSync && (expected == null || restoreVersion != null)) {
+          await _archiveIfChanged(oldDiary, newDiary);
+        }
         await _upsertRow(newDiary);
         await _syncChildren(newDiary);
         if (index == .inline) {
           await _applyLinks(newDiary.id, DiaryContent.of(newDiary).links);
           await _enqueueEmbed([newDiary.id]);
         }
-        applied = true;
+        saved = newDiary;
+        return true;
       });
+      if (!applied) return false;
     } finally {
       await lease?.release();
     }
-    if (!applied) return false;
-    _notifyDiaryEvent(DiaryUpdated(newDiary, fromSync: fromSync));
+    if (saved case final diary?) {
+      _notifyDiaryEvent(DiaryUpdated(diary, fromSync: fromSync));
+    }
     if (queued) await drainMediaCleanupQueue();
     return true;
   }

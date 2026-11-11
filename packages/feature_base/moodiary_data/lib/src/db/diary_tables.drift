@@ -31,6 +31,17 @@ CREATE INDEX idx_diaries_show_cat_time
 CREATE INDEX idx_diaries_show_lastmod
   ON diaries (show, last_modified DESC, id DESC);
 
+-- 仅保存在本机的历史快照，按归档顺序排列。永久删除日记时一并清除。
+CREATE TABLE diary_versions (
+  id            INTEGER PRIMARY KEY,
+  diary_id      TEXT NOT NULL REFERENCES diaries (id) ON DELETE CASCADE,
+  snapshot_json TEXT NOT NULL,
+  archived_at   INTEGER NOT NULL DEFAULT 0
+) AS DiaryVersionRow;
+
+CREATE INDEX idx_diary_versions_diary ON diary_versions (diary_id, id DESC);
+CREATE INDEX idx_diary_versions_archived_at ON diary_versions (archived_at);
+
 -- 媒体引用（正文派生缓存，seq = 正文出现序）与标签。
 CREATE TABLE diary_media (
   diary_id  TEXT NOT NULL REFERENCES diaries (id) ON DELETE CASCADE,

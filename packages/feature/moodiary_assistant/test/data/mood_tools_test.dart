@@ -110,7 +110,7 @@ void main() {
     ]) {
       final output = await _run(.updateDiary, {
         'id': original.id,
-        'title': '不应保存的新标题',
+        'content': '不应保存的新正文',
         'mood': mood,
       });
       expect(output, startsWith('Failed:'), reason: '$mood');
@@ -124,9 +124,10 @@ void main() {
       await repository.insertADiary(
         Diary.empty(type: .tiptap).copyWith(id: mood.name, mood: mood),
       );
-      final output = await _run(.updateDiary, {
-        'id': mood.name,
-        'title': '只更新标题',
+      final output = await _run(.renameDiary, {
+        'items': [
+          {'id': mood.name, 'title': '只更新标题'},
+        ],
       });
       expect(output, startsWith('Updated '), reason: mood.name);
       final saved = (await repository.getDiaryByBusinessId(mood.name))!;

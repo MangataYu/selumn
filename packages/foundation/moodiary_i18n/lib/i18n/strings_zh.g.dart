@@ -1043,8 +1043,14 @@ class Translations$assistant$zh {
 	/// zh: '修改日记'
 	String get toolUpdateTitle => '修改日记';
 
-	/// zh: '按你的要求修改日记的标题、正文、心情或标签，可一次改多篇。'
-	String get toolUpdateDes => '按你的要求修改日记的标题、正文、心情或标签，可一次改多篇。';
+	/// zh: '按你的要求修改日记的正文、心情或标签，可一次改多篇。'
+	String get toolUpdateDes => '按你的要求修改日记的正文、心情或标签，可一次改多篇。';
+
+	/// zh: '重命名日记'
+	String get toolRenameDiaryTitle => '重命名日记';
+
+	/// zh: '只修改日记标题，可一次改多篇。'
+	String get toolRenameDiaryDes => '只修改日记标题，可一次改多篇。';
 
 	/// zh: '删除日记'
 	String get toolDeleteTitle => '删除日记';
@@ -1463,8 +1469,8 @@ class Translations$assistant$zh {
 	/// zh: '完全访问'
 	String get permissionFull => '完全访问';
 
-	/// zh: '所有操作直接执行，不再询问'
-	String get permissionFullDes => '所有操作直接执行，不再询问';
+	/// zh: '仅在覆盖日记正文前询问'
+	String get permissionFullDes => '仅在覆盖日记正文前询问';
 
 	/// zh: '只影响本次对话'
 	String get permissionSessionOnly => '只影响本次对话';
@@ -1517,8 +1523,8 @@ class Translations$assistant$zh {
 	/// zh: '整篇重写，约 {from} 字 → {to} 字'
 	String approvalContentRewrite({required Object from, required Object to}) => '整篇重写，约 ${from} 字 → ${to} 字';
 
-	/// zh: '会覆盖现在的正文，没有历史版本可以退回'
-	String get approvalOverwriteWarning => '会覆盖现在的正文，没有历史版本可以退回';
+	/// zh: '此操作会覆盖当前日记正文。'
+	String get approvalOverwriteWarning => '此操作会覆盖当前日记正文。';
 
 	/// zh: '删了就找不回来'
 	String get approvalIrreversible => '删了就找不回来';
@@ -2319,6 +2325,48 @@ class Translations$diary$zh {
 
 	/// zh: '编辑'
 	String get edit => '编辑';
+
+	/// zh: '版本记录'
+	String get versionHistory => '版本记录';
+
+	/// zh: '此设备上暂无历史版本'
+	String get versionHistoryEmpty => '此设备上暂无历史版本';
+
+	/// zh: '加载更多版本'
+	String get versionHistoryMore => '加载更多版本';
+
+	/// zh: '删除此版本'
+	String get versionHistoryDelete => '删除此版本';
+
+	/// zh: '永久删除在 {time} 保存的历史版本？'
+	String versionHistoryDeleteMessage({required Object time}) => '永久删除在 ${time} 保存的历史版本？';
+
+	/// zh: '清空历史'
+	String get versionHistoryClear => '清空历史';
+
+	/// zh: '永久删除这篇日记在本机的所有历史版本？'
+	String get versionHistoryClearMessage => '永久删除这篇日记在本机的所有历史版本？';
+
+	/// zh: '无法删除版本记录，请重试。'
+	String get versionHistoryDeleteFailed => '无法删除版本记录，请重试。';
+
+	/// zh: '历史版本自归档起在本机保留 30 天。'
+	String get versionHistoryRetention => '历史版本自归档起在本机保留 30 天。';
+
+	/// zh: '恢复此版本'
+	String get versionHistoryRestore => '恢复此版本';
+
+	/// zh: '用此版本替换当前日记？恢复前会先归档当前版本。仍保存在本机的附件可一并恢复。'
+	String get versionHistoryRestoreMessage => '用此版本替换当前日记？恢复前会先归档当前版本。仍保存在本机的附件可一并恢复。';
+
+	/// zh: '已恢复版本'
+	String get versionHistoryRestored => '已恢复版本';
+
+	/// zh: '日记或所选版本已发生变化，请查看更新后的版本记录。'
+	String get versionHistoryRestoreUnavailable => '日记或所选版本已发生变化，请查看更新后的版本记录。';
+
+	/// zh: '无法恢复此版本，请重试。'
+	String get versionHistoryRestoreFailed => '无法恢复此版本，请重试。';
 
 	/// zh: '分享'
 	String get share => '分享';

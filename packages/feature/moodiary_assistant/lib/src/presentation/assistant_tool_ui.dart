@@ -40,6 +40,11 @@ import 'package:mui/mui.dart';
       title: l10n.assistant.toolUpdateTitle,
       description: l10n.assistant.toolUpdateDes,
     ),
+    .renameDiary => (
+      icon: LucideIcons.type,
+      title: l10n.assistant.toolRenameDiaryTitle,
+      description: l10n.assistant.toolRenameDiaryDes,
+    ),
     .deleteDiary => (
       icon: LucideIcons.trash2,
       title: l10n.assistant.toolDeleteTitle,

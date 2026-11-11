@@ -27,13 +27,15 @@ abstract final class MMenu {
     required BuildContext anchorContext,
     required List<MMenuEntry<T>> entries,
     T? selected,
+    Rect? anchorBounds,
   }) {
     final navigator = Navigator.of(anchorContext);
     final button = anchorContext.findRenderObject() as RenderBox;
     final overlay = navigator.overlay!.context.findRenderObject() as RenderBox;
+    final bounds = anchorBounds ?? (Offset.zero & button.size);
     final anchor = Rect.fromPoints(
-      button.localToGlobal(.zero, ancestor: overlay),
-      button.localToGlobal(button.size.bottomRight(.zero), ancestor: overlay),
+      button.localToGlobal(bounds.topLeft, ancestor: overlay),
+      button.localToGlobal(bounds.bottomRight, ancestor: overlay),
     );
     final preferAbove = anchor.top > overlay.size.height - anchor.bottom;
 
@@ -61,6 +63,9 @@ class MMenuButton<T> extends StatelessWidget {
   final Widget child;
   final String? tooltip;
 
+  /// Bounds of the visual anchor in the button's local coordinates.
+  final Rect? anchorBounds;
+
   const MMenuButton({
     super.key,
     required this.entries,
@@ -68,6 +73,7 @@ class MMenuButton<T> extends StatelessWidget {
     required this.child,
     this.selected,
     this.tooltip,
+    this.anchorBounds,
   });
 
   Future<void> _open(BuildContext context) async {
@@ -75,6 +81,7 @@ class MMenuButton<T> extends StatelessWidget {
       anchorContext: context,
       entries: entries,
       selected: selected,
+      anchorBounds: anchorBounds,
     );
     if (result != null) onSelected(result);
   }

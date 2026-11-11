@@ -15,6 +15,7 @@ final Map<String, DiaryCitationKind> _kindByTool = {
   AssistantTool.getDiary.id: .read,
   AssistantTool.createDiary.id: .created,
   AssistantTool.updateDiary.id: .updated,
+  AssistantTool.renameDiary.id: .updated,
   AssistantTool.deleteDiary.id: .deleted,
 };
 

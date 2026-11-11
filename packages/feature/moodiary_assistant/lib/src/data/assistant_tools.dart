@@ -7,6 +7,7 @@ import 'package:moodiary_assistant/src/data/memory_repository.dart';
 import 'package:moodiary_data/moodiary_data.dart';
 import 'package:moodiary_di/moodiary_di.dart';
 import 'package:moodiary_i18n/moodiary_i18n.dart';
+import 'package:moodiary_logging/moodiary_logging.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 
@@ -224,9 +225,9 @@ abstract final class AssistantToolRegistry {
     AssistantToolSpec(
       tool: .updateDiary,
       description:
-          'Edit diaries by id. Within an item, only the fields you pass change; '
-          'the rest are left alone. Pass every edit in one call. Get the ids '
-          'from searchDiaries first.',
+          'Change a diary\'s mood or tags, or replace its body when the user '
+          'explicitly asks for a body edit. Use renameDiary to change titles. '
+          'Pass every edit in one call. Get the ids from searchDiaries first.',
       jsonSchema: {
         'type': 'object',
         'properties': {
@@ -241,10 +242,9 @@ abstract final class AssistantToolRegistry {
                   'type': 'string',
                   'description': 'Diary id from searchDiaries.',
                 },
-                'title': {'type': 'string', 'description': 'New title.'},
                 'content': {
                   'type': 'string',
-                  'description': 'New body, Markdown.',
+                  'description': 'Full replacement body in Markdown. Requires confirmation.',
                 },
                 'mood': {
                   'type': 'string',
@@ -264,6 +264,36 @@ abstract final class AssistantToolRegistry {
         'required': ['items'],
       },
       run: _updateDiary,
+      summarize: _summarizeWrite,
+    ),
+    const AssistantToolSpec(
+      tool: .renameDiary,
+      description:
+          'Change diary titles by id. Use this whenever the user asks to '
+          'rename an entry. Pass all title changes in one call. Get the ids '
+          'from searchDiaries first.',
+      jsonSchema: {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties': {
+          'items': {
+            'type': 'array',
+            'description':
+                'One object per diary. Max $_maxBatchWrite per call.',
+            'items': {
+              'type': 'object',
+              'additionalProperties': false,
+              'properties': {
+                'id': {'type': 'string', 'description': 'Diary id.'},
+                'title': {'type': 'string', 'description': 'New title.'},
+              },
+              'required': ['id', 'title'],
+            },
+          },
+        },
+        'required': ['items'],
+      },
+      run: _renameDiary,
       summarize: _summarizeWrite,
     ),
     const AssistantToolSpec(
@@ -614,7 +644,8 @@ abstract final class AssistantToolRegistry {
     if (items.length > 1) {
       return switch (tool) {
         .createDiary ||
-        .updateDiary => l10n.assistant.toolBatchDiaries(count: items.length),
+        .updateDiary ||
+        .renameDiary => l10n.assistant.toolBatchDiaries(count: items.length),
         _ => l10n.assistant.toolBatchItems(count: items.length),
       };
     }
@@ -1099,6 +1130,9 @@ abstract final class AssistantToolRegistry {
       runBatch(input, each: _updateOneDiary);
 
   static Future<String> _updateOneDiary(Map<String, dynamic> input) async {
+    if (input.containsKey('title')) {
+      return 'Failed: use renameDiary to change the title.';
+    }
     final id = (input['id'] as String?)?.trim() ?? '';
     if (id.isEmpty) return 'Failed: no diary id given.';
 
@@ -1109,8 +1143,6 @@ abstract final class AssistantToolRegistry {
     }
 
     var updated = existing;
-    final title = input['title'] as String?;
-    if (title != null) updated = updated.copyWith(title: title.trim());
     final content = input['content'] as String?;
     if (content != null) {
       final converted = _toTiptap(content);
@@ -1148,16 +1180,64 @@ abstract final class AssistantToolRegistry {
     }
     updated = touched(updated);
 
-    await repo.updateADiary(
-      newDiary: updated,
-      index: title == null && updated.content == existing.content
-          ? .skip
-          : .inline,
-    );
+    try {
+      await repo.updateADiary(
+        newDiary: updated,
+        index: updated.content == existing.content ? .skip : .inline,
+      );
+    } catch (error, stackTrace) {
+      return _diaryWriteFailed(id, error, stackTrace);
+    }
     final shown = updated.title.trim().isEmpty
         ? 'Untitled'
         : updated.title.trim();
     return 'Updated "$shown" (id=$id).';
+  }
+
+  static Future<String> _renameDiary(Map<String, dynamic> input) async {
+    final items = input['items'];
+    if (input.length != 1 ||
+        items is! List ||
+        items.any((item) => item is! Map<String, dynamic>)) {
+      return 'Failed: expected an items array of diary ids and titles.';
+    }
+    return runBatch(input, each: _renameOneDiary);
+  }
+
+  static Future<String> _renameOneDiary(Map<String, dynamic> input) async {
+    final id = input['id'];
+    final title = input['title'];
+    if (input.length != 2 ||
+        id is! String ||
+        id.trim().isEmpty ||
+        title is! String) {
+      return 'Failed: each rename requires exactly id and title.';
+    }
+    final diaryId = id.trim();
+    try {
+      final updated = await getIt<DiaryRepository>().updateDiaryTitle(
+        diaryId,
+        title: title.trim(),
+      );
+      return updated
+          ? 'Updated diary id=$diaryId.'
+          : 'Failed: no diary with id=$diaryId.';
+    } catch (error, stackTrace) {
+      return _diaryWriteFailed(diaryId, error, stackTrace);
+    }
+  }
+
+  static String _diaryWriteFailed(
+    String id,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    logger.e(
+      'Assistant diary update failed',
+      error: error.runtimeType,
+      stackTrace: stackTrace,
+    );
+    return 'Failed: could not save changes to diary id=$id.';
   }
 
   static Future<String> _deleteDiary(Map<String, dynamic> input) =>

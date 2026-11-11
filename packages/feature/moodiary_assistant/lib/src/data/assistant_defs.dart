@@ -12,6 +12,8 @@ enum AssistantTool {
 
   updateDiary('updateDiary'),
 
+  renameDiary('renameDiary'),
+
   deleteDiary('deleteDiary'),
 
   listCategories('listCategories'),
@@ -77,6 +79,7 @@ AssistantToolTier assistantToolTier(
   .runJavascript => .read,
   .updateDiary => _rewritesContent(args) ? .destructive : .write,
   .createDiary ||
+  .renameDiary ||
   .createCategory ||
   .updateCategory ||
   .rememberFact ||
@@ -123,12 +126,15 @@ List<String> assistantToolIds(Map<String, dynamic> input) {
 
 bool assistantToolNeedsConfirmation(
   AssistantPermissionMode mode,
+  AssistantTool tool,
   AssistantToolTier tier,
-) => switch (mode) {
-  .confirm => tier != .read,
-  .auto => tier == .destructive,
-  .full => false,
-};
+) =>
+    (tool == .updateDiary && tier == .destructive) ||
+    switch (mode) {
+      .confirm => tier != .read,
+      .auto => tier == .destructive,
+      .full => false,
+    };
 
 const String assistantToolSkippedPrefix = 'Skipped:';
 
@@ -329,8 +335,10 @@ Help the user with whatever they keep here: writing and rewriting entries, organ
 Format your answers in Markdown.''';
 
 const String _toolsRunFreely =
-    '- Every tool runs immediately. Do not ask the user for permission before '
-    'calling one — just call it and report plainly what you did, including '
+    '- Tools run immediately except diary body replacements, which require '
+    'confirmation in the app. Never ask for permission in text. If a call '
+    'comes back as "$assistantToolSkippedPrefix the user declined", do not '
+    'retry it; ask the user what they want instead. Report plainly what you did, including '
     'where the data went (a deleted entry goes to the recycle bin; a forgotten '
     'fact is gone for good).';
 
@@ -377,6 +385,7 @@ Each tool's description is the contract for that tool. The rules below span tool
 
 Tool guidelines:
 - Every tool takes a batch. When several entries or facts are involved, pass them all in one call. A batch reports one line per item, so a partial failure still tells you exactly which items went through; do not re-run the ones that already did.
+- Use renameDiary for title changes. Include a new body in updateDiary only when the user explicitly asks to edit the body. A title change never requires resending the body.
 - Your earlier turns may start with a "[tools already run]" block. That is a record of the tools you already ran in that turn, with their arguments and a one-line result summary, not something the user wrote. Use it to avoid repeating a lookup you already did; when you need the details again, call the tool again.
 - Never delete anything the user did not ask you to delete. "Tidy up" is not an instruction to delete: propose what you would remove and wait for a clear yes.''';
 

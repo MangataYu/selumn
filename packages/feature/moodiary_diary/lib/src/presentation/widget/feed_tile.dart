@@ -7,6 +7,8 @@ import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_utils/moodiary_utils.dart';
 import 'package:mui/mui.dart';
 
+import 'diary_quick_actions.dart';
+
 const int _kMaxCells = 3;
 const double _kCellGap = 6.0;
 
@@ -54,7 +56,7 @@ class DiaryFeedTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
     final cells = _cellsOf(diary);
-    final stamp = diaryStampOf(diary, sort);
+    final timeLabel = TimeFormat.compactDateTime(diaryStampOf(diary, sort));
     final title = diary.title.trim();
     // Keep paragraphs while bounding work for unusually long imported notes.
     final bodyRunes = diary.contentText.trim().runes.take(1601).toList();
@@ -68,6 +70,12 @@ class DiaryFeedTile extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       card: true,
+      topTrailing: DiaryQuickActions(
+        diaryId: diary.id,
+        timeLabel: timeLabel,
+        timeTopInset: spacing.md,
+        canEdit: DiaryType.fromValue(diary.type).isEditable,
+      ),
       borderRadius: AppBorderRadius.largeBorderRadius,
       margin: spacing.pagePadding,
       padding: .all(spacing.md),
@@ -75,10 +83,12 @@ class DiaryFeedTile extends StatelessWidget {
         crossAxisAlignment: .start,
         children: [
           Padding(
-            padding: .only(right: selecting ? 20 : 0),
+            padding: const EdgeInsetsDirectional.only(
+              end: DiaryQuickActions.buttonSize,
+            ),
             child: _MetaLine(
               diary: diary,
-              stamp: stamp,
+              timeLabel: timeLabel,
               place: place,
               syncState: syncState,
             ),
@@ -379,13 +389,13 @@ class _AudioBar extends StatelessWidget {
 
 class _MetaLine extends StatelessWidget {
   final Diary diary;
-  final DateTime stamp;
+  final String timeLabel;
   final Place? place;
   final DiaryCardSyncState syncState;
 
   const _MetaLine({
     required this.diary,
-    required this.stamp,
+    required this.timeLabel,
     required this.place,
     required this.syncState,
   });
@@ -422,7 +432,7 @@ class _MetaLine extends StatelessWidget {
           ),
         ),
       ),
-      TextSpan(text: TimeFormat.compactDateTime(stamp)),
+      TextSpan(text: timeLabel),
       if (weather != null) ...[
         dot,
         icon(qweatherIcon(weather.icon) ?? LucideIcons.cloud),

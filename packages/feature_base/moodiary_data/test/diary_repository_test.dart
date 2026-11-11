@@ -115,6 +115,203 @@ void main() {
     for (final hit in await repo.searchDiaries(query: word)) hit.diary,
   ];
 
+  group('日记版本', () {
+    freshDatabasePerTest();
+
+    test('保留被替换的保存状态，跳过无内容变化的保存', () async {
+      final first = makeDiary('d1', '苹果', tags: ['生活']);
+      final second = makeDiary('d1', '香蕉', tags: ['旅行']);
+      final third = makeDiary('d1', '橙子');
+      await repo.insertADiary(first);
+      expect(await repo.getDiaryVersions(first.id), isEmpty);
+
+      await repo.updateADiary(newDiary: second);
+      await repo.updateADiary(newDiary: touched(second));
+      await repo.insertADiary(third, fromSync: true);
+
+      final versions = await repo.getDiaryVersions(first.id);
+      expect(versions.map((v) => v.diary.content), [
+        second.content,
+        first.content,
+      ]);
+      expect(versions.map((v) => v.diary.tags), [second.tags, first.tags]);
+      expect(versions.last.diary.lastModified, first.lastModified);
+      expect(
+        (await repo.getDiaryVersions(
+          first.id,
+          limit: 1,
+          beforeId: versions.first.id,
+        )).single,
+        versions.last,
+      );
+      expect(
+        (await repo.getDiaryByBusinessId(first.id))?.content,
+        third.content,
+      );
+      expect(await search('苹果'), isEmpty);
+    });
+
+    test('改标题保留正文、关联记录和旧标题，永久删除清除历史', () async {
+      final diary = makeDiary('d1', '苹果', tags: ['生活'], linkTo: ['d2']);
+      await repo.insertADiary(diary);
+      final before = (await repo.getDiaryByBusinessId(diary.id))!;
+
+      expect(await repo.updateDiaryTitle(diary.id, title: '周末'), isTrue);
+      expect(await repo.updateDiaryTitle(diary.id, title: '周末'), isTrue);
+      final updated = (await repo.getDiaryByBusinessId(diary.id))!;
+      expect(
+        updated,
+        before.copyWith(title: '周末', lastModified: updated.lastModified),
+      );
+      expect(updated.lastModified.isAfter(before.lastModified), isTrue);
+      expect((await repo.getDiaryVersions(diary.id)).single.diary, before);
+      expect((await search('周末')).single.id, diary.id);
+      expect((await db.select(db.diaryLinks).getSingle()).dstId, 'd2');
+
+      await repo.setVisibility(updated, show: false);
+      expect(await repo.updateDiaryTitle(diary.id, title: '误操作'), isFalse);
+      expect((await repo.getDiaryVersions(diary.id)).single.diary, before);
+      expect(await repo.deleteADiary(diary.id), isTrue);
+      expect(await repo.getDiaryVersions(diary.id), isEmpty);
+      expect(await repo.updateDiaryTitle(diary.id, title: '误操作'), isFalse);
+    });
+
+    test('日记写入失败时回滚历史快照', () async {
+      final diary = makeDiary('d1', '苹果');
+      await repo.insertADiary(diary);
+      await db.customStatement('''
+        CREATE TRIGGER reject_title BEFORE UPDATE OF title ON diaries
+        BEGIN SELECT RAISE(ABORT, 'test failure'); END;
+      ''');
+
+      await expectLater(
+        repo.updateDiaryTitle(diary.id, title: '周末'),
+        throwsException,
+      );
+      expect(await repo.getDiaryVersions(diary.id), isEmpty);
+      expect((await repo.getDiaryByBusinessId(diary.id))?.title, diary.title);
+    });
+
+    test('可删除单条或清空指定日记的历史，保留当前日记和其他历史', () async {
+      final diary = makeDiary('d1', '正文', tags: ['生活'], linkTo: ['d2']);
+      final other = makeDiary('d2', '其他正文');
+      await repo.insertDiaries([diary, other]);
+      await repo.updateDiaryTitle(diary.id, title: '第二版');
+      await repo.updateDiaryTitle(diary.id, title: '当前版');
+      await repo.updateDiaryTitle(other.id, title: '其他日记');
+      final current = await repo.getDiaryByBusinessId(diary.id);
+      final otherVersions = await repo.getDiaryVersions(other.id);
+      final versions = await repo.getDiaryVersions(diary.id);
+
+      await repo.deleteDiaryVersion(other.id, versions.first);
+      expect(await repo.getDiaryVersions(diary.id), versions);
+      await repo.deleteDiaryVersion(diary.id, versions.first);
+      expect(await repo.getDiaryVersions(diary.id), [versions.last]);
+      expect(await repo.getDiaryByBusinessId(diary.id), current);
+
+      await repo.clearDiaryVersions(diary.id);
+      expect(await repo.getDiaryVersions(diary.id), isEmpty);
+      expect(await repo.getDiaryVersions(other.id), otherVersions);
+      expect(await repo.getDiaryByBusinessId(diary.id), current);
+      expect((await db.select(db.diaryLinks).getSingle()).dstId, other.id);
+    });
+
+    test('过期的确认不会删除复用了同一行 ID 的新版本', () async {
+      final diary = makeDiary('d1', '正文');
+      await repo.insertADiary(diary);
+      await repo.updateDiaryTitle(diary.id, title: '第二版');
+      final oldVersion = (await repo.getDiaryVersions(diary.id)).single;
+      await repo.clearDiaryVersions(diary.id);
+      await repo.updateDiaryTitle(diary.id, title: '第三版');
+      final newVersion = (await repo.getDiaryVersions(diary.id)).single;
+      expect(newVersion.id, oldVersion.id);
+
+      await repo.deleteDiaryVersion(diary.id, oldVersion);
+      expect(await repo.getDiaryVersions(diary.id), [newVersion]);
+      expect(await repo.restoreDiaryVersion(diary.id, oldVersion), isFalse);
+      expect((await repo.getDiaryByBusinessId(diary.id))?.title, '第三版');
+    });
+
+    test('恢复历史版本作为当前日记，并归档恢复前的版本', () async {
+      final first = makeDiary(
+        'd1',
+        '苹果',
+        title: '旧标题',
+        tags: ['生活'],
+        linkTo: ['d2'],
+      );
+      final second = makeDiary(
+        first.id,
+        '香蕉',
+        title: '当前标题',
+        tags: ['旅行'],
+      ).copyWith(mood: .excited);
+      await repo.insertADiary(first);
+      await repo.updateADiary(newDiary: second);
+      final oldVersion = (await repo.getDiaryVersions(first.id)).single;
+      final current = (await repo.getDiaryByBusinessId(first.id))!;
+
+      final event = repo.diaryEvents.first;
+      expect(await repo.restoreDiaryVersion(first.id, oldVersion), isTrue);
+      final restored = (await repo.getDiaryByBusinessId(first.id))!;
+      expect(await event, DiaryUpdated(restored));
+      expect(
+        restored,
+        oldVersion.diary.copyWith(lastModified: restored.lastModified),
+      );
+      expect(restored.lastModified.isAfter(current.lastModified), isTrue);
+      final versions = await repo.getDiaryVersions(first.id);
+      expect(versions.map((v) => v.diary), [current, oldVersion.diary]);
+      expect((await search('苹果')).single.id, first.id);
+      expect(await search('香蕉'), isEmpty);
+      expect((await db.select(db.diaryLinks).getSingle()).dstId, 'd2');
+
+      expect(await repo.restoreDiaryVersion(first.id, oldVersion), isTrue);
+      expect(await repo.getDiaryVersions(first.id), versions);
+      expect(await repo.getDiaryByBusinessId(first.id), restored);
+
+      await repo.setVisibility(restored, show: false);
+      expect(await repo.restoreDiaryVersion(first.id, oldVersion), isFalse);
+      expect((await repo.getDiaryByBusinessId(first.id))?.show, isFalse);
+    });
+
+    test('启动清理只删除归档超过 30 天的快照', () async {
+      final diary = makeDiary('d1', '正文');
+      await repo.insertADiary(diary);
+      await repo.updateDiaryTitle(diary.id, title: '第二版');
+      await repo.updateDiaryTitle(diary.id, title: '第三版');
+      final versions = await repo.getDiaryVersions(diary.id);
+      final expired = versions.last;
+      final now = DateTime.timestamp();
+      await (db.update(
+        db.diaryVersions,
+      )..where((v) => v.id.equals(expired.id))).write(
+        DiaryVersionsCompanion(
+          archivedAt: Value(dbTime(now.subtract(const Duration(days: 31)))),
+        ),
+      );
+      await (db.update(
+        db.diaryVersions,
+      )..where((v) => v.id.equals(versions.first.id))).write(
+        DiaryVersionsCompanion(
+          archivedAt: Value(dbTime(now.subtract(const Duration(days: 29)))),
+        ),
+      );
+
+      expect(await repo.getDiaryVersions(diary.id), [versions.first]);
+      expect(await repo.restoreDiaryVersion(diary.id, expired), isFalse);
+      expect(await db.select(db.diaryVersions).get(), hasLength(2));
+
+      repo.startVersionCleanup();
+      await repo.dispose();
+      expect(
+        (await db.select(db.diaryVersions).getSingle()).id,
+        versions.first.id,
+      );
+      expect((await repo.getDiaryByBusinessId(diary.id))?.title, '第三版');
+    });
+  });
+
   group('检索', () {
     freshDatabasePerTest();
 

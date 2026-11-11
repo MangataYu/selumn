@@ -8,6 +8,7 @@ Color diaryMoodColor(DiaryMood mood) => mood.color;
 
 class DiaryTileFrame extends StatelessWidget {
   final Widget child;
+  final Widget? topTrailing;
 
   final EdgeInsetsGeometry padding;
 
@@ -25,6 +26,7 @@ class DiaryTileFrame extends StatelessWidget {
   const DiaryTileFrame({
     super.key,
     required this.child,
+    this.topTrailing,
     this.padding = const .fromLTRB(8, 2, 8, 6),
     this.margin = .zero,
     this.card = false,
@@ -71,7 +73,9 @@ class DiaryTileFrame extends StatelessWidget {
                   width: _kMarkSize,
                   height: _kMarkSize,
                   child: DiarySelectMark(selected: selected),
-                ),
+                )
+              else if (topTrailing case final action?)
+                PositionedDirectional(top: 0, end: 4, child: action),
             ],
           ),
         ),

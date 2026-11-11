@@ -7,7 +7,7 @@ void main() {
       expect(
         assistantToolTier(.updateDiary, {
           'items': [
-            {'id': 'd', 'title': 'x'},
+            {'id': 'd', 'mood': 'neutral'},
           ],
         }),
         AssistantToolTier.write,
@@ -69,23 +69,64 @@ void main() {
 
   group('三种模式', () {
     test('变更前确认：读直跑，其余都问', () {
-      expect(assistantToolNeedsConfirmation(.confirm, .read), isFalse);
-      expect(assistantToolNeedsConfirmation(.confirm, .write), isTrue);
-      expect(assistantToolNeedsConfirmation(.confirm, .destructive), isTrue);
+      expect(
+        assistantToolNeedsConfirmation(.confirm, .getDiary, .read),
+        isFalse,
+      );
+      expect(
+        assistantToolNeedsConfirmation(.confirm, .renameDiary, .write),
+        isTrue,
+      );
+      expect(
+        assistantToolNeedsConfirmation(.confirm, .forgetFact, .destructive),
+        isTrue,
+      );
     });
 
     test('自动编辑：只问不可逆', () {
-      expect(assistantToolNeedsConfirmation(.auto, .write), isFalse);
-      expect(assistantToolNeedsConfirmation(.auto, .destructive), isTrue);
+      expect(
+        assistantToolNeedsConfirmation(.auto, .renameDiary, .write),
+        isFalse,
+      );
+      expect(
+        assistantToolNeedsConfirmation(.auto, .forgetFact, .destructive),
+        isTrue,
+      );
     });
 
-    test('完全访问：什么都不问，护栏文案也不提确认', () {
-      expect(assistantToolNeedsConfirmation(.full, .destructive), isFalse);
+    test('完全访问：只在正文替换前确认', () {
+      expect(
+        assistantToolNeedsConfirmation(.full, .forgetFact, .destructive),
+        isFalse,
+      );
+      expect(
+        assistantToolNeedsConfirmation(.full, .renameDiary, .write),
+        isFalse,
+      );
+      expect(
+        assistantToolNeedsConfirmation(.full, .updateDiary, .write),
+        isFalse,
+      );
       expect(AssistantPermissionMode.full.confirmsWrites, isFalse);
       expect(
         AssistantPermissionMode.fromId('bogus'),
         AssistantPermissionMode.confirm,
       );
+    });
+
+    test('批量正文替换在所有模式都需要确认', () {
+      final tier = assistantToolTier(.updateDiary, {
+        'items': [
+          {'id': 'a', 'mood': 'neutral'},
+          {'id': 'b', 'content': '新正文'},
+        ],
+      });
+      for (final mode in AssistantPermissionMode.values) {
+        expect(
+          assistantToolNeedsConfirmation(mode, .updateDiary, tier),
+          isTrue,
+        );
+      }
     });
   });
 

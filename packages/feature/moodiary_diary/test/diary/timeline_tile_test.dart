@@ -1,7 +1,9 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moodiary_diary/src/presentation/widget/diary_quick_actions.dart';
 import 'package:moodiary_diary/src/presentation/widget/diary_tile_frame.dart';
 import 'package:moodiary_diary/src/presentation/widget/timeline_tile.dart';
+import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:mui/mui.dart';
 
@@ -39,10 +41,12 @@ Place place() => Place(
   lastModified: DateTime(2026),
 );
 
-Widget wrap(Widget child) => MuiTheme(
-  data: _mui,
-  child: MaterialApp(
-    home: Scaffold(body: ListView(children: [child])),
+Widget wrap(Widget child) => TranslationProvider(
+  child: MuiTheme(
+    data: _mui,
+    child: MaterialApp(
+      home: Scaffold(body: ListView(children: [child])),
+    ),
   ),
 );
 
@@ -86,6 +90,40 @@ void main() {
     expect(find.textContaining('9:15'), findsOneWidget);
   });
 
+  testWidgets('quick actions open independently from the timeline row', (
+    t,
+  ) async {
+    t.view.devicePixelRatio = 1.0;
+    t.view.physicalSize = const Size(320, 600);
+    addTearDown(t.view.reset);
+
+    var opened = false;
+    final d = diary();
+    await t.pumpWidget(
+      wrap(
+        DiaryTimelineTile(
+          diary: d,
+          stamp: d.time,
+          dayStart: true,
+          breakBefore: false,
+          onTap: () => opened = true,
+        ),
+      ),
+    );
+
+    final actions = find.byType(DiaryQuickActions);
+    final clock = find.textContaining('9:15');
+    expect(t.getTopLeft(actions).dx, greaterThan(t.getTopRight(clock).dx));
+    expect(t.getTopLeft(actions).dy, lessThanOrEqualTo(t.getTopLeft(clock).dy));
+    await t.tap(actions);
+    await t.pumpAndSettle();
+    expect(find.text(l10n.diary.edit), findsOneWidget);
+    expect(find.text(l10n.diary.askAssistant), findsOneWidget);
+    expect(find.text(l10n.diary.share), findsOneWidget);
+    expect(find.text(l10n.diary.versionHistory), findsOneWidget);
+    expect(opened, isFalse);
+  });
+
   testWidgets('tag tap filters without opening the diary', (t) async {
     final tags = <String>[];
     var opened = false;
@@ -110,6 +148,7 @@ void main() {
   testWidgets('selecting overlays a corner mark', (t) async {
     await t.pumpWidget(wrap(tile(selecting: true, selected: true)));
     expect(find.byType(DiarySelectMark), findsOneWidget);
+    expect(find.byType(DiaryQuickActions), findsNothing);
     expect(find.byIcon(LucideIcons.check), findsOneWidget);
     expect(find.text('work'), findsNothing);
   });
@@ -166,6 +205,7 @@ void main() {
       MuiTheme(
         data: _mui,
         child: MaterialApp(
+          builder: (_, child) => TranslationProvider(child: child!),
           home: Scaffold(
             body: RepaintBoundary(
               key: boundaryKey,

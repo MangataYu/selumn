@@ -14,6 +14,8 @@ import 'drift/moodiary/generated/schema.dart';
 import 'drift/moodiary/generated/schema_v1.dart' as v1;
 import 'drift/moodiary/generated/schema_v2.dart' as v2;
 import 'drift/moodiary/generated/schema_v4.dart' as v4;
+import 'drift/moodiary/generated/schema_v5.dart' as v5;
+import 'drift/moodiary/generated/schema_v6.dart' as v6;
 import 'fixtures/personal_v3/generated/schema.dart' as personal_v3;
 
 String marked(String word) => '$searchHitStart$word$searchHitEnd';
@@ -59,10 +61,10 @@ void main() {
     placeName: Value(placeName),
   );
 
-  test('新库直接建到 v5，且与 v5 快照一致', () async {
+  test('新库直接建到 v7，且与 v7 快照一致', () async {
     final db = MoodiaryDatabase.forTesting(NativeDatabase.memory());
-    await verifier.migrateAndValidate(db, 5);
-    expect(await userVersion(db), 5);
+    await verifier.migrateAndValidate(db, 7);
+    expect(await userVersion(db), 7);
     await db.close();
   });
 
@@ -328,15 +330,15 @@ void main() {
       await db.close();
 
       db = MoodiaryDatabase.forTesting(schema.newConnection());
-      expect(await userVersion(db), 5);
-      expect(db.upgradedFrom, isNull);
+      expect(await userVersion(db), 7);
+      expect(db.upgradedFrom, 5);
       expect((await db.select(db.chatMessages).get()).single.content, '旧消息');
       await db.close();
     });
   }
 
-  test('已是 v5 的库重开不重复建表', () async {
-    final schema = await verifier.schemaAt(5);
+  test('已是 v7 的库重开不重复建表', () async {
+    final schema = await verifier.schemaAt(7);
     var db = MoodiaryDatabase.forTesting(schema.newConnection());
     await PlaceRepository(
       db,
@@ -344,9 +346,110 @@ void main() {
     await db.close();
 
     db = MoodiaryDatabase.forTesting(schema.newConnection());
-    expect(await userVersion(db), 5);
+    expect(await userVersion(db), 7);
+    expect(db.upgradedFrom, isNull);
     expect(await PlaceRepository(db).getAllPlaces(), hasLength(1));
     expect(await columns(db, 'diaries'), isNot(contains('latitude')));
+    await db.close();
+  });
+
+  test('v5 升级保留原日记，首次改标题后可查原版本', () async {
+    final schema = await verifier.schemaAt(5);
+    final old = v5.DatabaseAtV5(schema.newConnection());
+    await old
+        .into(old.diaries)
+        .insert(
+          v5.DiariesCompanion.insert(
+            id: 'd1',
+            title: '旧标题',
+            content: '原正文',
+            contentText: '原正文',
+            time: 123,
+            lastModified: 456,
+            show: 1,
+            mood: 'neutral',
+            type: 'markdown',
+          ),
+        );
+    await old.close();
+
+    final db = MoodiaryDatabase.forTesting(schema.newConnection());
+    await verifier.migrateAndValidate(db, 7);
+    final repo = DiaryRepository(db);
+    final previous = (await repo.getDiaryByBusinessId('d1'))!;
+    expect(previous.title, '旧标题');
+    expect(previous.content, '原正文');
+    expect(await repo.getDiaryVersions('d1'), isEmpty);
+    expect(await repo.updateDiaryTitle('d1', title: '新标题'), isTrue);
+    expect((await repo.getDiaryVersions('d1')).single.diary, previous);
+    await repo.dispose();
+    await db.close();
+  });
+
+  test('v6 历史快照以升级时间开始保留，过期清理仅删除历史', () async {
+    final schema = await verifier.schemaAt(6);
+    final old = v6.DatabaseAtV6(schema.newConnection());
+    final snapshot = jsonEncode(
+      Diary.empty(type: .markdown)
+          .copyWith(
+            id: 'd1',
+            title: '旧标题',
+            content: '旧正文',
+            contentText: '旧正文',
+            lastModified: DateTime.utc(2020),
+          )
+          .toJson(),
+    );
+    await old
+        .into(old.diaries)
+        .insert(
+          v6.DiariesCompanion.insert(
+            id: 'd1',
+            title: '当前标题',
+            content: '当前正文',
+            contentText: '当前正文',
+            time: 123,
+            lastModified: 456,
+            show: 1,
+            mood: 'neutral',
+            type: 'markdown',
+          ),
+        );
+    await old
+        .into(old.diaryVersions)
+        .insert(
+          v6.DiaryVersionsCompanion.insert(
+            id: const Value(42),
+            diaryId: 'd1',
+            snapshotJson: snapshot,
+          ),
+        );
+    await old.close();
+
+    final startedAt = DateTime.now();
+    final db = MoodiaryDatabase.forTesting(schema.newConnection());
+    await verifier.migrateAndValidate(db, 7);
+    final version = await db.select(db.diaryVersions).getSingle();
+    expect(version.id, 42);
+    expect(version.snapshotJson, snapshot);
+    expect(
+      version.archivedAt,
+      inInclusiveRange(dbTime(startedAt), dbTime(DateTime.now())),
+    );
+
+    final cutoff = dbToTime(version.archivedAt);
+    expect(await db.pruneDiaryVersions(before: cutoff), 0);
+    expect(
+      await db.pruneDiaryVersions(
+        before: cutoff.add(const Duration(microseconds: 1)),
+      ),
+      1,
+    );
+    expect(await db.select(db.diaryVersions).get(), isEmpty);
+    final diary = await db.select(db.diaries).getSingle();
+    expect(diary.title, '当前标题');
+    expect(diary.content, '当前正文');
+    expect(diary.lastModified, 456);
     await db.close();
   });
 

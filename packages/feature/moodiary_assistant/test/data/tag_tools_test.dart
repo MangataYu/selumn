@@ -152,10 +152,21 @@ void main() {
       expect(saved.show, original.show);
       expect(saved.lastModified.isAfter(original.lastModified), isTrue);
 
-      await _run(.updateDiary, {'id': original.id, 'title': '只改标题'});
+      final rename = await _run(.renameDiary, {
+        'items': [
+          {'id': original.id, 'title': ' 只改标题 '},
+        ],
+      });
+      expect(rename, startsWith('Updated '));
       final titleOnly = (await repository.getDiaryByBusinessId(original.id))!;
-      expect(titleOnly.tags, saved.tags);
-      expect(titleOnly.content, saved.content);
+      expect(titleOnly.title, '只改标题');
+      expect(
+        titleOnly.copyWith(
+          title: saved.title,
+          lastModified: saved.lastModified,
+        ),
+        saved,
+      );
     },
   );
 
@@ -188,15 +199,79 @@ void main() {
     },
   );
 
-  test('invalid replacement does not partially change title or tags', () async {
+  test('invalid replacement does not partially change mood or tags', () async {
     final original = _diary('unchanged', tags: ['生活/运动']);
     await repository.insertADiary(original);
     final output = await _run(.updateDiary, {
       'id': original.id,
-      'title': '不应修改',
+      'mood': 'angry',
       'tags': ['生活//错误'],
     });
     expect(output, startsWith('Failed:'));
+    expect(await repository.getDiaryByBusinessId(original.id), original);
+  });
+
+  test('rename rejects extra fields and the edit tool rejects title', () async {
+    final original = _diary('scoped-rename', tags: ['生活/运动']);
+    await repository.insertADiary(original);
+    final titleFields = {'id': original.id, 'title': '不应保存'};
+    for (final extra in <Map<String, Object>>[
+      {'content': '不应覆盖'},
+      {
+        'tags': ['工作'],
+      },
+      {'mood': 'angry'},
+    ]) {
+      for (final args in [
+        {
+          'items': [
+            {...titleFields, ...extra},
+          ],
+        },
+        {
+          'items': [titleFields],
+          ...extra,
+        },
+      ]) {
+        expect(await _run(.renameDiary, args), startsWith('Failed:'));
+      }
+    }
+    expect(
+      await _run(.updateDiary, {
+        'items': [
+          {...titleFields, 'content': '不应覆盖'},
+        ],
+      }),
+      startsWith('Failed:'),
+    );
+    expect(await repository.getDiaryByBusinessId(original.id), original);
+  });
+
+  test('diary write failures hide database details from the model', () async {
+    final original = _diary('archive-failure', text: '私密正文');
+    await repository.insertADiary(original);
+    await db.customStatement('''
+      CREATE TEMP TRIGGER reject_version BEFORE INSERT ON diary_versions
+      BEGIN
+        SELECT RAISE(ABORT, 'private storage details');
+      END;
+    ''');
+
+    final rename = await _run(.renameDiary, {
+      'items': [
+        {'id': original.id, 'title': '新标题'},
+      ],
+    });
+    final update = await _run(.updateDiary, {
+      'id': original.id,
+      'content': '新正文',
+    });
+    for (final output in [rename, update]) {
+      expect(
+        output,
+        'Failed: could not save changes to diary id=archive-failure.',
+      );
+    }
     expect(await repository.getDiaryByBusinessId(original.id), original);
   });
 
@@ -313,6 +388,51 @@ void main() {
       expect((await repository.getDiaryByBusinessId('preview'))!.tags, [
         '生活/运动',
       ]);
+    },
+  );
+
+  test(
+    'approval preview identifies title changes and body replacements',
+    () async {
+      final original = _diary('rename-preview');
+      await repository.insertADiary(original);
+      final rename = await buildToolApprovalPreview(
+        ToolApprovalRequest(
+          callId: 'rename',
+          tool: .renameDiary,
+          args: {
+            'items': [
+              {'id': original.id, 'title': '新标题'},
+            ],
+          },
+          tier: .write,
+        ),
+        l10n,
+      );
+      expect(rename.lines.single.label, l10n.assistant.approvalFieldTitle);
+      expect(rename.lines.single.value, '${original.title} → 新标题');
+      expect(rename.warning, isNull);
+
+      final rewrite = await buildToolApprovalPreview(
+        ToolApprovalRequest(
+          callId: 'rewrite',
+          tool: .updateDiary,
+          args: {
+            'items': [
+              {'id': original.id, 'content': '新正文'},
+              {'id': 'another', 'mood': 'positive'},
+            ],
+          },
+          tier: .destructive,
+        ),
+        l10n,
+      );
+      expect(rewrite.warning, l10n.assistant.approvalOverwriteWarning);
+      expect(rewrite.confirmLabel, l10n.assistant.approvalOverwrite);
+      expect(
+        rewrite.lines.first.value,
+        contains(l10n.assistant.approvalFieldContent),
+      );
     },
   );
 }

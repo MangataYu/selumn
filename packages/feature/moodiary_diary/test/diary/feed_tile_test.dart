@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodiary_diary/src/presentation/widget/diary_tile_frame.dart';
 import 'package:moodiary_diary/src/presentation/widget/feed_tile.dart';
+import 'package:moodiary_i18n/moodiary_i18n.dart';
 import 'package:moodiary_models/moodiary_models.dart';
 import 'package:moodiary_platform/moodiary_platform.dart';
 import 'package:mui/mui.dart';
@@ -42,14 +43,16 @@ Place place() => Place(
 );
 
 Widget wrap(Widget child, {TextScaler textScaler = TextScaler.noScaling}) =>
-    MuiTheme(
-      data: _mui,
-      child: MaterialApp(
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
-          child: child!,
+    TranslationProvider(
+      child: MuiTheme(
+        data: _mui,
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: child!,
+          ),
+          home: Scaffold(body: ListView(children: [child])),
         ),
-        home: Scaffold(body: ListView(children: [child])),
       ),
     );
 

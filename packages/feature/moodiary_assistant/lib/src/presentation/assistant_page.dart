@@ -237,7 +237,9 @@ class _AssistantPageState extends State<AssistantPage> {
     if (spec == null) return true;
     final args = _decodeArgs(argsJson);
     final tier = assistantToolTier(spec.tool, args);
-    if (!assistantToolNeedsConfirmation(_permissionMode, tier)) return true;
+    if (!assistantToolNeedsConfirmation(_permissionMode, spec.tool, tier)) {
+      return true;
+    }
     if (!mounted) return false;
     final request = ToolApprovalRequest(
       callId: callId,
@@ -246,6 +248,7 @@ class _AssistantPageState extends State<AssistantPage> {
       tier: tier,
     );
     final l10n = context.l10n;
+    final rewritesBody = spec.tool == .updateDiary && tier == .destructive;
     setState(() {
       _approval = request;
       _approvalPreview = null;
@@ -256,7 +259,12 @@ class _AssistantPageState extends State<AssistantPage> {
             (Object _) => ToolApprovalPreview(
               subtitle: '',
               lines: const [],
-              confirmLabel: l10n.common.ok,
+              warning: rewritesBody
+                  ? l10n.assistant.approvalOverwriteWarning
+                  : null,
+              confirmLabel: rewritesBody
+                  ? l10n.assistant.approvalOverwrite
+                  : l10n.common.ok,
             ),
           )
           .then((preview) {

@@ -1,5 +1,6 @@
 import 'package:fast_image/fast_image.dart';
 import 'package:moodiary_components/moodiary_components.dart';
+import 'package:moodiary_diary/src/presentation/widget/diary_quick_actions.dart';
 import 'package:moodiary_diary/src/presentation/widget/diary_tile_frame.dart';
 import 'package:moodiary_files/moodiary_files.dart';
 import 'package:moodiary_models/moodiary_models.dart';
@@ -160,6 +161,7 @@ class _Content extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.theme.typography;
+    final timeLabel = TimeFormat.clock(stamp);
     final hasTitle = diary.title.trim().isNotEmpty;
     final body = diary.contentText.preview();
 
@@ -171,21 +173,41 @@ class _Content extends StatelessWidget {
       child: Column(
         crossAxisAlignment: .start,
         children: [
-          _MetaLine(
-            diary: diary,
-            stamp: stamp,
-            place: place,
-            syncState: syncState,
+          Row(
+            crossAxisAlignment: .start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: .start,
+                  children: [
+                    _MetaLine(
+                      diary: diary,
+                      timeLabel: timeLabel,
+                      place: place,
+                      syncState: syncState,
+                    ),
+                    if (hasTitle) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        diary.title.trim(),
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: typo.bodyMedium.emphasized.onSurfaceVariant,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (selecting)
+                const SizedBox.square(dimension: DiaryQuickActions.buttonSize)
+              else
+                DiaryQuickActions(
+                  diaryId: diary.id,
+                  timeLabel: timeLabel,
+                  canEdit: DiaryType.fromValue(diary.type).isEditable,
+                ),
+            ],
           ),
-          if (hasTitle) ...[
-            const SizedBox(height: 3),
-            Text(
-              diary.title.trim(),
-              maxLines: 1,
-              overflow: .ellipsis,
-              style: typo.bodyMedium.emphasized.onSurfaceVariant,
-            ),
-          ],
           if (body.isNotEmpty) ...[
             const SizedBox(height: 2),
             Text(
@@ -216,13 +238,13 @@ class _Content extends StatelessWidget {
 
 class _MetaLine extends StatelessWidget {
   final Diary diary;
-  final DateTime stamp;
+  final String timeLabel;
   final Place? place;
   final DiaryCardSyncState syncState;
 
   const _MetaLine({
     required this.diary,
-    required this.stamp,
+    required this.timeLabel,
     required this.place,
     required this.syncState,
   });
@@ -239,7 +261,7 @@ class _MetaLine extends StatelessWidget {
         Expanded(
           child: Row(
             children: [
-              Text(TimeFormat.clock(stamp), style: style),
+              Text(timeLabel, style: style),
               if (weather != null) ...[
                 const SizedBox(width: 8),
                 Icon(

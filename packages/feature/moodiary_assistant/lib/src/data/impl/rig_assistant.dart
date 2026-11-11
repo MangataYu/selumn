@@ -189,8 +189,19 @@ class RigAssistantService implements AssistantService {
     String argsJson,
   ) async {
     final gate = request.toolGate;
-    if (gate == null || await gate(callId, name, argsJson)) return _gateRun;
-    return '$_gateSkip${assistantToolSkippedResult(name)}';
+    if (gate != null) {
+      return await gate(callId, name, argsJson)
+          ? _gateRun
+          : '$_gateSkip${assistantToolSkippedResult(name)}';
+    }
+    if (name == AssistantTool.updateDiary.id) {
+      final tier = assistantToolTier(.updateDiary, _decodeToolArgs(argsJson));
+      if (assistantToolNeedsConfirmation(.full, .updateDiary, tier)) {
+        return '$_gateSkip$assistantToolSkippedPrefix replacing diary text '
+            'requires confirmation in the app.';
+      }
+    }
+    return _gateRun;
   }
 
   Future<String> _dispatch(
@@ -222,12 +233,15 @@ Future<String> dispatchAssistantTool({
   }
 
   try {
-    final trimmed = argsJson.trim();
-    final raw = (trimmed.isEmpty || trimmed == 'null') ? '{}' : trimmed;
-    final input = (jsonDecode(raw) as Map).cast<String, dynamic>();
-    return await spec.run(input);
+    return await spec.run(_decodeToolArgs(argsJson));
   } catch (e) {
     return 'Failed: $toolName threw $e. Check the arguments against the schema, '
         'then retry or take another route.';
   }
+}
+
+Map<String, dynamic> _decodeToolArgs(String argsJson) {
+  final trimmed = argsJson.trim();
+  final raw = (trimmed.isEmpty || trimmed == 'null') ? '{}' : trimmed;
+  return (jsonDecode(raw) as Map).cast<String, dynamic>();
 }

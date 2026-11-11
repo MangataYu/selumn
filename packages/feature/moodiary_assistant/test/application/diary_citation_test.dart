@@ -103,7 +103,7 @@ void main() {
           {'title': '新的一篇', 'content': '正文'},
         ],
       });
-      final updated = await run(AssistantTool.updateDiary, {
+      final updated = await run(AssistantTool.renameDiary, {
         'items': [
           {'id': a.id, 'title': '搬家（改）'},
           {'id': 'missing-id-0000000000', 'title': 'x'},
@@ -118,7 +118,7 @@ void main() {
       final cited = diaryCitationsOf([
         _call(AssistantTool.searchDiaries.id, query),
         _call(AssistantTool.createDiary.id, created),
-        _call(AssistantTool.updateDiary.id, updated),
+        _call(AssistantTool.renameDiary.id, updated),
         _call(AssistantTool.deleteDiary.id, deleted),
       ]);
       final byId = {for (final c in cited) c.id: c.kind};

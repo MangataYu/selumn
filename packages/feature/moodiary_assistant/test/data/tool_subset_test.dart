@@ -3,6 +3,23 @@ import 'package:moodiary_assistant/src/data/assistant_defs.dart';
 import 'package:moodiary_assistant/src/data/assistant_tools.dart';
 
 void main() {
+  test('renameDiary 的参数只允许日记 ID 和新标题', () {
+    final rename = AssistantToolRegistry.byId(AssistantTool.renameDiary.id)!;
+    final schema = rename.jsonSchema;
+    final properties = schema['properties'] as Map;
+    final item = (properties['items'] as Map)['items'] as Map;
+    expect(properties.keys, ['items']);
+    expect(schema['additionalProperties'], isFalse);
+    expect((item['properties'] as Map).keys, ['id', 'title']);
+    expect(item['required'], ['id', 'title']);
+    expect(item['additionalProperties'], isFalse);
+
+    final update = AssistantToolRegistry.byId(AssistantTool.updateDiary.id)!;
+    final updateProperties = update.jsonSchema['properties'] as Map;
+    final updateItem = (updateProperties['items'] as Map)['items'] as Map;
+    expect((updateItem['properties'] as Map).keys, isNot(contains('title')));
+  });
+
   test('新建和编辑日记只向助手提供 20 种情绪', () {
     for (final tool in [AssistantTool.createDiary, AssistantTool.updateDiary]) {
       final schema = AssistantToolRegistry.byId(tool.id)!.jsonSchema;

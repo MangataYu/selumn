@@ -60,7 +60,7 @@ class MoodiaryDatabase extends _$MoodiaryDatabase {
   }
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +133,22 @@ class MoodiaryDatabase extends _$MoodiaryDatabase {
                 schema.diaries.legacyCategoryExcludedTagsJson,
               );
             },
+            from5To6: (m, schema) async {
+              await m.createTable(schema.diaryVersions);
+              await m.create(schema.idxDiaryVersionsDiary);
+            },
+            from6To7: (m, schema) async {
+              await m.addColumn(
+                schema.diaryVersions,
+                schema.diaryVersions.archivedAt,
+              );
+              // 旧快照没有归档时间，从升级当天起保留一个完整周期。
+              await customStatement(
+                'UPDATE diary_versions SET archived_at = ?',
+                [dbTime(DateTime.now())],
+              );
+              await m.create(schema.idxDiaryVersionsArchivedAt);
+            },
           ),
         ),
       );
@@ -187,6 +203,10 @@ class MoodiaryDatabase extends _$MoodiaryDatabase {
       }
     });
   }
+
+  Future<int> pruneDiaryVersions({required DateTime before}) => (delete(
+    diaryVersions,
+  )..where((v) => v.archivedAt.isSmallerThanValue(dbTime(before)))).go();
 
   Future<void> clearAll() async {
     await transaction(() async {

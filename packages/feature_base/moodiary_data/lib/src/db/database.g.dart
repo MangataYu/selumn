@@ -6481,6 +6481,310 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   }
 }
 
+class DiaryVersions extends Table
+    with TableInfo<DiaryVersions, DiaryVersionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  DiaryVersions(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'PRIMARY KEY',
+  );
+  static const VerificationMeta _diaryIdMeta = const VerificationMeta(
+    'diaryId',
+  );
+  late final GeneratedColumn<String> diaryId = GeneratedColumn<String>(
+    'diary_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES diaries(id)ON DELETE CASCADE',
+  );
+  static const VerificationMeta _snapshotJsonMeta = const VerificationMeta(
+    'snapshotJson',
+  );
+  late final GeneratedColumn<String> snapshotJson = GeneratedColumn<String>(
+    'snapshot_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _archivedAtMeta = const VerificationMeta(
+    'archivedAt',
+  );
+  late final GeneratedColumn<int> archivedAt = GeneratedColumn<int>(
+    'archived_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, diaryId, snapshotJson, archivedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'diary_versions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiaryVersionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('diary_id')) {
+      context.handle(
+        _diaryIdMeta,
+        diaryId.isAcceptableOrUnknown(data['diary_id']!, _diaryIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_diaryIdMeta);
+    }
+    if (data.containsKey('snapshot_json')) {
+      context.handle(
+        _snapshotJsonMeta,
+        snapshotJson.isAcceptableOrUnknown(
+          data['snapshot_json']!,
+          _snapshotJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_snapshotJsonMeta);
+    }
+    if (data.containsKey('archived_at')) {
+      context.handle(
+        _archivedAtMeta,
+        archivedAt.isAcceptableOrUnknown(data['archived_at']!, _archivedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DiaryVersionRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiaryVersionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      diaryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}diary_id'],
+      )!,
+      snapshotJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}snapshot_json'],
+      )!,
+      archivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}archived_at'],
+      )!,
+    );
+  }
+
+  @override
+  DiaryVersions createAlias(String alias) {
+    return DiaryVersions(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class DiaryVersionRow extends DataClass implements Insertable<DiaryVersionRow> {
+  final int id;
+  final String diaryId;
+  final String snapshotJson;
+  final int archivedAt;
+  const DiaryVersionRow({
+    required this.id,
+    required this.diaryId,
+    required this.snapshotJson,
+    required this.archivedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['diary_id'] = Variable<String>(diaryId);
+    map['snapshot_json'] = Variable<String>(snapshotJson);
+    map['archived_at'] = Variable<int>(archivedAt);
+    return map;
+  }
+
+  DiaryVersionsCompanion toCompanion(bool nullToAbsent) {
+    return DiaryVersionsCompanion(
+      id: Value(id),
+      diaryId: Value(diaryId),
+      snapshotJson: Value(snapshotJson),
+      archivedAt: Value(archivedAt),
+    );
+  }
+
+  factory DiaryVersionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiaryVersionRow(
+      id: serializer.fromJson<int>(json['id']),
+      diaryId: serializer.fromJson<String>(json['diary_id']),
+      snapshotJson: serializer.fromJson<String>(json['snapshot_json']),
+      archivedAt: serializer.fromJson<int>(json['archived_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'diary_id': serializer.toJson<String>(diaryId),
+      'snapshot_json': serializer.toJson<String>(snapshotJson),
+      'archived_at': serializer.toJson<int>(archivedAt),
+    };
+  }
+
+  DiaryVersionRow copyWith({
+    int? id,
+    String? diaryId,
+    String? snapshotJson,
+    int? archivedAt,
+  }) => DiaryVersionRow(
+    id: id ?? this.id,
+    diaryId: diaryId ?? this.diaryId,
+    snapshotJson: snapshotJson ?? this.snapshotJson,
+    archivedAt: archivedAt ?? this.archivedAt,
+  );
+  DiaryVersionRow copyWithCompanion(DiaryVersionsCompanion data) {
+    return DiaryVersionRow(
+      id: data.id.present ? data.id.value : this.id,
+      diaryId: data.diaryId.present ? data.diaryId.value : this.diaryId,
+      snapshotJson: data.snapshotJson.present
+          ? data.snapshotJson.value
+          : this.snapshotJson,
+      archivedAt: data.archivedAt.present
+          ? data.archivedAt.value
+          : this.archivedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiaryVersionRow(')
+          ..write('id: $id, ')
+          ..write('diaryId: $diaryId, ')
+          ..write('snapshotJson: $snapshotJson, ')
+          ..write('archivedAt: $archivedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, diaryId, snapshotJson, archivedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiaryVersionRow &&
+          other.id == this.id &&
+          other.diaryId == this.diaryId &&
+          other.snapshotJson == this.snapshotJson &&
+          other.archivedAt == this.archivedAt);
+}
+
+class DiaryVersionsCompanion extends UpdateCompanion<DiaryVersionRow> {
+  final Value<int> id;
+  final Value<String> diaryId;
+  final Value<String> snapshotJson;
+  final Value<int> archivedAt;
+  const DiaryVersionsCompanion({
+    this.id = const Value.absent(),
+    this.diaryId = const Value.absent(),
+    this.snapshotJson = const Value.absent(),
+    this.archivedAt = const Value.absent(),
+  });
+  DiaryVersionsCompanion.insert({
+    this.id = const Value.absent(),
+    required String diaryId,
+    required String snapshotJson,
+    this.archivedAt = const Value.absent(),
+  }) : diaryId = Value(diaryId),
+       snapshotJson = Value(snapshotJson);
+  static Insertable<DiaryVersionRow> custom({
+    Expression<int>? id,
+    Expression<String>? diaryId,
+    Expression<String>? snapshotJson,
+    Expression<int>? archivedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (diaryId != null) 'diary_id': diaryId,
+      if (snapshotJson != null) 'snapshot_json': snapshotJson,
+      if (archivedAt != null) 'archived_at': archivedAt,
+    });
+  }
+
+  DiaryVersionsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? diaryId,
+    Value<String>? snapshotJson,
+    Value<int>? archivedAt,
+  }) {
+    return DiaryVersionsCompanion(
+      id: id ?? this.id,
+      diaryId: diaryId ?? this.diaryId,
+      snapshotJson: snapshotJson ?? this.snapshotJson,
+      archivedAt: archivedAt ?? this.archivedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (diaryId.present) {
+      map['diary_id'] = Variable<String>(diaryId.value);
+    }
+    if (snapshotJson.present) {
+      map['snapshot_json'] = Variable<String>(snapshotJson.value);
+    }
+    if (archivedAt.present) {
+      map['archived_at'] = Variable<int>(archivedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiaryVersionsCompanion(')
+          ..write('id: $id, ')
+          ..write('diaryId: $diaryId, ')
+          ..write('snapshotJson: $snapshotJson, ')
+          ..write('archivedAt: $archivedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class DiaryMedia extends Table with TableInfo<DiaryMedia, DiaryMediaRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -7348,6 +7652,15 @@ abstract class _$MoodiaryDatabase extends GeneratedDatabase {
     'idx_diaries_show_lastmod',
     'CREATE INDEX idx_diaries_show_lastmod ON diaries (show, last_modified DESC, id DESC)',
   );
+  late final DiaryVersions diaryVersions = DiaryVersions(this);
+  late final Index idxDiaryVersionsDiary = Index(
+    'idx_diary_versions_diary',
+    'CREATE INDEX idx_diary_versions_diary ON diary_versions (diary_id, id DESC)',
+  );
+  late final Index idxDiaryVersionsArchivedAt = Index(
+    'idx_diary_versions_archived_at',
+    'CREATE INDEX idx_diary_versions_archived_at ON diary_versions (archived_at)',
+  );
   late final DiaryMedia diaryMedia = DiaryMedia(this);
   late final Index idxDiaryMediaKind = Index(
     'idx_diary_media_kind',
@@ -7484,6 +7797,9 @@ abstract class _$MoodiaryDatabase extends GeneratedDatabase {
     idxDiariesShowTime,
     idxDiariesShowCatTime,
     idxDiariesShowLastmod,
+    diaryVersions,
+    idxDiaryVersionsDiary,
+    idxDiaryVersionsArchivedAt,
     diaryMedia,
     idxDiaryMediaKind,
     idxDiaryMediaFile,
@@ -7517,6 +7833,13 @@ abstract class _$MoodiaryDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('assistant_tool_calls', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'diaries',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('diary_versions', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -7612,6 +7935,25 @@ final class $DiariesReferences
     ).filter((f) => f.srcId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_diaryLinksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<DiaryVersions, List<DiaryVersionRow>>
+  _diaryVersionsRefsTable(_$MoodiaryDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.diaryVersions,
+        aliasName: 'diaries__id__diary_versions__diary_id',
+      );
+
+  $DiaryVersionsProcessedTableManager get diaryVersionsRefs {
+    final manager = $DiaryVersionsTableManager(
+      $_db,
+      $_db.diaryVersions,
+    ).filter((f) => f.diaryId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_diaryVersionsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -7765,6 +8107,31 @@ class $DiariesFilterComposer extends Composer<_$MoodiaryDatabase, Diaries> {
           }) => $DiaryLinksFilterComposer(
             $db: $db,
             $table: $db.diaryLinks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> diaryVersionsRefs(
+    Expression<bool> Function($DiaryVersionsFilterComposer f) f,
+  ) {
+    final $DiaryVersionsFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.diaryVersions,
+      getReferencedColumn: (t) => t.diaryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $DiaryVersionsFilterComposer(
+            $db: $db,
+            $table: $db.diaryVersions,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -8019,6 +8386,31 @@ class $DiariesAnnotationComposer extends Composer<_$MoodiaryDatabase, Diaries> {
     return f(composer);
   }
 
+  Expression<T> diaryVersionsRefs<T extends Object>(
+    Expression<T> Function($DiaryVersionsAnnotationComposer a) f,
+  ) {
+    final $DiaryVersionsAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.diaryVersions,
+      getReferencedColumn: (t) => t.diaryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $DiaryVersionsAnnotationComposer(
+            $db: $db,
+            $table: $db.diaryVersions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> diaryMediaRefs<T extends Object>(
     Expression<T> Function($DiaryMediaAnnotationComposer a) f,
   ) {
@@ -8085,6 +8477,7 @@ class $DiariesTableManager
           DiaryRow,
           PrefetchHooks Function({
             bool diaryLinksRefs,
+            bool diaryVersionsRefs,
             bool diaryMediaRefs,
             bool diaryTagsRefs,
           })
@@ -8189,6 +8582,7 @@ class $DiariesTableManager
           prefetchHooksCallback:
               ({
                 diaryLinksRefs = false,
+                diaryVersionsRefs = false,
                 diaryMediaRefs = false,
                 diaryTagsRefs = false,
               }) {
@@ -8196,6 +8590,7 @@ class $DiariesTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (diaryLinksRefs) db.diaryLinks,
+                    if (diaryVersionsRefs) db.diaryVersions,
                     if (diaryMediaRefs) db.diaryMedia,
                     if (diaryTagsRefs) db.diaryTags,
                   ],
@@ -8217,6 +8612,26 @@ class $DiariesTableManager
                             item,
                             referencedItems,
                           ) => referencedItems.where((e) => e.srcId == item.id),
+                          typedResults: items,
+                        ),
+                      if (diaryVersionsRefs)
+                        await $_getPrefetchedData<
+                          DiaryRow,
+                          Diaries,
+                          DiaryVersionRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $DiariesReferences
+                              ._diaryVersionsRefsTable(db),
+                          managerFromTypedResult: (p0) => $DiariesReferences(
+                            db,
+                            table,
+                            p0,
+                          ).diaryVersionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.diaryId == item.id,
+                              ),
                           typedResults: items,
                         ),
                       if (diaryMediaRefs)
@@ -8275,6 +8690,7 @@ typedef $DiariesProcessedTableManager =
       DiaryRow,
       PrefetchHooks Function({
         bool diaryLinksRefs,
+        bool diaryVersionsRefs,
         bool diaryMediaRefs,
         bool diaryTagsRefs,
       })
@@ -11759,6 +12175,299 @@ typedef $PlacesProcessedTableManager =
       PlaceRow,
       PrefetchHooks Function()
     >;
+typedef $DiaryVersionsCreateCompanionBuilder = DiaryVersionsCompanion Function({
+  Value<int> id,
+  required String diaryId,
+  required String snapshotJson,
+  Value<int> archivedAt,
+});
+typedef $DiaryVersionsUpdateCompanionBuilder = DiaryVersionsCompanion Function({
+  Value<int> id,
+  Value<String> diaryId,
+  Value<String> snapshotJson,
+  Value<int> archivedAt,
+});
+
+final class $DiaryVersionsReferences
+    extends BaseReferences<_$MoodiaryDatabase, DiaryVersions, DiaryVersionRow> {
+  $DiaryVersionsReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static Diaries _diaryIdTable(_$MoodiaryDatabase db) =>
+      db.diaries.createAlias('diary_versions__diary_id__diaries__id');
+
+  $DiariesProcessedTableManager get diaryId {
+    final $_column = $_itemColumn<String>('diary_id')!;
+
+    final manager = $DiariesTableManager(
+      $_db,
+      $_db.diaries,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_diaryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $DiaryVersionsFilterComposer
+    extends Composer<_$MoodiaryDatabase, DiaryVersions> {
+  $DiaryVersionsFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get snapshotJson => $composableBuilder(
+    column: $table.snapshotJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $DiariesFilterComposer get diaryId {
+    final $DiariesFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.diaryId,
+      referencedTable: $db.diaries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $DiariesFilterComposer(
+            $db: $db,
+            $table: $db.diaries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $DiaryVersionsOrderingComposer
+    extends Composer<_$MoodiaryDatabase, DiaryVersions> {
+  $DiaryVersionsOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get snapshotJson => $composableBuilder(
+    column: $table.snapshotJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $DiariesOrderingComposer get diaryId {
+    final $DiariesOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.diaryId,
+      referencedTable: $db.diaries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $DiariesOrderingComposer(
+            $db: $db,
+            $table: $db.diaries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $DiaryVersionsAnnotationComposer
+    extends Composer<_$MoodiaryDatabase, DiaryVersions> {
+  $DiaryVersionsAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get snapshotJson => $composableBuilder(
+    column: $table.snapshotJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => column,
+  );
+
+  $DiariesAnnotationComposer get diaryId {
+    final $DiariesAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.diaryId,
+      referencedTable: $db.diaries,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $DiariesAnnotationComposer(
+            $db: $db,
+            $table: $db.diaries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $DiaryVersionsTableManager
+    extends
+        RootTableManager<
+          _$MoodiaryDatabase,
+          DiaryVersions,
+          DiaryVersionRow,
+          $DiaryVersionsFilterComposer,
+          $DiaryVersionsOrderingComposer,
+          $DiaryVersionsAnnotationComposer,
+          $DiaryVersionsCreateCompanionBuilder,
+          $DiaryVersionsUpdateCompanionBuilder,
+          (DiaryVersionRow, $DiaryVersionsReferences),
+          DiaryVersionRow,
+          PrefetchHooks Function({bool diaryId})
+        > {
+  $DiaryVersionsTableManager(_$MoodiaryDatabase db, DiaryVersions table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $DiaryVersionsFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $DiaryVersionsOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $DiaryVersionsAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> diaryId = const Value.absent(),
+                Value<String> snapshotJson = const Value.absent(),
+                Value<int> archivedAt = const Value.absent(),
+              }) => DiaryVersionsCompanion(
+                id: id,
+                diaryId: diaryId,
+                snapshotJson: snapshotJson,
+                archivedAt: archivedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String diaryId,
+                required String snapshotJson,
+                Value<int> archivedAt = const Value.absent(),
+              }) => DiaryVersionsCompanion.insert(
+                id: id,
+                diaryId: diaryId,
+                snapshotJson: snapshotJson,
+                archivedAt: archivedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<DiaryVersions, DiaryVersionRow>(table),
+                  $DiaryVersionsReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({diaryId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (diaryId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.diaryId,
+                        referencedTable: $DiaryVersionsReferences._diaryIdTable(
+                          db,
+                        ),
+                        referencedColumn: $DiaryVersionsReferences
+                            ._diaryIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $DiaryVersionsProcessedTableManager =
+    ProcessedTableManager<
+      _$MoodiaryDatabase,
+      DiaryVersions,
+      DiaryVersionRow,
+      $DiaryVersionsFilterComposer,
+      $DiaryVersionsOrderingComposer,
+      $DiaryVersionsAnnotationComposer,
+      $DiaryVersionsCreateCompanionBuilder,
+      $DiaryVersionsUpdateCompanionBuilder,
+      (DiaryVersionRow, $DiaryVersionsReferences),
+      DiaryVersionRow,
+      PrefetchHooks Function({bool diaryId})
+    >;
 typedef $DiaryMediaCreateCompanionBuilder = DiaryMediaCompanion Function({
   required String diaryId,
   required String kind,
@@ -12500,6 +13209,8 @@ class $MoodiaryDatabaseManager {
   $MediaInfosTableManager get mediaInfos =>
       $MediaInfosTableManager(_db, _db.mediaInfos);
   $PlacesTableManager get places => $PlacesTableManager(_db, _db.places);
+  $DiaryVersionsTableManager get diaryVersions =>
+      $DiaryVersionsTableManager(_db, _db.diaryVersions);
   $DiaryMediaTableManager get diaryMedia =>
       $DiaryMediaTableManager(_db, _db.diaryMedia);
   $DiaryTagsTableManager get diaryTags =>

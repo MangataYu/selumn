@@ -41,7 +41,9 @@ void initializeUsageStartTime() {
 }
 
 void runStartupMaintenance() {
-  getIt<DiaryRepository>().startMediaCleanup();
+  getIt<DiaryRepository>()
+    ..startMediaCleanup()
+    ..startVersionCleanup();
   unawaited(purgeExpiredTombstones());
   unawaited(purgeSyncMediaTemp());
   unawaited(getIt<EmbedIndexService>().drain());

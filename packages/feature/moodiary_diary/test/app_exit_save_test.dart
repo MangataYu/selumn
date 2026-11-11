@@ -18,18 +18,53 @@ import 'package:moodiary_theme/moodiary_theme.dart';
 import 'package:mui/mui.dart';
 
 class _DiaryRepository extends Fake implements DiaryRepository {
+  final events = StreamController<DiaryEvent>.broadcast();
   Diary diary = Diary.empty(type: .tiptap).copyWith(id: 'entry');
+  List<DiaryVersion> versions = [];
   Completer<void>? writeGate;
   bool failWrites = false;
   int writes = 0;
+  int restores = 0;
   int activeWrites = 0;
   int maxActiveWrites = 0;
 
   @override
-  Stream<DiaryEvent> get diaryEvents => const Stream.empty();
+  Stream<DiaryEvent> get diaryEvents => events.stream;
 
   @override
   Future<Diary?> getDiaryByBusinessId(String id) async => diary;
+
+  @override
+  Future<List<DiaryVersion>> getDiaryVersions(
+    String id, {
+    int? limit,
+    int? beforeId,
+  }) async {
+    final remaining = beforeId == null
+        ? versions
+        : versions.where((version) => version.id < beforeId);
+    return (limit == null ? remaining : remaining.take(limit)).toList();
+  }
+
+  @override
+  Future<void> deleteDiaryVersion(String diaryId, DiaryVersion version) async {
+    if (diaryId == diary.id) versions.remove(version);
+  }
+
+  @override
+  Future<void> clearDiaryVersions(String diaryId) async {
+    if (diaryId == diary.id) versions.clear();
+  }
+
+  @override
+  Future<bool> restoreDiaryVersion(String diaryId, DiaryVersion version) async {
+    restores++;
+    if (diaryId != diary.id || !versions.contains(version)) return false;
+    versions.insert(0, (id: versions.first.id + 1, diary: diary));
+    diary = version.diary.copyWith(lastModified: DateTime.now());
+    events.add(DiaryUpdated(diary));
+    return true;
+  }
 
   @override
   Future<List<Diary>> getForwardLinks(String id) async => [];
@@ -94,7 +129,11 @@ Future<void> _dismissDialogs(WidgetTester tester) async {
   await toasts;
 }
 
-Future<void> _pumpDiary(WidgetTester tester, {bool throwOnSave = false}) async {
+Future<void> _pumpDiary(
+  WidgetTester tester, {
+  bool throwOnSave = false,
+  bool startInEdit = true,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -114,7 +153,7 @@ Future<void> _pumpDiary(WidgetTester tester, {bool throwOnSave = false}) async {
             GlobalMuiLocalizations.delegate,
           ],
           supportedLocales: AppLocaleUtils.supportedLocales,
-          home: const DiaryPage(diaryId: 'entry', startInEdit: true),
+          home: DiaryPage(diaryId: 'entry', startInEdit: startInEdit),
         ),
       ),
     ),
@@ -165,7 +204,10 @@ void main() {
     repository = _DiaryRepository();
     getIt.pushNewScope(
       init: (scope) {
-        scope.registerSingleton<DiaryRepository>(repository);
+        scope.registerSingleton<DiaryRepository>(
+          repository,
+          dispose: (_) => repository.events.close(),
+        );
         scope.registerSingleton<IKVStorage>(MemoryKVStorage());
         scope.registerSingleton<ISecureKVStorage>(MemorySecureKVStorage());
         scope.registerSingleton<OpenDiaryRegistry>(OpenDiaryRegistry());
@@ -175,6 +217,254 @@ void main() {
     );
   });
   tearDown(() => getIt.popScope());
+
+  testWidgets('opens a saved version without editing the live diary', (
+    tester,
+  ) async {
+    const oldBody =
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Previous body"}]}]}';
+    repository.diary = repository.diary.copyWith(title: 'Current title');
+    repository.versions = [
+      (
+        id: 1,
+        diary: repository.diary.copyWith(
+          title: 'Previous title',
+          content: oldBody,
+          contentText: 'Previous body',
+          lastModified: DateTime.utc(2026, 11, 10),
+        ),
+      ),
+    ];
+
+    await _pumpDiary(tester, startInEdit: false);
+    await tester.tap(find.byTooltip(l10n.diary.versionHistory));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Previous title'));
+    await tester.pumpAndSettle();
+
+    final preview = tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor));
+    expect(preview.readOnly, isTrue);
+    expect(preview.initialTitle, 'Previous title');
+    expect(preview.initialContent, oldBody);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor)).initialTitle,
+      'Current title',
+    );
+    expect(repository.writes, 0);
+  });
+
+  testWidgets(
+    'restoring from the preview returns to the updated current diary',
+    (tester) async {
+      final current = repository.diary.copyWith(title: 'Current title');
+      final earlier = (
+        id: 1,
+        diary: current.copyWith(
+          title: 'Previous title',
+          type: DiaryType.richText.value,
+          content: r'[{"insert":"Previous body\n"}]',
+          contentText: 'Previous body',
+        ),
+      );
+      repository.diary = current;
+      repository.versions = [earlier];
+
+      await _pumpDiary(tester, startInEdit: false);
+      final originalEditor = tester.element(find.byType(MoodiaryEditor));
+      await tester.tap(find.byTooltip(l10n.diary.versionHistory));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.diary.versionHistoryRetention), findsOneWidget);
+      await tester.tap(find.text('Previous title'));
+      await tester.pumpAndSettle();
+
+      final restore = find.byTooltip(l10n.diary.versionHistoryRestore);
+      expect(
+        find.widgetWithIcon(IconButton, LucideIcons.undo2),
+        findsOneWidget,
+      );
+      final cancel = find.text(tester.element(restore).muiL10n.cancel);
+      final preview = tester.widget<MoodiaryEditor>(
+        find.byType(MoodiaryEditor),
+      );
+      expect(preview.initialContent, contains('Previous body'));
+      expect(preview.initialContent, isNot(earlier.diary.content));
+
+      await tester.tap(restore);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.diary.versionHistoryRestoreMessage),
+        findsOneWidget,
+      );
+      expect(repository.restores, 0);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(repository.restores, 0);
+      expect(repository.diary, current);
+
+      await tester.tap(restore);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, l10n.diary.recycleRestore),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.restores, 1);
+      expect(repository.versions.map((version) => version.diary), [
+        current,
+        earlier.diary,
+      ]);
+      expect(find.byType(DiaryPage), findsOneWidget);
+      expect(find.text(l10n.diary.versionHistoryRetention), findsNothing);
+      final editor = tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor));
+      expect(editor.readOnly, isTrue);
+      expect(editor.initialTitle, 'Previous title');
+      expect(editor.initialContent, preview.initialContent);
+      expect(
+        tester.element(find.byType(MoodiaryEditor)),
+        isNot(same(originalEditor)),
+      );
+      expect(repository.writes, 0);
+      await _dismissDialogs(tester);
+    },
+  );
+
+  testWidgets('restores from the list and returns to the list after deleting', (
+    tester,
+  ) async {
+    final current = repository.diary.copyWith(title: 'Current title');
+    final older = (id: 1, diary: current.copyWith(title: 'Version 1'));
+    final newer = (id: 2, diary: current.copyWith(title: 'Version 2'));
+    repository.diary = current;
+    repository.versions = [newer, older];
+
+    await _pumpDiary(tester, startInEdit: false);
+    await tester.tap(find.byTooltip(l10n.diary.versionHistory));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'Version 1'),
+        matching: find.byTooltip(l10n.diary.versionHistoryRestore),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.diary.versionHistoryRestoreMessage), findsOneWidget);
+    expect(repository.restores, 0);
+    await tester.tap(
+      find.widgetWithText(FilledButton, l10n.diary.recycleRestore),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.restores, 1);
+    expect(repository.diary.title, 'Version 1');
+    expect(find.byType(DiaryPage), findsOneWidget);
+    expect(find.text(l10n.diary.versionHistoryRetention), findsNothing);
+    expect(
+      tester.widget<MoodiaryEditor>(find.byType(MoodiaryEditor)).initialTitle,
+      'Version 1',
+    );
+    await _dismissDialogs(tester);
+
+    await tester.tap(find.byTooltip(l10n.diary.versionHistory));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'Current title'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ListTile, 'Version 2'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip(l10n.diary.versionHistoryRestore), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, LucideIcons.undo2), findsOneWidget);
+    expect(find.widgetWithIcon(IconButton, LucideIcons.trash2), findsOneWidget);
+    final delete = find.byTooltip(l10n.diary.versionHistoryDelete);
+    final cancel = find.text(tester.element(delete).muiL10n.cancel);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.diary.versionHistoryDelete), findsOneWidget);
+    expect(repository.versions, contains(newer));
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(delete, findsOneWidget);
+    expect(repository.versions, contains(newer));
+
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, l10n.common.delete));
+    await tester.pumpAndSettle();
+    expect(repository.versions, isNot(contains(newer)));
+    expect(find.widgetWithText(ListTile, 'Version 2'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Version 1'), findsOneWidget);
+    expect(find.text(l10n.diary.versionHistoryRetention), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(repository.diary.title, 'Version 1');
+    expect(repository.writes, 0);
+  });
+
+  testWidgets(
+    'confirms deleting one version and clearing the remaining history',
+    (tester) async {
+      final current = repository.diary.copyWith(title: 'Current title');
+      repository.diary = current;
+      final older = (id: 1, diary: current.copyWith(title: 'Version 1'));
+      final newer = (id: 2, diary: current.copyWith(title: 'Version 2'));
+      repository.versions = [newer, older];
+
+      await _pumpDiary(tester, startInEdit: false);
+      await tester.tap(find.byTooltip(l10n.diary.versionHistory));
+      await tester.pumpAndSettle();
+
+      final historyBar = find.widgetWithText(AppBar, l10n.diary.versionHistory);
+      final cancel = find.text(tester.element(historyBar).muiL10n.cancel);
+      final removeNewer = find.descendant(
+        of: find.widgetWithText(ListTile, 'Version 2'),
+        matching: find.byTooltip(l10n.diary.versionHistoryDelete),
+      );
+      await tester.tap(removeNewer);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.diary.versionHistoryDelete), findsOneWidget);
+      expect(repository.versions, [newer, older]);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(repository.versions, [newer, older]);
+
+      await tester.tap(removeNewer);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, l10n.common.delete));
+      await tester.pumpAndSettle();
+      expect(repository.versions, [older]);
+      expect(find.text('Version 2'), findsNothing);
+      expect(find.text('Version 1'), findsOneWidget);
+
+      final clearHistory = find.widgetWithText(
+        TextButton,
+        l10n.diary.versionHistoryClear,
+      );
+      await tester.tap(clearHistory);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.diary.versionHistoryClearMessage), findsOneWidget);
+      expect(repository.versions, [older]);
+      await tester.tap(cancel);
+      await tester.pumpAndSettle();
+      expect(repository.versions, [older]);
+
+      await tester.tap(clearHistory);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(FilledButton, l10n.diary.versionHistoryClear),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.versions, isEmpty);
+      expect(find.text(l10n.diary.versionHistoryEmpty), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(MoodiaryEditor), findsOneWidget);
+      expect(repository.diary, current);
+      expect(repository.writes, 0);
+    },
+  );
 
   testWidgets('clean diary permits exit without another write', (tester) async {
     await _pumpDiary(tester);

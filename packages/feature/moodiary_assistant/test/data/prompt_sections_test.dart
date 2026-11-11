@@ -73,12 +73,22 @@ void main() {
     test('护栏里的工具句跟着权限模式走，其余字节不变', () {
       final free = build();
       final gated = build(confirms: true);
-      expect(free, contains('Every tool runs immediately'));
-      expect(gated, isNot(contains('Every tool runs immediately')));
+      expect(free, contains('except diary body replacements'));
+      expect(gated, isNot(contains('except diary body replacements')));
+      expect(free, contains(assistantToolSkippedPrefix));
       expect(gated, contains(assistantToolSkippedPrefix));
       expect(
         gated.split('Ground rules').first,
         free.split('Ground rules').first,
+      );
+    });
+
+    test('标题用专用工具，覆盖正文要求用户明确提出', () {
+      final prompt = build();
+      expect(prompt, contains('Use renameDiary for title changes'));
+      expect(
+        prompt,
+        contains('only when the user explicitly asks to edit the body'),
       );
     });
 
