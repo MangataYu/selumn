@@ -71,10 +71,10 @@ void main() {
       expect(await search({'query': '跑步'}), startsWith('5 matches:'));
     });
 
-    test('正文只给摘录，全文走 getDiary', () async {
+    test('正文只给摘录，更多内容走 getDiary', () async {
       await repo.insertDiaries([diary('长文', '啊' * 400)]);
       final out = await search({'query': '长文'});
-      expect(out, contains('(excerpt; full text via getDiary)'));
+      expect(out, contains('(excerpt; read more via getDiary)'));
     });
 
     test('空结果说明跑过哪条路', () async {

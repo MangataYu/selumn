@@ -22,6 +22,7 @@ Rust's `llm/siwc.rs` adapts Rig's Responses request to the public subscription e
 - Tool renames need entries in `renamedAssistantToolIds` so persisted chat history remains readable.
 - Follow the UI's write paths: recycle-bin deletion uses `show: false`, content changes re-extract media, and replacing tags removes corresponding inline marks so deleted tags cannot return. Retired `categoryId` inputs fail instead of silently changing categories.
 - Use `renameDiary` for title changes and pass only ids and titles. Its repository write must not touch body fields. `updateDiary` rejects title arguments.
+- `getDiary` returns capped text. `updateDiary` checks the saved body against the cap before full replacement. Use `append` and `prepend` to add Markdown to the saved body. Full replacements may drop an attachment only when its exact name is in `removeMedia`.
 - Determine permission tiers from call arguments, including all batch items. Diary content replacement is destructive and requires confirmation in every mode. Moving an entry to the recycle bin is reversible.
 - Only the exact bridge verdict `run` authorizes execution. Declines and bridge errors must skip the tool and return a skipped result to the model.
 - Resolve pending `ToolApprovalGate` requests as declined on stop, disposal or timeout. A reply entered while approval is pending declines that call and queues the reply until the run ends.

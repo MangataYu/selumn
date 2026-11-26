@@ -596,22 +596,29 @@ class DiaryRepository {
   }
 
   /// Updates only if the persisted diary still matches [expected]. This check
-  /// and the write share a database transaction, so background processing
-  /// cannot overwrite edits made after it loaded its snapshot.
+  /// and the write share a database transaction. Set [archive] for user edits.
   Future<bool> updateADiaryIfUnchanged({
     required Diary expected,
     required Diary newDiary,
+    IndexMode index = .inline,
+    bool archive = false,
   }) {
     if (expected.id != newDiary.id) {
       throw ArgumentError('Expected and replacement diary IDs must match');
     }
-    return _updateADiary(newDiary: newDiary, expected: expected);
+    return _updateADiary(
+      newDiary: newDiary,
+      expected: expected,
+      index: index,
+      archive: archive,
+    );
   }
 
   Future<bool> _updateADiary({
     required Diary newDiary,
     IndexMode index = .inline,
     bool fromSync = false,
+    bool archive = true,
     Diary? expected,
     DiaryVersion? restoreVersion,
   }) async {
@@ -680,7 +687,7 @@ class DiaryRepository {
             );
           }
         }
-        if (!fromSync && (expected == null || restoreVersion != null)) {
+        if (!fromSync && archive) {
           await _archiveIfChanged(oldDiary, newDiary);
         }
         await _upsertRow(newDiary);

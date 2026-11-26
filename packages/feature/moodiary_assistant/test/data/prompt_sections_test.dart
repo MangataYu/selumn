@@ -86,9 +86,14 @@ void main() {
     test('标题用专用工具，覆盖正文要求用户明确提出', () {
       final prompt = build();
       expect(prompt, contains('Use renameDiary for title changes'));
+      expect(prompt, contains('Use updateDiary append or prepend'));
       expect(
         prompt,
-        contains('only when the user explicitly asks to edit the body'),
+        contains('only for an explicitly requested full body replacement'),
+      );
+      expect(
+        prompt,
+        contains('Never rewrite an entry from a truncated getDiary result'),
       );
     });
 

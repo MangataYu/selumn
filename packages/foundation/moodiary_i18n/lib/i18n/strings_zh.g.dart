@@ -1511,6 +1511,15 @@ class Translations$assistant$zh {
 	/// zh: '正文'
 	String get approvalFieldContent => '正文';
 
+	/// zh: '在开头添加'
+	String get approvalFieldPrepend => '在开头添加';
+
+	/// zh: '在末尾追加'
+	String get approvalFieldAppend => '在末尾追加';
+
+	/// zh: '允许移除附件'
+	String get approvalFieldRemoveMedia => '允许移除附件';
+
 	/// zh: '名称'
 	String get approvalFieldName => '名称';
 

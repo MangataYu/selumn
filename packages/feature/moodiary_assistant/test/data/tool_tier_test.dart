@@ -15,6 +15,15 @@ void main() {
       expect(
         assistantToolTier(.updateDiary, {
           'items': [
+            {'id': 'a', 'append': '补记'},
+            {'id': 'b', 'prepend': '序言'},
+          ],
+        }),
+        AssistantToolTier.write,
+      );
+      expect(
+        assistantToolTier(.updateDiary, {
+          'items': [
             {'id': 'd', 'content': '重写'},
           ],
         }),
@@ -117,8 +126,12 @@ void main() {
     test('批量正文替换在所有模式都需要确认', () {
       final tier = assistantToolTier(.updateDiary, {
         'items': [
-          {'id': 'a', 'mood': 'neutral'},
-          {'id': 'b', 'content': '新正文'},
+          {'id': 'a', 'append': '补记'},
+          {
+            'id': 'b',
+            'content': '新正文',
+            'removeMedia': ['image-test.jpg'],
+          },
         ],
       });
       for (final mode in AssistantPermissionMode.values) {

@@ -553,6 +553,9 @@ class _Translations$assistant$en extends Translations$assistant$zh {
 	@override String get approvalFieldTitle => 'Title';
 	@override String get approvalFieldCategory => 'Category';
 	@override String get approvalFieldContent => 'Text';
+	@override String get approvalFieldPrepend => 'Add at start';
+	@override String get approvalFieldAppend => 'Add at end';
+	@override String get approvalFieldRemoveMedia => 'Allow attachment removal';
 	@override String get approvalFieldName => 'Name';
 	@override String get approvalNoCategory => 'Uncategorised';
 	@override String approvalContentNew({required Object count}) => 'about ${count} characters';

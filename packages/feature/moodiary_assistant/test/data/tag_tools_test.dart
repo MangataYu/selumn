@@ -392,7 +392,7 @@ void main() {
   );
 
   test(
-    'approval preview identifies title changes and body replacements',
+    'approval preview identifies titles, body replacements and media removal',
     () async {
       final original = _diary('rename-preview');
       await repository.insertADiary(original);
@@ -419,7 +419,11 @@ void main() {
           tool: .updateDiary,
           args: {
             'items': [
-              {'id': original.id, 'content': '新正文'},
+              {
+                'id': original.id,
+                'content': '新正文',
+                'removeMedia': ['image-preview.jpg'],
+              },
               {'id': 'another', 'mood': 'positive'},
             ],
           },
@@ -433,6 +437,35 @@ void main() {
         rewrite.lines.first.value,
         contains(l10n.assistant.approvalFieldContent),
       );
+      expect(
+        rewrite.lines.first.value,
+        contains(l10n.assistant.approvalFieldRemoveMedia),
+      );
+      expect(rewrite.lines.first.value, contains('image-preview.jpg'));
     },
   );
+
+  test('approval preview distinguishes prepend and append', () async {
+    final original = _diary('add-blocks-preview');
+    await repository.insertADiary(original);
+    final addition = await buildToolApprovalPreview(
+      ToolApprovalRequest(
+        callId: 'add-blocks',
+        tool: .updateDiary,
+        args: {
+          'items': [
+            {'id': original.id, 'prepend': '序言', 'append': '结尾补记'},
+          ],
+        },
+        tier: .write,
+      ),
+      l10n,
+    );
+    expect(addition.lines, [
+      (label: l10n.assistant.approvalFieldPrepend, value: '序言'),
+      (label: l10n.assistant.approvalFieldAppend, value: '结尾补记'),
+    ]);
+    expect(addition.warning, isNull);
+    expect(addition.confirmLabel, l10n.assistant.approvalConfirmUpdate);
+  });
 }

@@ -385,7 +385,7 @@ Each tool's description is the contract for that tool. The rules below span tool
 
 Tool guidelines:
 - Every tool takes a batch. When several entries or facts are involved, pass them all in one call. A batch reports one line per item, so a partial failure still tells you exactly which items went through; do not re-run the ones that already did.
-- Use renameDiary for title changes. Include a new body in updateDiary only when the user explicitly asks to edit the body. A title change never requires resending the body.
+- Use renameDiary for title changes. Use updateDiary append or prepend when the user asks to add text. Send content only for an explicitly requested full body replacement. Never rewrite an entry from a truncated getDiary result. For a full replacement, retain the existing attachment references and list an exact name in removeMedia only when the user asks to remove it.
 - Your earlier turns may start with a "[tools already run]" block. That is a record of the tools you already ran in that turn, with their arguments and a one-line result summary, not something the user wrote. Use it to avoid repeating a lookup you already did; when you need the details again, call the tool again.
 - Never delete anything the user did not ask you to delete. "Tidy up" is not an instruction to delete: propose what you would remove and wait for a clear yes.''';
 

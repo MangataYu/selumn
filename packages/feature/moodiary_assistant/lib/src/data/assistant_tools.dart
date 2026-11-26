@@ -92,7 +92,7 @@ abstract final class AssistantToolRegistry {
           'browse by date and/or tag. Each row says how it was found '
           '(via=keyword, meaning, or both). '
           'Results carry id, date, mood and a short excerpt — not the full '
-          'text (use getDiary for that) — and state the total number of '
+          'text (use getDiary to read more) — and state the total number of '
           'matches, which may exceed what is returned; when it does, say so '
           'instead of presenting the rows as the complete set. '
           'Mood records an emotion; older entries may contain retired activity '
@@ -156,7 +156,9 @@ abstract final class AssistantToolRegistry {
     const AssistantToolSpec(
       tool: .getDiary,
       description:
-          'Read the full text of diaries by id (searchDiaries returns excerpts only). '
+          'Read a plain-text preview and attachment names by id. The preview omits formatting '
+          'and is capped at $_maxFullContentLength UTF-16 code units per entry. '
+          'A truncated result cannot be used for a full body replacement. '
           'Pass every id you need in one call. Max $_maxBatchRead per call.',
       jsonSchema: {
         'type': 'object',
@@ -225,8 +227,9 @@ abstract final class AssistantToolRegistry {
     AssistantToolSpec(
       tool: .updateDiary,
       description:
-          'Change a diary\'s mood or tags, or replace its body when the user '
-          'explicitly asks for a body edit. Use renameDiary to change titles. '
+          'Change mood or tags, add Markdown at the beginning or end, or '
+          'replace the entire body when the user explicitly requests it. '
+          'Use renameDiary to change titles. '
           'Pass every edit in one call. Get the ids from searchDiaries first.',
       jsonSchema: {
         'type': 'object',
@@ -244,7 +247,26 @@ abstract final class AssistantToolRegistry {
                 },
                 'content': {
                   'type': 'string',
-                  'description': 'Full replacement body in Markdown. Requires confirmation.',
+                  'description':
+                      'Full replacement body in Markdown. Requires confirmation. '
+                      'Unavailable for long bodies. Cannot be combined with append or prepend. '
+                      'Keep existing attachment references unless the user asks to remove them. '
+                      'Only attachment names already owned by this diary can be used.',
+                },
+                'append': {
+                  'type': 'string',
+                  'description': 'Markdown to add after the saved body.',
+                },
+                'prepend': {
+                  'type': 'string',
+                  'description': 'Markdown to add before the saved body.',
+                },
+                'removeMedia': {
+                  'type': 'array',
+                  'items': {'type': 'string'},
+                  'description':
+                      'Exact names of attachments the user explicitly asked to '
+                      'remove. Only valid with a full content replacement.',
                 },
                 'mood': {
                   'type': 'string',
@@ -908,7 +930,7 @@ abstract final class AssistantToolRegistry {
       if (text.isNotEmpty) {
         buffer.writeln(
           text.length > _maxExcerptLength
-              ? '${text.substring(0, _maxExcerptLength)}… (excerpt; full text via getDiary)'
+              ? '${_textPrefix(text, _maxExcerptLength)}… (excerpt; read more via getDiary)'
               : text,
         );
       }
@@ -963,19 +985,46 @@ abstract final class AssistantToolRegistry {
     if (diary.tags.isNotEmpty) {
       buffer.writeln('tags=${diary.tags.join(', ')}');
     }
-    final text = diary.contentText.trim();
+    final body = DiaryContent.of(diary);
+    final (images: images, audios: audios, videos: videos) = _ownedMedia(
+      diary,
+      body,
+    );
+    final attachments = {...images, ...audios, ...videos};
+    if (attachments.isNotEmpty) {
+      buffer.writeln('attachments=${attachments.join(', ')}');
+    }
+    final text = _diaryReadText(diary, body);
+    final truncated = _exceedsBodyLimit(text);
+    final preview = truncated ? _textPrefix(text, _maxFullContentLength) : text;
     buffer
+      ..writeln('bodyStatus=${truncated ? 'truncated' : 'complete_text'}')
       ..writeln('body:')
       ..writeln(
         text.isEmpty
             ? '(empty)'
-            : (text.length > _maxFullContentLength
-                  ? '${text.substring(0, _maxFullContentLength)}'
-                        '… (truncated, '
-                        '${text.length - _maxFullContentLength} more characters)'
-                  : text),
+            : truncated
+            ? '$preview… (truncated, ${text.length - preview.length} more UTF-16 code units)'
+            : preview,
       );
     return buffer.toString().trim();
+  }
+
+  static bool _exceedsBodyLimit(String text) =>
+      text.length > _maxFullContentLength;
+
+  static String _diaryReadText(Diary diary, DiaryContent body) {
+    final cached = diary.contentText.trim();
+    final derived = body.plainText.trim();
+    // Older entries can have an incomplete cached text projection.
+    return derived.length > cached.length ? derived : cached;
+  }
+
+  static String _textPrefix(String text, int limit) {
+    // Keep the high and low surrogates of a supplementary character together.
+    final last = text.codeUnitAt(limit - 1);
+    final end = last >= 0xD800 && last <= 0xDBFF ? limit - 1 : limit;
+    return text.substring(0, end);
   }
 
   @visibleForTesting
@@ -1133,6 +1182,9 @@ abstract final class AssistantToolRegistry {
     if (input.containsKey('title')) {
       return 'Failed: use renameDiary to change the title.';
     }
+    if (input.containsKey('categoryId')) {
+      return 'Failed: categories have been replaced by tags. Supply tags instead.';
+    }
     final id = (input['id'] as String?)?.trim() ?? '';
     if (id.isEmpty) return 'Failed: no diary id given.';
 
@@ -1142,23 +1194,14 @@ abstract final class AssistantToolRegistry {
       return 'Failed: no diary with id=$id.';
     }
 
-    var updated = existing;
-    final content = input['content'] as String?;
-    if (content != null) {
-      final converted = _toTiptap(content);
-      updated = updated.copyWith(
-        content: converted.content,
-        contentText: converted.contentText,
-        type: converted.type.value,
-      );
-      // 内容变更必须重算媒体引用，否则媒体库留下幻影条目
-      updated = withDerivedMedia(updated);
+    Diary updated;
+    try {
+      updated = _editDiaryBody(existing, input);
+    } on FormatException catch (error) {
+      return 'Failed: ${error.message}';
     }
     final mood = _parseMood(input['mood']);
     if (mood != null) updated = updated.copyWith(mood: mood);
-    if (input.containsKey('categoryId')) {
-      return 'Failed: categories have been replaced by tags. Supply tags instead.';
-    }
     if (input.containsKey('tags')) {
       final tags = _parseTags(input['tags'], existing: existing.tags);
       var body = updated.content;
@@ -1181,10 +1224,15 @@ abstract final class AssistantToolRegistry {
     updated = touched(updated);
 
     try {
-      await repo.updateADiary(
+      final applied = await repo.updateADiaryIfUnchanged(
+        expected: existing,
         newDiary: updated,
         index: updated.content == existing.content ? .skip : .inline,
+        archive: true,
       );
+      if (!applied) {
+        return 'Failed: diary id=$id changed while editing. Read it again before retrying.';
+      }
     } catch (error, stackTrace) {
       return _diaryWriteFailed(id, error, stackTrace);
     }
@@ -1192,6 +1240,190 @@ abstract final class AssistantToolRegistry {
         ? 'Untitled'
         : updated.title.trim();
     return 'Updated "$shown" (id=$id).';
+  }
+
+  static Diary _editDiaryBody(Diary existing, Map<String, dynamic> input) {
+    final content = input['content'];
+    final append = input['append'];
+    final prepend = input['prepend'];
+    final remove = input['removeMedia'];
+    if (content != null && content is! String) {
+      throw const FormatException('content must be Markdown text.');
+    }
+    for (final (field, value) in [('append', append), ('prepend', prepend)]) {
+      if (value != null && (value is! String || value.trim().isEmpty)) {
+        throw FormatException('$field must be non-empty Markdown text.');
+      }
+    }
+    final addsBlocks = append != null || prepend != null;
+    if (content != null && addsBlocks) {
+      throw const FormatException('Use content or append/prepend, never both.');
+    }
+    if (input.containsKey('removeMedia') &&
+        (content == null ||
+            remove is! List ||
+            remove.any((name) => name is! String || name.trim().isEmpty))) {
+      throw const FormatException(
+        'removeMedia requires content and a list of exact attachment names.',
+      );
+    }
+    if (content == null && !addsBlocks) return existing;
+
+    final currentBody = DiaryContent.of(existing);
+    final allowedRemovals = remove is List
+        ? remove.cast<String>().toSet()
+        : <String>{};
+    final owned = _ownedMedia(existing, currentBody);
+    if (!{
+      ...owned.images,
+      ...owned.audios,
+      ...owned.videos,
+    }.containsAll(allowedRemovals)) {
+      throw const FormatException(
+        'removeMedia contains an unknown attachment name.',
+      );
+    }
+
+    final Diary updated;
+    if (content is String) {
+      if (_exceedsBodyLimit(_diaryReadText(existing, currentBody))) {
+        throw const FormatException(
+          'The saved body exceeds the getDiary read limit and cannot be replaced. '
+          'Use append or prepend to add text, or open the diary in the editor.',
+        );
+      }
+      final converted = _toTiptap(content);
+      if (converted.type != DiaryType.tiptap) {
+        throw const FormatException(
+          'Could not convert the replacement Markdown.',
+        );
+      }
+      // Clear attachment lists before deriving so plain filename mentions do
+      // not trigger DiaryContent's legacy recovery of old references.
+      updated = withDerivedMedia(
+        existing.copyWith(
+          content: converted.content,
+          contentText: converted.contentText,
+          type: converted.type.value,
+          imageName: [],
+          audioName: [],
+          videoName: [],
+        ),
+      );
+    } else {
+      final added = _addDiaryBlocks(
+        existing,
+        prepend as String?,
+        append as String?,
+      );
+      updated = withDerivedMedia(
+        added.copyWith(contentText: DiaryContent.of(added).plainText),
+      );
+    }
+
+    final next = _ownedMedia(updated, DiaryContent.of(updated));
+    final references = [
+      (owned.images, next.images),
+      (owned.audios, next.audios),
+      (owned.videos, next.videos),
+    ];
+    if (references.any((refs) => !refs.$1.containsAll(refs.$2))) {
+      throw const FormatException(
+        'Use only attachments already owned by this diary.',
+      );
+    }
+    final missing = <String>{
+      for (final (owned, next) in references)
+        ...owned.difference(next).difference(allowedRemovals),
+    };
+    if (missing.isNotEmpty) {
+      final guidance = addsBlocks
+          ? 'Open the diary in the editor to preserve these attachments.'
+          : 'Keep their references in content or list the requested removals in removeMedia.';
+      throw FormatException(
+        'This edit would drop attachments: ${missing.join(', ')}. $guidance',
+      );
+    }
+    return updated;
+  }
+
+  static ({Set<String> images, Set<String> audios, Set<String> videos})
+  _ownedMedia(Diary diary, DiaryContent body) {
+    final media = body.media;
+    // Legacy indexes recognize prefixed inline URLs only. Also check parsed
+    // Markdown for references such as ![label][id] and relative image paths.
+    final markdown = diary.type == DiaryType.markdown.value
+        ? MarkdownToTiptap.convert(diary.content)
+        : null;
+    final extra = markdown == null ? null : TiptapContent.parse(markdown).media;
+    return (
+      images: {...diary.imageName, ...media.images, ...?extra?.images},
+      audios: {...diary.audioName, ...media.audios, ...?extra?.audios},
+      videos: {...diary.videoName, ...media.videos, ...?extra?.videos},
+    );
+  }
+
+  static Diary _addDiaryBlocks(Diary diary, String? prepend, String? append) {
+    if (diary.type == DiaryType.markdown.value) {
+      final parts = [
+        ?prepend,
+        if (diary.content.isNotEmpty) diary.content,
+        ?append,
+      ];
+      final combined = parts.join('\n\n');
+      final blocks = [
+        for (final part in parts)
+          if (part.trim().isNotEmpty) ..._markdownBlocks(part),
+      ];
+      // A fragment can change how the saved Markdown parses, for example by
+      // opening a fenced block or redefining a link reference.
+      if (jsonEncode(_markdownBlocks(combined)) != jsonEncode(blocks)) {
+        throw const FormatException(
+          'The added Markdown changes how the saved body renders. Open the diary in the editor.',
+        );
+      }
+      return diary.copyWith(content: combined);
+    }
+    if (diary.type != DiaryType.tiptap.value) {
+      throw const FormatException(
+        'Open the diary in the editor to edit this legacy body.',
+      );
+    }
+    final dynamic doc;
+    try {
+      doc = jsonDecode(diary.content);
+    } on FormatException {
+      throw const FormatException(
+        'The saved diary body is invalid. Open it in the editor.',
+      );
+    }
+    if (doc is! Map<String, dynamic> ||
+        doc['type'] != 'doc' ||
+        (doc.containsKey('content') && doc['content'] is! List)) {
+      throw const FormatException(
+        'The saved diary body is invalid. Open it in the editor.',
+      );
+    }
+    return diary.copyWith(
+      content: jsonEncode({
+        ...doc,
+        'content': [
+          if (prepend != null) ..._markdownBlocks(prepend),
+          ...?(doc['content'] as List?),
+          if (append != null) ..._markdownBlocks(append),
+        ],
+      }),
+    );
+  }
+
+  static List<dynamic> _markdownBlocks(String markdown) {
+    final converted = MarkdownToTiptap.convert(markdown);
+    if (converted == null) {
+      throw const FormatException(
+        'Could not convert the Markdown to diary blocks.',
+      );
+    }
+    return (jsonDecode(converted) as Map<String, dynamic>)['content'] as List;
   }
 
   static Future<String> _renameDiary(Map<String, dynamic> input) async {

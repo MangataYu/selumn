@@ -139,11 +139,31 @@ Future<ToolApprovalPreview> _updateDiary(
     return text.isEmpty ? l10n.common.untitled : text;
   }
 
-  String contentRewrite(Diary? diary, Object? content) =>
-      l10n.assistant.approvalContentRewrite(
-        from: _chars(diary?.contentText ?? ''),
-        to: _chars(_str(content)),
-      );
+  List<ToolApprovalLine> bodyChanges(
+    Diary? diary,
+    Map<String, dynamic> item,
+  ) => [
+    if (item['content'] != null)
+      (
+        label: l10n.assistant.approvalFieldContent,
+        value: l10n.assistant.approvalContentRewrite(
+          from: _chars(diary?.contentText ?? ''),
+          to: _chars(_str(item['content'])),
+        ),
+      ),
+    if (item['prepend'] != null)
+      (
+        label: l10n.assistant.approvalFieldPrepend,
+        value: _str(item['prepend']),
+      ),
+    if (item['append'] != null)
+      (label: l10n.assistant.approvalFieldAppend, value: _str(item['append'])),
+    if (item['removeMedia'] case final List names when names.isNotEmpty)
+      (
+        label: l10n.assistant.approvalFieldRemoveMedia,
+        value: names.whereType<String>().join(', '),
+      ),
+  ];
 
   if (items.length == 1) {
     final item = items.single;
@@ -170,12 +190,7 @@ Future<ToolApprovalPreview> _updateDiary(
             '${_tagNames(diary?.tags, l10n)} → ${_tagNames(item['tags'], l10n)}',
       ));
     }
-    if (item['content'] != null) {
-      lines.add((
-        label: l10n.assistant.approvalFieldContent,
-        value: contentRewrite(diary, item['content']),
-      ));
-    }
+    lines.addAll(bodyChanges(diary, item));
     return ToolApprovalPreview(
       subtitle: diary == null ? _str(item['id']) : _diaryLabel(diary, l10n),
       lines: lines,
@@ -207,9 +222,8 @@ Future<ToolApprovalPreview> _updateDiary(
         item['title'] == null ? label : '$label → ${titleLabel(item['title'])}',
         if (item.containsKey('tags'))
           '${l10n.common.tag}: ${_tagNames(item['tags'], l10n)}',
-        if (item['content'] != null)
-          '${l10n.assistant.approvalFieldContent}: '
-              '${contentRewrite(diary, item['content'])}',
+        for (final line in bodyChanges(diary, item))
+          '${line.label}: ${line.value}',
       ].join(' · '),
     ));
   }
